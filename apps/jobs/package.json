@@ -1,0 +1,13 @@
+{
+  "name": "@ai-native-os/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "format": "biome check --write .",
+    "lint": "biome check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

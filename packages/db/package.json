@@ -1,0 +1,26 @@
+{
+  "name": "@ai-native-os/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "db:check": "drizzle-kit check",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "format": "biome check --write .",
+    "lint": "biome check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "latest",
+    "drizzle-orm": "latest",
+    "pg": "latest"
+  },
+  "devDependencies": {
+    "drizzle-kit": "latest"
+  }
+}

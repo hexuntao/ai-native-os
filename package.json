@@ -1,0 +1,27 @@
+{
+  "name": "ai-native-os",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.18.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "format": "turbo run format",
+    "infra:down": "docker compose -f docker/docker-compose.yml down",
+    "infra:up": "docker compose -f docker/docker-compose.yml up -d",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:check": "pnpm --filter @ai-native-os/db db:check",
+    "db:generate": "pnpm --filter @ai-native-os/db db:generate",
+    "db:migrate": "pnpm --filter @ai-native-os/db db:migrate",
+    "db:push": "pnpm --filter @ai-native-os/db db:push"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/pg": "latest",
+    "@biomejs/biome": "latest",
+    "tsx": "latest",
+    "turbo": "latest",
+    "typescript": "latest"
+  }
+}

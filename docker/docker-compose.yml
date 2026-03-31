@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: ai-native-os-postgres
+    environment:
+      POSTGRES_DB: ai_native_os
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - '5433:5432'
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--requirepass', 'redis']
+    container_name: ai-native-os-redis
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'redis', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - '6380:6379'
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
