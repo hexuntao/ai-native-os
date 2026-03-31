@@ -10,6 +10,7 @@
     "infra:down": "docker compose -f docker/docker-compose.yml down",
     "infra:up": "docker compose -f docker/docker-compose.yml up -d",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "db:check": "pnpm --filter @ai-native-os/db db:check",
     "db:generate": "pnpm --filter @ai-native-os/db db:generate",

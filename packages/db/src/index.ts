@@ -3,14 +3,24 @@ import { Pool } from 'pg'
 
 import * as schema from './schema'
 
-const databaseUrl = process.env.DATABASE_URL
+export const defaultLocalDatabaseUrl = 'postgresql://postgres:postgres@localhost:5433/ai_native_os'
 
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required to initialize @ai-native-os/db')
+export function resolveDatabaseUrl(
+  databaseUrl: string | undefined = process.env.DATABASE_URL,
+): string {
+  if (databaseUrl) {
+    return databaseUrl
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL is required to initialize @ai-native-os/db in production')
+  }
+
+  return defaultLocalDatabaseUrl
 }
 
 export const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: resolveDatabaseUrl(),
 })
 
 export const db = drizzle({

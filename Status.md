@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 1 completed, Phase 2 ready
+Current Mode: Phase 1 QA remediation completed, Phase 2 ready
 Current Phase: Phase 2 `Auth + RBAC`
 Overall Status: `ready_to_execute`
 
@@ -118,6 +118,10 @@ Phase 1 QA executed:
 - `curl -sS http://localhost:3001/api/openapi.json`
 - `curl -sS http://localhost:3001/api/v1/system/ping`
 - `curl -I -sS http://localhost:3001/api/docs`
+- `pnpm test`
+- `pnpm --filter @ai-native-os/api dev`
+- `pnpm --filter @ai-native-os/web dev`
+- `curl -sS http://localhost:3000`
 
 ## 6. Blockers
 
@@ -281,3 +285,32 @@ Use this section format after every task execution:
   - `P2-T1`
 - Notes:
   - OpenAPI generation uses `@orpc/openapi` with route metadata on the initial `system.ping` procedure.
+
+### Phase 1 QA Gate Remediation
+- Status: done
+- Changed files:
+  - `package.json`
+  - `turbo.json`
+  - `packages/db/package.json`
+  - `packages/db/src/index.ts`
+  - `packages/db/src/index.test.ts`
+  - `apps/api/package.json`
+  - `apps/api/src/index.test.ts`
+  - `apps/web/package.json`
+  - `apps/web/src/server.ts`
+  - `apps/web/src/server.test.ts`
+- Commands:
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm --filter @ai-native-os/api dev`
+  - `pnpm --filter @ai-native-os/web dev`
+  - `curl -sS http://localhost:3001/health`
+  - `curl -sS http://localhost:3000`
+- Result:
+  - Added root and workspace test scripts, removed the API startup crash caused by unconditional DB env validation, and replaced the web placeholder watcher with an accessible HTTP page server.
+- Unlocked tasks:
+  - none
+- Notes:
+  - `packages/db` now falls back to the local development database URL outside production, while production still requires `DATABASE_URL`.

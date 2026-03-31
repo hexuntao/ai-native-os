@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "format": "biome check --write .",
     "lint": "biome check .",
+    "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
