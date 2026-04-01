@@ -1,0 +1,45 @@
+import type { AiEvalScorerSummary } from '@ai-native-os/shared'
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  real,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core'
+
+export const aiEvalRuns = pgTable(
+  'ai_eval_runs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    evalKey: varchar('eval_key', { length: 120 }).notNull(),
+    evalName: varchar('eval_name', { length: 200 }).notNull(),
+    datasetId: varchar('dataset_id', { length: 255 }).notNull(),
+    datasetName: varchar('dataset_name', { length: 255 }).notNull(),
+    experimentId: varchar('experiment_id', { length: 255 }).notNull(),
+    status: varchar('status', { length: 20 }).notNull(),
+    triggerSource: varchar('trigger_source', { length: 20 }).notNull(),
+    scoreAverage: real('score_average'),
+    scoreMin: real('score_min'),
+    scoreMax: real('score_max'),
+    scorerSummary: jsonb('scorer_summary').$type<AiEvalScorerSummary>().notNull(),
+    totalItems: integer('total_items').notNull(),
+    succeededCount: integer('succeeded_count').notNull(),
+    failedCount: integer('failed_count').notNull(),
+    skippedCount: integer('skipped_count').notNull(),
+    startedAt: timestamp('started_at', { mode: 'date' }).notNull(),
+    completedAt: timestamp('completed_at', { mode: 'date' }),
+    requestId: varchar('request_id', { length: 255 }),
+    actorAuthUserId: varchar('actor_auth_user_id', { length: 255 }).notNull(),
+    actorRbacUserId: uuid('actor_rbac_user_id'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('ai_eval_runs_experiment_uidx').on(table.experimentId),
+    index('ai_eval_runs_eval_key_idx').on(table.evalKey),
+    index('ai_eval_runs_created_at_idx').on(table.createdAt),
+  ],
+)

@@ -1,6 +1,7 @@
 import { Mastra } from '@mastra/core/mastra'
 
 import { resolveMastraEnvironment } from './env'
+import { getMastraEvalScorerRegistry } from './evals/registry'
 import { mastraAgents, mastraTools, mastraWorkflows } from './registry'
 
 /**
@@ -12,9 +13,11 @@ import { mastraAgents, mastraTools, mastraWorkflows } from './registry'
  * - 不直接写审计日志；审计由 Tool/Workflow 执行链路负责
  */
 export const mastraEnvironment = resolveMastraEnvironment()
+const mastraScorers = getMastraEvalScorerRegistry()
 
 export const mastra = new Mastra({
   agents: mastraAgents,
+  scorers: mastraScorers,
   tools: mastraTools,
   workflows: mastraWorkflows,
 })

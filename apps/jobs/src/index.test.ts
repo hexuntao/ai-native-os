@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
+
 import { semanticSearchKnowledgeBase } from '@ai-native-os/api/mastra/rag/retrieval'
-import { listAiAuditLogsByToolId, listOperationLogsByModule } from '@ai-native-os/db'
+import {
+  listAiAuditLogsByToolId,
+  listAiEvalRunsByEvalKey,
+  listOperationLogsByModule,
+} from '@ai-native-os/db'
+
+import { aiEvalRunnerTask, executeAiEvalRunnerTask } from './trigger/ai-eval-runner'
 import { executeRagIndexingTask, ragIndexingTask } from './trigger/rag-indexing'
 import { executeReportScheduleTask, reportScheduleTask } from './trigger/report-schedule'
 
@@ -76,6 +83,34 @@ test('rag indexing task indexes a sample document and makes it searchable', asyn
         log.action === 'update_document_index' &&
         log.status === 'success' &&
         log.targetId === documentId,
+    ),
+  )
+})
+
+test('ai eval runner task persists experiment runs and writes task-level audit logs', async () => {
+  const result = await executeAiEvalRunnerTask()
+  const persistedRuns = await listAiEvalRunsByEvalKey('report-schedule')
+  const taskLogs = await listAiAuditLogsByToolId('task:ai-eval-runner')
+
+  assert.equal(result.taskId, 'ai-eval-runner')
+  assert.ok(result.runCount >= 1)
+  assert.equal(result.runs.length, result.runCount)
+  assert.equal(aiEvalRunnerTask.id, 'ai-eval-runner')
+  assert.ok(
+    persistedRuns.some(
+      (run) =>
+        run.status === 'completed' &&
+        run.totalItems >= 1 &&
+        run.evalKey === 'report-schedule' &&
+        run.scoreAverage !== null,
+    ),
+  )
+  assert.ok(
+    taskLogs.some(
+      (log: (typeof taskLogs)[number]) =>
+        log.toolId === 'task:ai-eval-runner' &&
+        log.status === 'success' &&
+        typeof log.requestInfo?.requestId === 'string',
     ),
   )
 })

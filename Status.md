@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 5 P5-T3 completed, P5-T4 ready
+Current Mode: Phase 5 P5-T4 completed, P5-T5 ready
 Current Phase: Phase 5 `Observability`
 Overall Status: `ready_to_execute`
 
@@ -71,8 +71,8 @@ Overall Status: `ready_to_execute`
 | P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | done | Phase 2, Phase 3 | log trace verification |
 | P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | done | P1-T5 | telemetry + health smoke |
 | P5-T3 | 5 | Implement AI feedback capture and human override tracking | done | P3-T4, P4-T5 | feedback persistence smoke |
-| P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | ready | P3-T3, P3-T4 | eval run result verification |
-| P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | backlog | P5-T4 | version activate/rollback verification |
+| P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | done | P3-T3, P3-T4 | eval run result verification |
+| P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | ready | P5-T4 | version activate/rollback verification |
 | P6-T1 | 6 | Finalize environment matrix and secret contract | backlog | Phase 3 | env-only boot verification |
 | P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | backlog | Phase 1, Phase 3 | Docker smoke deploy |
 | P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | backlog | Phase 3, Phase 4 | staging deploy smoke |
@@ -83,7 +83,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P5-T4 Implement Mastra Evals datasets, scorers, and runners
+1. P5-T5 Implement prompt versioning and release gates for AI changes
 
 Auto-unlock rules:
 
@@ -166,17 +166,17 @@ Known current blockers:
 - MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
 - The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
-- The new `ai/evals` contract-first endpoint is intentionally a stable skeleton backed by runtime summary only. Dedicated eval persistence, scorers, and experiment history remain a Phase 5 observability task.
+- `ai/evals` is now backed by real Mastra eval suites, deterministic scorers, and persisted run history in `ai_eval_runs`/`ai_eval_run_items`. Current remaining gap is prompt-governance wiring (`P5-T5`) rather than eval runtime availability.
+- Mastra eval datasets currently use a dedicated in-process runtime store and are rehydrated by suite initialization when needed; persisted experiment truth for governance and release decisions lives in Postgres.
 - Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
 - API telemetry bootstrap, request-id propagation, and shared health snapshots are now implemented. `/health` and `/api/v1/monitor/server` report database, redis, and telemetry states from the same helper; telemetry backends stay `unknown` until `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` are configured explicitly.
 - AI feedback capture and human override tracking are now implemented across the database, API, and web audit surface. Operator actions persist into `ai_feedback`, flip the linked `ai_audit_logs.human_override` flag when needed, and write matching `operation_logs` entries so the HITL path itself is auditable.
 
 Blocker resolution order:
 
-1. P5-T4
-2. P5-T5
-3. Better Auth ↔ RBAC principal bridge hardening
-4. Redis runtime wiring
+1. P5-T5
+2. Better Auth ↔ RBAC principal bridge hardening
+3. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -205,6 +205,53 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P5-T4 Implement Mastra Evals datasets, scorers, and runners
+- Status: done
+- Changed files:
+  - `apps/api/package.json`
+  - `apps/api/src/mastra/evals/index.ts`
+  - `apps/api/src/mastra/evals/registry.ts`
+  - `apps/api/src/mastra/evals/report-schedule.ts`
+  - `apps/api/src/mastra/evals/runner.ts`
+  - `apps/api/src/mastra/evals/runner.test.ts`
+  - `apps/api/src/mastra/evals/types.ts`
+  - `apps/api/src/mastra/index.ts`
+  - `apps/api/src/routes/ai/evals.ts`
+  - `apps/api/src/routes/contract-first.test.ts`
+  - `apps/jobs/src/index.ts`
+  - `apps/jobs/src/index.test.ts`
+  - `apps/jobs/src/trigger/ai-eval-runner.ts`
+  - `apps/web/src/app/(dashboard)/ai/evals/page.tsx`
+  - `packages/db/src/ai/evals.ts`
+  - `packages/db/src/ai/evals.test.ts`
+  - `packages/db/src/index.ts`
+  - `packages/db/src/migrations/0005_wakeful_the_hunter.sql`
+  - `packages/db/src/migrations/meta/0005_snapshot.json`
+  - `packages/db/src/migrations/meta/_journal.json`
+  - `packages/db/src/schema/ai-eval-run-items.ts`
+  - `packages/db/src/schema/ai-eval-runs.ts`
+  - `packages/db/src/schema/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/schemas/ai-evals.ts`
+  - `packages/shared/src/schemas/business-api.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:generate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:migrate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+- Result:
+  - Added a full Phase 5 eval chain: contract-first `GET /api/v1/ai/evals` now returns real eval-suite rows and persisted run summaries; the API now includes a dedicated `mastra/evals` module with deterministic scorers, dataset registration, and suite runners; and jobs now include `ai-eval-runner` as a scheduled Trigger.dev task. Persisted run data is stored in new Postgres tables `ai_eval_runs` and `ai_eval_run_items` and is exercised by API, DB, and jobs tests. The web eval page was upgraded from skeleton text to live run metrics (`score`, `last run`, `run status`) without bypassing existing auth/RBAC boundaries.
+- Unlocked tasks:
+  - `P5-T5`
+- Notes:
+  - Eval datasets are initialized in a dedicated in-process Mastra eval runtime store and can be rehydrated by suite bootstrap. Governance-critical experiment truth and release evidence are persisted in Postgres.
+  - Scorers are deterministic rule-based scorers in this phase to keep CI stable and avoid coupling eval gates to external model-provider availability.
 
 ### P5-T3 Implement AI feedback capture and human override tracking
 - Status: done

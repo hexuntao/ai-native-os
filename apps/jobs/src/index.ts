@@ -1,3 +1,4 @@
+export { aiEvalRunnerTask, executeAiEvalRunnerTask } from './trigger/ai-eval-runner'
 export { executeRagIndexingTask, ragIndexingTask } from './trigger/rag-indexing'
 export { executeReportScheduleTask, reportScheduleTask } from './trigger/report-schedule'
 
@@ -10,8 +11,8 @@ export { executeReportScheduleTask, reportScheduleTask } from './trigger/report-
  */
 export const jobsRuntime = {
   name: '@ai-native-os/jobs',
-  scheduledTaskIds: ['report-schedule-trigger'],
+  scheduledTaskIds: ['report-schedule-trigger', 'ai-eval-runner'],
   status: 'workflow-orchestration-ready',
-  taskIds: ['rag-indexing', 'report-schedule-trigger'],
+  taskIds: ['rag-indexing', 'report-schedule-trigger', 'ai-eval-runner'],
   triggerConfigPath: 'apps/jobs/trigger.config.ts',
 } as const

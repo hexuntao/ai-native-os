@@ -1,4 +1,6 @@
 export * from './ai-audit-logs'
+export * from './ai-eval-run-items'
+export * from './ai-eval-runs'
 export * from './ai-feedback'
 export * from './ai-knowledge'
 export * from './auth'

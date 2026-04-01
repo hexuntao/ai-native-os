@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./mastra/evals/runner": "./src/mastra/evals/runner.ts",
     "./mastra/mcp/client": "./src/mastra/mcp/client.ts",
     "./mastra/mcp/server": "./src/mastra/mcp/server.ts",
     "./mastra/rag/retrieval": "./src/mastra/rag/retrieval.ts",

@@ -6,6 +6,7 @@ import { db, roles, userRoles, users } from '@ai-native-os/db'
 import { eq } from 'drizzle-orm'
 
 import { app } from '@/index'
+import { runMastraEvalSuite } from '@/mastra/evals/runner'
 
 function convertSetCookieToCookie(headers: Headers): Headers {
   const setCookieHeaders = headers.getSetCookie()
@@ -214,8 +215,15 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   assert.ok(serverPayload.json.runtime.toolCount >= 1)
 })
 
-test('AI contract routes expose knowledge, evals skeleton, and audit logs for administrators', async () => {
+test('AI contract routes expose knowledge, evals, and audit logs for administrators', async () => {
   const authHeaders = await createSessionForRole('admin')
+  await runMastraEvalSuite({
+    actorAuthUserId: 'system:test-suite',
+    actorRbacUserId: null,
+    evalId: 'report-schedule',
+    requestId: `contract-evals-${randomUUID()}`,
+    triggerSource: 'test',
+  })
   const [knowledgeResponse, evalsResponse, auditResponse, feedbackResponse] = await Promise.all([
     app.request('http://localhost/api/v1/ai/knowledge?page=1&pageSize=5', {
       headers: authHeaders,
@@ -239,8 +247,13 @@ test('AI contract routes expose knowledge, evals skeleton, and audit logs for ad
   }
   const evalsPayload = (await evalsResponse.json()) as {
     json: {
-      data: Array<unknown>
-      summary: { configured: boolean; totalExperiments: number }
+      data: Array<{
+        id: string
+        lastRunAverageScore: number | null
+        lastRunStatus: string | null
+        status: string
+      }>
+      summary: { configured: boolean; totalExperiments: number; totalDatasets: number }
     }
   }
   const auditPayload = (await auditResponse.json()) as {
@@ -268,8 +281,18 @@ test('AI contract routes expose knowledge, evals skeleton, and audit logs for ad
   assert.equal(auditResponse.status, 200)
   assert.equal(feedbackResponse.status, 200)
   assert.ok(knowledgePayload.json.pagination.total >= 0)
-  assert.equal(evalsPayload.json.summary.configured, false)
-  assert.equal(evalsPayload.json.summary.totalExperiments, 0)
+  assert.equal(evalsPayload.json.summary.configured, true)
+  assert.ok(evalsPayload.json.summary.totalExperiments >= 1)
+  assert.ok(evalsPayload.json.summary.totalDatasets >= 1)
+  assert.ok(
+    evalsPayload.json.data.some(
+      (row) =>
+        row.id === 'report-schedule' &&
+        row.status === 'registered' &&
+        row.lastRunStatus === 'completed' &&
+        row.lastRunAverageScore !== null,
+    ),
+  )
   assert.equal(auditPayload.json.pagination.page, 1)
   assert.ok(
     auditPayload.json.data.every(

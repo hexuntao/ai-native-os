@@ -1,4 +1,5 @@
 export * from './ai/audit-logs'
+export * from './ai/evals'
 export * from './ai/feedback'
 export * from './ai/knowledge'
 export * from './client'

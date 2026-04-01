@@ -33,7 +33,7 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
 
   return (
     <DataSurfacePage
-      description="Evaluation registry shell backed by the documented AI evals contract. This page intentionally reflects current readiness rather than inventing non-existent experiment history."
+      description="Mastra eval suites with persisted run summaries. Data here reflects real dataset registration and stored experiment outcomes."
       eyebrow="AI Module"
       facts={[
         {
@@ -47,12 +47,12 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
       ]}
       metrics={[
         {
-          detail: 'Persisted datasets visible to the current eval registry.',
+          detail: 'Datasets currently registered for eval suites.',
           label: 'Datasets',
           value: formatCount(payload.summary.totalDatasets),
         },
         {
-          detail: 'Persisted experiments visible to the current eval registry.',
+          detail: 'Persisted experiments recorded from eval runners.',
           label: 'Experiments',
           value: formatCount(payload.summary.totalExperiments),
         },
@@ -65,10 +65,10 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
       title="Eval Registry"
     >
       <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-        <FieldLabel>Current state</FieldLabel>
+        <FieldLabel>Evaluation state</FieldLabel>
         <FieldHint>
-          This endpoint is intentionally a stable skeleton until Phase 5 lands persisted eval
-          datasets, scorers, and experiment history.
+          Evaluations are backed by Mastra datasets, deterministic scorers, and persisted run
+          records for traceability.
         </FieldHint>
       </Field>
 
@@ -80,14 +80,15 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
               <TableHead>Status</TableHead>
               <TableHead>Datasets</TableHead>
               <TableHead>Scorers</TableHead>
+              <TableHead>Score</TableHead>
               <TableHead>Last run</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {payload.data.length === 0 ? (
               <TableRow>
-                <TableCell className="text-muted-foreground" colSpan={5}>
-                  No persisted eval datasets are registered yet.
+                <TableCell className="text-muted-foreground" colSpan={6}>
+                  No eval suites are registered yet.
                 </TableCell>
               </TableRow>
             ) : (
@@ -101,8 +102,15 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
                   </TableCell>
                   <TableCell>{row.datasetSize}</TableCell>
                   <TableCell>{row.scorerCount}</TableCell>
+                  <TableCell className="font-medium">
+                    {row.lastRunAverageScore === null
+                      ? 'n/a'
+                      : `${Math.round(row.lastRunAverageScore * 100)}%`}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {row.lastRunAt ?? 'never'}
+                    {row.lastRunAt
+                      ? `${row.lastRunAt} (${row.lastRunStatus ?? 'unknown'})`
+                      : 'never'}
                   </TableCell>
                 </TableRow>
               ))

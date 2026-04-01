@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { appActions, appSubjects } from '../abilities/subjects'
+import { aiEvalRunStatusSchema } from './ai-evals'
 import {
   aiFeedbackEntrySchema,
   aiFeedbackSummarySchema,
@@ -198,7 +199,9 @@ export const aiEvalListItemSchema = z.object({
   backing: z.literal('mastra'),
   datasetSize: z.number().int().min(0),
   id: z.string(),
+  lastRunAverageScore: z.number().min(0).max(1).nullable(),
   lastRunAt: z.string().nullable(),
+  lastRunStatus: aiEvalRunStatusSchema.nullable(),
   name: z.string(),
   notes: z.string(),
   scorerCount: z.number().int().min(0),
