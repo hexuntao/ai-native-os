@@ -116,7 +116,25 @@ Every implementation task must be executed against this template:
 - touch only files required by the task scope
 - do not mix unrelated refactors
 - keep code runnable and typed
-- add Chinese comments only where code is not self-explanatory
+- use Chinese comments for intent and constraint documentation
+- do not add decorative or redundant comments to trivial code paths
+- every `Agent / Tool / Workflow` module must include complete Chinese module comments describing purpose, boundaries, permissions, and audit expectations
+- every exported non-trivial function must include a Chinese purpose comment when its intent, side effects, constraints, or return contract are not obvious from the signature alone
+- every complex permission, audit, orchestration, or security-sensitive code path must include Chinese comments explaining why the logic exists
+- lack of required comments on `Agent / Tool / Workflow` modules or complex exported logic fails task completion, but trivial boilerplate and self-explanatory code do not require forced comments
+
+### Commenting Standard
+
+- Comments are for system intent, constraints, side effects, permission boundaries, and audit guarantees.
+- Comments must be written in Chinese; identifiers remain English.
+- Prefer concise module-level and function-level comments over line-by-line narration.
+- Do not restate obvious syntax or variable assignments.
+- For `Agent / Tool / Workflow` code, comments are mandatory on:
+  - module purpose
+  - allowed responsibilities
+  - permission boundary
+  - audit behavior
+  - destructive or approval-required operations
 
 ### Validation Rules
 
@@ -344,3 +362,24 @@ Reason:
 
 - this sequence unlocks the widest downstream surface with the least rework risk
 - it respects the required `db -> shared -> api` ordering while taking advantage of allowed parallel lanes
+
+## Preflight Review（每个任务开始前必须执行）
+
+在开始任何任务前，先进行 5 项检查：
+
+1. 该任务是否符合 Plan.md 当前 Phase
+2. 该任务是否违反 docs/* 或 AGENTS.md
+3. 该任务是否会绕过 auth / RBAC / audit / validation
+4. 该任务是否扩大了当前任务范围
+5. 该任务是否缺少必要前置依赖
+
+如果任一项存在风险，先输出风险报告，不要直接写代码。
+
+风险报告格式：
+
+[PRECHECK-FAIL]
+- task:
+- violated_rules:
+- missing_dependencies:
+- risk_level: low | medium | high
+- recommendation:
