@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 P3-F2 completed, P3-T3 ready
+Current Mode: Phase 3 P3-T3 completed, P3-T4 ready
 Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
@@ -58,7 +58,7 @@ Overall Status: `ready_to_execute`
 | P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | done | P2-T4, P3-T1 | tool schema + audit verification |
 | P3-F1 | 3 | Unify Mastra auth boundary and authenticated request-context bridge | done | P3-T1, P3-T2 | authenticated `/mastra/*` smoke |
 | P3-F2 | 3 | Remove empty-runtime assumptions and align runtime metadata | done | P3-F1 | runtime summary + test cleanup |
-| P3-T3 | 3 | Implement initial agents | ready | P3-T2, P3-F1, P3-F2 | agent generation smoke |
+| P3-T3 | 3 | Implement initial agents | done | P3-T2, P3-F1, P3-F2 | agent generation smoke |
 | P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | ready | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
 | P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | backlog | P3-T1, P3-T3 | streaming endpoint smoke |
 | P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | ready | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
@@ -84,9 +84,8 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-T3 Implement initial agents
-2. P3-T4 Implement AI workflows and Trigger.dev task orchestration
-3. P3-T6 Implement pgvector-backed RAG indexing and retrieval
+1. P3-T4 Implement AI workflows and Trigger.dev task orchestration
+2. P3-T6 Implement pgvector-backed RAG indexing and retrieval
 
 Auto-unlock rules:
 
@@ -153,11 +152,11 @@ Known current blockers:
 - Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, serialized ability query endpoints, and the minimal web auth shell are implemented.
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
-- Mastra runtime now has registered read/report/config tools with RBAC-aware cataloging and AI audit persistence, but initial agents, workflows, MCP wiring, outbound notifications, and RAG remain pending Phase 3 tasks.
+- Mastra runtime now has registered read/report/config tools and initial read-only agents with RBAC-aware cataloging and AI audit persistence, but workflow orchestration, MCP wiring, outbound notifications, route-level Mastra authorization hardening, and RAG remain pending Phase 3 tasks.
 
 Blocker resolution order:
 
-1. P3-T3
+1. P3-T4
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 
@@ -650,3 +649,25 @@ Use this section format after every task execution:
   - `P3-T6`
 - Notes:
   - This task intentionally does not pretend agents or workflows already exist; it only removes false assumptions that would block their later introduction.
+
+### P3-T3 Implement initial agents
+- Status: done
+- Changed files:
+  - `apps/api/src/mastra/agents/admin-copilot.ts`
+  - `apps/api/src/mastra/agents/audit-analyst.ts`
+  - `apps/api/src/mastra/agents/index.ts`
+  - `apps/api/src/mastra/registry.ts`
+  - `apps/api/src/index.test.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm --filter @ai-native-os/api biome check --write src/mastra/agents/admin-copilot.ts src/mastra/agents/audit-analyst.ts src/mastra/agents/index.ts src/mastra/registry.ts src/index.test.ts`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Registered two initial read-only Mastra agents, `admin-copilot` and `audit-analyst`, both backed only by existing RBAC-protected and audit-logged tools. The authenticated Mastra runtime now exposes the initial agent catalog and agent detail endpoints through the official `/mastra/agents` routes, and runtime summary reflects the active agent registry.
+- Unlocked tasks:
+  - `P3-T4`
+- Notes:
+  - This task intentionally avoids write-capable tools because Mastra route-level authorization is not yet hardened beyond authenticated access.
+  - Tool-level RBAC and AI audit logging remain the effective enforcement boundary for current agent execution.

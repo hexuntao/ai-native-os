@@ -201,6 +201,45 @@ test('Mastra OpenAPI route is exposed from the mounted runtime prefix for authen
   assert.ok('/system/packages' in payload.paths)
 })
 
+test('Mastra agent list route exposes the initial read-only agents for authenticated users', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/mastra/agents', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as Record<
+    string,
+    {
+      description?: string
+      name: string
+      tools: Record<string, { id: string }>
+    }
+  >
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(Object.keys(payload).sort(), ['admin-copilot', 'audit-analyst'])
+  assert.equal(payload['admin-copilot']?.name, 'Admin Copilot')
+  assert.equal(payload['audit-analyst']?.name, 'Audit Analyst')
+  assert.ok('userDirectory' in (payload['admin-copilot']?.tools ?? {}))
+  assert.ok('operationLogSearch' in (payload['audit-analyst']?.tools ?? {}))
+})
+
+test('Mastra agent detail route exposes tool metadata for the selected agent', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/mastra/agents/admin-copilot', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as {
+    description?: string
+    name: string
+    tools: Record<string, { id: string }>
+  }
+
+  assert.equal(response.status, 200)
+  assert.equal(payload.name, 'Admin Copilot')
+  assert.ok('runtimeConfig' in payload.tools)
+  assert.ok('permissionProfile' in payload.tools)
+})
+
 test('protected session endpoint returns 401 without an authenticated session', async () => {
   const response = await app.request('http://localhost/api/v1/system/session')
   const payload = (await response.json()) as {
@@ -467,7 +506,8 @@ test('Mastra runtime summary route reflects the current runtime registry state',
   assert.equal(payload.json.openapiPath, '/openapi.json')
   assert.equal(payload.json.defaultModel, 'openai/gpt-4.1-mini')
   assert.equal(payload.json.toolCount, 6)
+  assert.deepEqual(payload.json.registeredAgentIds.sort(), ['admin-copilot', 'audit-analyst'])
   assert.equal(payload.json.agentCount, payload.json.registeredAgentIds.length)
   assert.equal(payload.json.workflowCount, payload.json.registeredWorkflowIds.length)
-  assert.equal(payload.json.runtimeStage, 'tools_only')
+  assert.equal(payload.json.runtimeStage, 'agents_ready')
 })
