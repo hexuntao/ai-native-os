@@ -18,29 +18,29 @@ import { FilterSelect } from '@/components/management/filter-select'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
+  createAiAuditFilterState,
   createDashboardHref,
-  createLogFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
-import { loadOperationLogsList } from '@/lib/server-management'
+import { loadAiAuditLogsList } from '@/lib/server-management'
 
-interface LogsPageProps {
+interface AiAuditPageProps {
   searchParams: Promise<DashboardSearchParams>
 }
 
-export default async function SystemLogsPage({ searchParams }: LogsPageProps): Promise<ReactNode> {
+export default async function AiAuditPage({ searchParams }: AiAuditPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
-  const filters = createLogFilterState(resolvedSearchParams)
-  const payload = await loadOperationLogsList(filters)
+  const filters = createAiAuditFilterState(resolvedSearchParams)
+  const payload = await loadAiAuditLogsList(filters)
 
   return (
     <DataSurfacePage
-      description="Operational audit stream rendered from the monitor contract. This page is read-only and focuses on traceability, not incident remediation."
-      eyebrow="Monitor Module"
+      description="AI tool audit ledger rendered from the documented AI contract. This surface focuses on actor, tool, and outcome visibility without exposing raw prompt payloads."
+      eyebrow="AI Module"
       facts={[
         {
-          label: 'Module filter',
-          value: filters.module ?? 'All modules',
+          label: 'Tool filter',
+          value: filters.toolId ?? 'All tools',
         },
         {
           label: 'Status filter',
@@ -49,48 +49,38 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
       ]}
       metrics={[
         {
-          detail: 'Total operation log entries returned by the monitor API.',
-          label: 'Audit rows',
+          detail: 'Total AI audit events returned by the ledger contract.',
+          label: 'Audit events',
           value: formatCount(payload.pagination.total),
         },
         {
-          detail: 'Failures visible in the current page slice.',
-          label: 'Failures',
-          value: formatCount(payload.data.filter((row) => row.status === 'error').length),
+          detail: 'Forbidden tool calls visible in the current slice.',
+          label: 'Forbidden',
+          value: formatCount(payload.data.filter((row) => row.status === 'forbidden').length),
         },
         {
-          detail: 'Distinct modules represented in the current page slice.',
-          label: 'Modules',
-          value: formatCount(new Set(payload.data.map((row) => row.module)).size),
+          detail: 'Distinct tools represented in the current slice.',
+          label: 'Tools seen',
+          value: formatCount(new Set(payload.data.map((row) => row.toolId)).size),
         },
       ]}
-      title="Audit Trails"
+      title="AI Audit Ledger"
     >
       <form
-        action="/system/logs"
-        className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+        action="/ai/audit"
+        className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]"
         method="GET"
       >
         <input name="page" type="hidden" value="1" />
         <input name="pageSize" type="hidden" value={String(filters.pageSize)} />
 
         <Field>
-          <FieldLabel htmlFor="search">Search</FieldLabel>
+          <FieldLabel htmlFor="toolId">Tool ID</FieldLabel>
           <Input
-            defaultValue={filters.search}
-            id="search"
-            name="search"
-            placeholder="Search detail text"
-          />
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="module">Module</FieldLabel>
-          <Input
-            defaultValue={filters.module}
-            id="module"
-            name="module"
-            placeholder="system / ai / jobs"
+            defaultValue={filters.toolId}
+            id="toolId"
+            name="toolId"
+            placeholder="knowledge-semantic-search"
           />
         </Field>
 
@@ -99,6 +89,7 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
           <FilterSelect defaultValue={filters.status} id="status" name="status">
             <option value="all">All statuses</option>
             <option value="success">Success only</option>
+            <option value="forbidden">Forbidden only</option>
             <option value="error">Error only</option>
           </FilterSelect>
         </Field>
@@ -106,7 +97,7 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
         <div className="flex items-end gap-3">
           <a
             className="inline-flex h-11 items-center justify-center rounded-full border border-border/80 px-5 text-sm font-medium text-foreground transition-colors hover:bg-card/80"
-            href="/system/logs"
+            href="/ai/audit"
           >
             Reset
           </a>
@@ -117,9 +108,9 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Action</TableHead>
-              <TableHead>Module</TableHead>
-              <TableHead>Detail</TableHead>
+              <TableHead>Tool</TableHead>
+              <TableHead>Scope</TableHead>
+              <TableHead>Actor</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
@@ -127,11 +118,20 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
           <TableBody>
             {payload.data.map((row) => (
               <TableRow key={row.id}>
-                <TableCell className="font-medium">{row.action}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{row.module}</Badge>
+                  <div className="grid gap-1">
+                    <span className="font-medium">{row.toolId}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {row.requestId ?? 'no request id'}
+                    </span>
+                  </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{row.detail}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {row.action}:{row.subject}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
+                </TableCell>
                 <TableCell>
                   <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
                     {row.status}
@@ -147,17 +147,17 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
       </div>
 
       <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-        <FieldLabel>Trace coverage</FieldLabel>
+        <FieldLabel>Audit boundary</FieldLabel>
         <FieldHint>
-          Trace-level drill-down remains a Phase 5 concern. This view intentionally stops at audit
-          row visibility.
+          Agent reasoning, prompt versions, and HITL approvals are not yet represented here. This
+          page reflects the current tool-level audit chain only.
         </FieldHint>
       </Field>
 
       <PaginationControls
         nextHref={
           payload.pagination.page < payload.pagination.totalPages
-            ? createDashboardHref('/system/logs', resolvedSearchParams, {
+            ? createDashboardHref('/ai/audit', resolvedSearchParams, {
                 page: String(payload.pagination.page + 1),
               })
             : undefined
@@ -166,7 +166,7 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
         pageSize={payload.pagination.pageSize}
         previousHref={
           payload.pagination.page > 1
-            ? createDashboardHref('/system/logs', resolvedSearchParams, {
+            ? createDashboardHref('/ai/audit', resolvedSearchParams, {
                 page: String(payload.pagination.page - 1),
               })
             : undefined

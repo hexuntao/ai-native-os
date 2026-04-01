@@ -22,27 +22,27 @@ import {
   createToggleFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
-import { loadRolesList } from '@/lib/server-management'
+import { loadUsersList } from '@/lib/server-management'
 
-interface RolesPageProps {
+interface UsersPageProps {
   searchParams: Promise<DashboardSearchParams>
 }
 
-export default async function SystemRolesPage({
+export default async function SystemUsersPage({
   searchParams,
-}: RolesPageProps): Promise<ReactNode> {
+}: UsersPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
   const filters = createToggleFilterState(resolvedSearchParams)
-  const payload = await loadRolesList(filters)
+  const payload = await loadUsersList(filters)
 
   return (
     <DataSurfacePage
-      description="Live role inventory backed by the contract-first system API. The page exposes assignment density and permission topology while keeping mutations out of scope."
+      description="Contract-first operator directory backed by the authenticated system API. This surface stays read-only until write contracts and audit-safe mutations are implemented."
       eyebrow="System Module"
       facts={[
         {
           label: 'Search scope',
-          value: filters.search ?? 'All role names',
+          value: filters.search ?? 'All usernames',
         },
         {
           label: 'Status filter',
@@ -51,29 +51,29 @@ export default async function SystemRolesPage({
       ]}
       metrics={[
         {
-          detail: 'Total RBAC roles returned by the system contract.',
-          label: 'Roles',
+          detail: 'Total application principals currently mapped into the RBAC layer.',
+          label: 'Directory size',
           value: formatCount(payload.pagination.total),
         },
         {
-          detail: 'Combined user assignments represented in this page slice.',
-          label: 'Assignments',
-          value: formatCount(payload.data.reduce((sum, row) => sum + row.userCount, 0)),
+          detail: 'Rows returned in the current contract-first page window.',
+          label: 'Visible rows',
+          value: formatCount(payload.data.length),
         },
         {
-          detail: 'Combined permission links represented in this page slice.',
-          label: 'Permission links',
-          value: formatCount(payload.data.reduce((sum, row) => sum + row.permissionCount, 0)),
+          detail: 'Distinct role bindings represented across the current page slice.',
+          label: 'Mapped roles',
+          value: formatCount(new Set(payload.data.flatMap((row) => row.roleCodes)).size),
         },
       ]}
-      title="Roles Matrix"
+      title="Users Directory"
     >
       <FilterToolbar
-        actionHref="/system/roles"
+        actionHref="/system/users"
         pageSize={filters.pageSize}
-        resetHref="/system/roles"
+        resetHref="/system/users"
         searchDefaultValue={filters.search}
-        searchPlaceholder="Search role name"
+        searchPlaceholder="Search username"
       >
         <Field>
           <FieldLabel htmlFor="status">Status</FieldLabel>
@@ -90,10 +90,10 @@ export default async function SystemRolesPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Role</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Permissions</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Roles</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Updated</TableHead>
               </TableRow>
             </TableHeader>
@@ -102,22 +102,31 @@ export default async function SystemRolesPage({
                 <TableRow key={row.id}>
                   <TableCell>
                     <div className="grid gap-1">
-                      <span className="font-medium">{row.name}</span>
+                      <span className="font-medium">{row.username}</span>
                       <span className="text-sm text-muted-foreground">
-                        {row.description ?? 'No description'}
+                        {row.nickname ?? 'No nickname'}
                       </span>
                     </div>
                   </TableCell>
+                  <TableCell className="text-muted-foreground">{row.email}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">{row.code}</Badge>
-                      <Badge variant={row.status ? 'accent' : 'secondary'}>
-                        {row.status ? 'active' : 'inactive'}
-                      </Badge>
+                      {row.roleCodes.length === 0 ? (
+                        <Badge variant="secondary">unassigned</Badge>
+                      ) : (
+                        row.roleCodes.map((roleCode) => (
+                          <Badge key={roleCode} variant="outline">
+                            {roleCode}
+                          </Badge>
+                        ))
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium">{formatCount(row.userCount)}</TableCell>
-                  <TableCell className="font-medium">{formatCount(row.permissionCount)}</TableCell>
+                  <TableCell>
+                    <Badge variant={row.status ? 'accent' : 'secondary'}>
+                      {row.status ? 'active' : 'inactive'}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDateTime(row.updatedAt)}
                   </TableCell>
@@ -128,35 +137,37 @@ export default async function SystemRolesPage({
         </div>
 
         <div className="grid gap-4">
-          <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-            <FieldLabel>Sort policy</FieldLabel>
-            <FieldHint>
-              Roles are ordered by configured sort order first, then by creation recency.
-            </FieldHint>
-          </Field>
-
           <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Governance notes
+              Operator notes
             </p>
             <div className="mt-4 grid gap-3 text-sm leading-7 text-muted-foreground">
               <p>
-                Role assignment counts and permission counts are computed server-side to keep the UI
-                contract narrow.
+                RBAC mappings shown here are derived from the application user table, not Better
+                Auth user IDs directly.
               </p>
               <p>
-                Condition-level permission inspection remains in the permission center rather than
-                this summary table.
+                Read access does not imply mutation capability. Write flows remain intentionally
+                unavailable in this phase.
               </p>
             </div>
           </div>
+
+          <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
+            <FieldLabel>Page slice</FieldLabel>
+            <FieldHint>
+              Reviewing page {payload.pagination.page} of{' '}
+              {Math.max(payload.pagination.totalPages, 1)} with {payload.pagination.pageSize} rows
+              per request.
+            </FieldHint>
+          </Field>
         </div>
       </div>
 
       <PaginationControls
         nextHref={
           payload.pagination.page < payload.pagination.totalPages
-            ? createDashboardHref('/system/roles', resolvedSearchParams, {
+            ? createDashboardHref('/system/users', resolvedSearchParams, {
                 page: String(payload.pagination.page + 1),
               })
             : undefined
@@ -165,7 +176,7 @@ export default async function SystemRolesPage({
         pageSize={payload.pagination.pageSize}
         previousHref={
           payload.pagination.page > 1
-            ? createDashboardHref('/system/roles', resolvedSearchParams, {
+            ? createDashboardHref('/system/users', resolvedSearchParams, {
                 page: String(payload.pagination.page - 1),
               })
             : undefined

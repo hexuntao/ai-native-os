@@ -11,6 +11,7 @@ import {
   CardTitle,
   cn,
 } from '@ai-native-os/ui'
+import type { Route } from 'next'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -97,7 +98,7 @@ export function DashboardShell({
                           ? 'border-primary/20 bg-primary/10'
                           : 'border-transparent bg-transparent hover:border-border/70 hover:bg-card-strong/60',
                       )}
-                      href={item.href}
+                      href={item.href as Route}
                     >
                       <span className="text-lg font-medium">{item.label}</span>
                       <span className="text-sm leading-6 text-muted-foreground">

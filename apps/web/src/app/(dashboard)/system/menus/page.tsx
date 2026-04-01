@@ -16,33 +16,33 @@ import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { PaginationControls } from '@/components/management/pagination-controls'
-import { formatCount, formatDateTime } from '@/lib/format'
+import { formatCount } from '@/lib/format'
 import {
   createDashboardHref,
-  createToggleFilterState,
+  createMenuFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
-import { loadRolesList } from '@/lib/server-management'
+import { loadMenusList } from '@/lib/server-management'
 
-interface RolesPageProps {
+interface MenusPageProps {
   searchParams: Promise<DashboardSearchParams>
 }
 
-export default async function SystemRolesPage({
+export default async function SystemMenusPage({
   searchParams,
-}: RolesPageProps): Promise<ReactNode> {
+}: MenusPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
-  const filters = createToggleFilterState(resolvedSearchParams)
-  const payload = await loadRolesList(filters)
+  const filters = createMenuFilterState(resolvedSearchParams)
+  const payload = await loadMenusList(filters)
 
   return (
     <DataSurfacePage
-      description="Live role inventory backed by the contract-first system API. The page exposes assignment density and permission topology while keeping mutations out of scope."
+      description="Navigation registry driven by contract-first menu resources. This page makes permission bindings and route inventory visible before mutation flows are added."
       eyebrow="System Module"
       facts={[
         {
-          label: 'Search scope',
-          value: filters.search ?? 'All role names',
+          label: 'Visibility filter',
+          value: filters.visible,
         },
         {
           label: 'Status filter',
@@ -51,29 +51,31 @@ export default async function SystemRolesPage({
       ]}
       metrics={[
         {
-          detail: 'Total RBAC roles returned by the system contract.',
-          label: 'Roles',
+          detail: 'Total menu records exposed by the documented system contract.',
+          label: 'Menu records',
           value: formatCount(payload.pagination.total),
         },
         {
-          detail: 'Combined user assignments represented in this page slice.',
-          label: 'Assignments',
-          value: formatCount(payload.data.reduce((sum, row) => sum + row.userCount, 0)),
+          detail: 'Entries in the current page slice that are visible in navigation contexts.',
+          label: 'Visible items',
+          value: formatCount(payload.data.filter((row) => row.visible).length),
         },
         {
-          detail: 'Combined permission links represented in this page slice.',
-          label: 'Permission links',
-          value: formatCount(payload.data.reduce((sum, row) => sum + row.permissionCount, 0)),
+          detail: 'Entries with an attached permission binding.',
+          label: 'Protected routes',
+          value: formatCount(
+            payload.data.filter((row) => row.permissionAction && row.permissionResource).length,
+          ),
         },
       ]}
-      title="Roles Matrix"
+      title="Navigation Registry"
     >
       <FilterToolbar
-        actionHref="/system/roles"
+        actionHref="/system/menus"
         pageSize={filters.pageSize}
-        resetHref="/system/roles"
+        resetHref="/system/menus"
         searchDefaultValue={filters.search}
-        searchPlaceholder="Search role name"
+        searchPlaceholder="Search menu name"
       >
         <Field>
           <FieldLabel htmlFor="status">Status</FieldLabel>
@@ -83,6 +85,15 @@ export default async function SystemRolesPage({
             <option value="inactive">Inactive only</option>
           </FilterSelect>
         </Field>
+
+        <Field>
+          <FieldLabel htmlFor="visible">Visibility</FieldLabel>
+          <FilterSelect defaultValue={filters.visible} id="visible" name="visible">
+            <option value="all">All visibility</option>
+            <option value="visible">Visible only</option>
+            <option value="hidden">Hidden only</option>
+          </FilterSelect>
+        </Field>
       </FilterToolbar>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
@@ -90,11 +101,11 @@ export default async function SystemRolesPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Role</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Permissions</TableHead>
-                <TableHead>Updated</TableHead>
+                <TableHead>Menu</TableHead>
+                <TableHead>Path</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Permission</TableHead>
+                <TableHead>Visibility</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -103,23 +114,27 @@ export default async function SystemRolesPage({
                   <TableCell>
                     <div className="grid gap-1">
                       <span className="font-medium">{row.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {row.description ?? 'No description'}
-                      </span>
+                      <span className="text-sm text-muted-foreground">sort #{row.sortOrder}</span>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{row.path ?? 'no-path'}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{row.type}</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {row.permissionAction && row.permissionResource
+                      ? `${row.permissionAction}:${row.permissionResource}`
+                      : 'public shell'}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">{row.code}</Badge>
-                      <Badge variant={row.status ? 'accent' : 'secondary'}>
+                      <Badge variant={row.visible ? 'accent' : 'secondary'}>
+                        {row.visible ? 'visible' : 'hidden'}
+                      </Badge>
+                      <Badge variant={row.status ? 'outline' : 'secondary'}>
                         {row.status ? 'active' : 'inactive'}
                       </Badge>
                     </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{formatCount(row.userCount)}</TableCell>
-                  <TableCell className="font-medium">{formatCount(row.permissionCount)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDateTime(row.updatedAt)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -129,25 +144,23 @@ export default async function SystemRolesPage({
 
         <div className="grid gap-4">
           <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-            <FieldLabel>Sort policy</FieldLabel>
+            <FieldLabel>Route shape</FieldLabel>
             <FieldHint>
-              Roles are ordered by configured sort order first, then by creation recency.
+              Menu nodes can exist without direct paths when they serve as parent shells or section
+              headers.
             </FieldHint>
           </Field>
 
           <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Governance notes
+              Binding notes
             </p>
             <div className="mt-4 grid gap-3 text-sm leading-7 text-muted-foreground">
               <p>
-                Role assignment counts and permission counts are computed server-side to keep the UI
-                contract narrow.
+                Permission bindings here are declarative metadata and do not replace the API-side
+                CASL checks.
               </p>
-              <p>
-                Condition-level permission inspection remains in the permission center rather than
-                this summary table.
-              </p>
+              <p>Hidden routes may still exist for deep links or admin-only flows.</p>
             </div>
           </div>
         </div>
@@ -156,7 +169,7 @@ export default async function SystemRolesPage({
       <PaginationControls
         nextHref={
           payload.pagination.page < payload.pagination.totalPages
-            ? createDashboardHref('/system/roles', resolvedSearchParams, {
+            ? createDashboardHref('/system/menus', resolvedSearchParams, {
                 page: String(payload.pagination.page + 1),
               })
             : undefined
@@ -165,7 +178,7 @@ export default async function SystemRolesPage({
         pageSize={payload.pagination.pageSize}
         previousHref={
           payload.pagination.page > 1
-            ? createDashboardHref('/system/roles', resolvedSearchParams, {
+            ? createDashboardHref('/system/menus', resolvedSearchParams, {
                 page: String(payload.pagination.page - 1),
               })
             : undefined

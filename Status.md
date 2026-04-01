@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 4 P4-F1 completed, P4-T3 ready
+Current Mode: Phase 4 P4-T4 completed, P4-T6 ready
 Current Phase: Phase 4 `Web UI`
 Overall Status: `ready_to_execute`
 
@@ -65,8 +65,8 @@ Overall Status: `ready_to_execute`
 | P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | done | P2-T6 | authenticated shell smoke |
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | done | P1-T2 | package/ui build smoke |
 | P4-F1 | 4 | Insert contract-first business API skeleton for system, monitor, and AI modules | done | P2-T5, P3-T6 | OpenAPI + REST query smoke |
-| P4-T3 | 4 | Implement system management pages | ready | P4-F1, P4-T1, P4-T2, Phase 2 | CRUD page smoke |
-| P4-T4 | 4 | Implement monitor and AI management pages | ready | P4-F1, P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
+| P4-T3 | 4 | Implement system management pages | done | P4-F1, P4-T1, P4-T2, Phase 2 | system page smoke |
+| P4-T4 | 4 | Implement monitor and AI management pages | done | P4-F1, P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
 | P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | done | P3-T5, P4-T1 | chat stream smoke |
 | P4-T6 | 4 | Implement generative UI components | ready | P4-T5 | action render smoke |
 | P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | backlog | Phase 2, Phase 3 | log trace verification |
@@ -84,9 +84,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P4-T3 Implement system management pages
-2. P4-T4 Implement monitor and AI management pages
-3. P4-T6 Implement generative UI components
+1. P4-T6 Implement generative UI components
 
 Auto-unlock rules:
 
@@ -168,16 +166,14 @@ Known current blockers:
 - pgvector-backed RAG is now implemented with `ai_knowledge` storage, semantic retrieval, and a Trigger.dev indexing task. However, production still requires a real embedding provider key, while deterministic local embeddings are intentionally limited to development and test.
 - MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
-- The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the required contract-first business API skeleton now exists, but the actual management pages and write flows are still not implemented.
+- The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
 - The new `ai/evals` contract-first endpoint is intentionally a stable skeleton backed by runtime summary only. Dedicated eval persistence, scorers, and experiment history remain a Phase 5 observability task.
 
 Blocker resolution order:
 
-1. P4-T3
-2. P4-T4
-3. P4-T6
-4. Better Auth ↔ RBAC principal bridge hardening
-5. Redis runtime wiring
+1. P4-T6
+2. Better Auth ↔ RBAC principal bridge hardening
+3. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -206,6 +202,72 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P4-T4 Implement monitor and AI management pages
+- Status: done
+- Changed files:
+  - `apps/web/src/app/(dashboard)/ai/audit/page.tsx`
+  - `apps/web/src/app/(dashboard)/ai/evals/page.tsx`
+  - `apps/web/src/app/(dashboard)/ai/knowledge/page.tsx`
+  - `apps/web/src/app/(dashboard)/monitor/online/page.tsx`
+  - `apps/web/src/app/(dashboard)/monitor/server/page.tsx`
+  - `apps/web/src/app/(dashboard)/system/logs/page.tsx`
+  - `apps/web/src/components/management/*`
+  - `apps/web/src/lib/ability.ts`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/lib/format.ts`
+  - `apps/web/src/lib/management.ts`
+  - `apps/web/src/lib/server-management.ts`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm --filter @ai-native-os/api dev`
+  - `pnpm --filter @ai-native-os/web dev`
+  - `curl -sS http://localhost:3000/system/logs`
+  - `curl -sS http://localhost:3000/monitor/online`
+  - `curl -sS http://localhost:3000/monitor/server`
+- Result:
+  - Replaced the monitor and AI placeholders with real server-rendered management pages backed by the contract-first monitor and AI APIs, including logs, online sessions, server runtime summary, knowledge inventory, AI audit ledger, and eval registry. Shared management layout, filters, and pagination primitives were reused so the monitor and AI surfaces follow the same shell language as the system module. Static checks, tests, build, and viewer-authenticated smoke passed.
+- Unlocked tasks:
+  - `P4-T6`
+- Notes:
+  - `ai/evals` remains intentionally read-only and reflects current runtime readiness rather than persisted eval history.
+  - Dedicated privileged browser smoke for AI admin pages depends on local Better Auth account provisioning matching seeded RBAC principals; route compilation and server-side contract fetching are verified, but browser-level super-admin smoke was not fully standardized in this environment.
+
+### P4-T3 Implement system management pages
+- Status: done
+- Changed files:
+  - `apps/web/src/app/(dashboard)/system/users/page.tsx`
+  - `apps/web/src/app/(dashboard)/system/roles/page.tsx`
+  - `apps/web/src/app/(dashboard)/system/permissions/page.tsx`
+  - `apps/web/src/app/(dashboard)/system/menus/page.tsx`
+  - `apps/web/src/components/management/*`
+  - `apps/web/src/components/shell/dashboard-shell.tsx`
+  - `apps/web/src/lib/ability.test.ts`
+  - `apps/web/src/lib/ability.ts`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/lib/format.ts`
+  - `apps/web/src/lib/management.ts`
+  - `apps/web/src/lib/server-management.ts`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm --filter @ai-native-os/api dev`
+  - `pnpm --filter @ai-native-os/web dev`
+  - `curl -sS http://localhost:3000/system/users`
+- Result:
+  - Replaced the system placeholders with real list views for users, roles, permissions, and menus. The pages are server-rendered, consume the new contract-first system APIs directly, preserve the Better Auth plus CASL shell boundary, and expose read-oriented filters, counts, and pagination without inventing unsupported write flows. Static checks, tests, build, and viewer-authenticated smoke passed.
+- Unlocked tasks:
+  - `P4-T4`
+- Notes:
+  - Navigation visibility now derives from the full route registry rather than a hardcoded surface count, so hidden-surface stats stay correct as the dashboard grows.
+  - Permission editing remains intentionally read-only until mutation contracts, approval gates, and rollback-safe audit flows exist.
 
 ### P4-F1 Insert contract-first business API skeleton for system, monitor, and AI modules
 - Status: done

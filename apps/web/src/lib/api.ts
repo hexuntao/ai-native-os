@@ -7,6 +7,7 @@ import {
 import {
   type AbilityPayload,
   getVisibleNavigationItems,
+  navigationItems,
   parseSerializedAbilityPayload,
 } from './ability'
 import type { WebEnvironment } from './env'
@@ -192,7 +193,7 @@ export async function loadShellState(
   const visibleNavigation = getVisibleNavigationItems(abilityPayload)
 
   return {
-    hiddenNavigationCount: Math.max(0, 5 - visibleNavigation.length),
+    hiddenNavigationCount: Math.max(0, navigationItems.length - visibleNavigation.length),
     kind: 'authenticated',
     permissionRuleCount: permissionsPayload.permissionRuleCount,
     roleCodes: permissionsPayload.roleCodes,
