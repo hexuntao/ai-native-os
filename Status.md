@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 1 QA remediation completed, Phase 2 ready
+Current Mode: Phase 2 P2-T1 completed, P2-T2 and P2-T3 ready
 Current Phase: Phase 2 `Auth + RBAC`
 Overall Status: `ready_to_execute`
 
@@ -48,8 +48,8 @@ Overall Status: `ready_to_execute`
 | P1-T4 | 1 | Define shared Zod schemas, constants, and CASL ability core | done | P1-T2 | shared typecheck |
 | P1-T5 | 1 | Build Hono + oRPC + Scalar API skeleton | done | P1-T3, P1-T4 | API boot + docs + health |
 | P1-T6 | 1 | Add local dev infrastructure for database and cache | done | P1-T1 | Docker service smoke |
-| P2-T1 | 2 | Implement Better Auth server and client configuration | ready | P1-T5 | login/session smoke |
-| P2-T2 | 2 | Integrate auth middleware into Hono and expose auth routes | backlog | P2-T1 | 401/auth route smoke |
+| P2-T1 | 2 | Implement Better Auth server and client configuration | done | P1-T5 | login/session smoke |
+| P2-T2 | 2 | Integrate auth middleware into Hono and expose auth routes | ready | P2-T1 | 401/auth route smoke |
 | P2-T3 | 2 | Implement RBAC tables, seeds, and permission-loading service | ready | P1-T3 | seed and lookup verification |
 | P2-T4 | 2 | Implement CASL ability builder and permission middleware | backlog | P2-T2, P2-T3 | 403/condition verification |
 | P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | backlog | P2-T4 | ability fetch and deserialize |
@@ -82,13 +82,13 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P2-T1 Implement Better Auth server and client configuration
+1. P2-T2 Integrate auth middleware into Hono and expose auth routes
 2. P2-T3 Implement RBAC tables, seeds, and permission-loading service
 
 Auto-unlock rules:
 
 - If P2-T1 -> `done`
-  - keep P2-T2 eligible once auth route contract is defined
+  - mark P2-T2 as `ready`
 - If P2-T3 -> `done`
   - keep P2-T4 blocked until P2-T2 is also `done`
 - If P2-T1 and P2-T3 both -> `done`
@@ -127,17 +127,16 @@ Phase 1 QA executed:
 
 Known current blockers:
 
-- Better Auth package and route integration are not implemented yet.
+- Better Auth package is implemented, but `/api/auth/*` route exposure and request-context integration are not implemented yet.
 - RBAC persistence exists at schema level, but seeds and permission-loading service are not implemented yet.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 2+ follow-up.
 
 Blocker resolution order:
 
-1. P2-T1
+1. P2-T2
 2. P2-T3
-3. P2-T2
-4. P2-T4
-5. P2-T5 and P2-T6
+3. P2-T4
+4. P2-T5 and P2-T6
 
 ## 7. QA Recording Template
 
@@ -314,3 +313,35 @@ Use this section format after every task execution:
   - none
 - Notes:
   - `packages/db` now falls back to the local development database URL outside production, while production still requires `DATABASE_URL`.
+
+### P2-T1 Implement Better Auth server and client configuration
+- Status: done
+- Changed files:
+  - `packages/auth/package.json`
+  - `packages/auth/src/index.ts`
+  - `packages/auth/src/env.ts`
+  - `packages/auth/src/server.ts`
+  - `packages/auth/src/client.ts`
+  - `packages/auth/src/index.test.ts`
+  - `packages/auth/src/smoke.ts`
+  - `packages/db/src/schema/auth.ts`
+  - `packages/db/src/schema/index.ts`
+  - `packages/db/src/migrations/0001_wealthy_edwin_jarvis.sql`
+  - `packages/db/src/migrations/meta/*`
+  - `pnpm-lock.yaml`
+- Commands:
+  - `pnpm install`
+  - `pnpm dlx @better-auth/cli@1.4.21 generate --cwd /Users/tao/work/ai/ai-native-os/packages/auth --config /Users/tao/work/ai/ai-native-os/packages/auth/src/server.ts --output /Users/tao/work/ai/ai-native-os/packages/db/src/schema/auth.ts --yes`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:generate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:migrate`
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm --filter @ai-native-os/auth smoke`
+- Result:
+  - Better Auth server/client/env configuration is implemented in `packages/auth`, auth schema and migration are added to `packages/db`, and direct sign-up/sign-in/get-session smoke validation succeeds against local PostgreSQL.
+- Unlocked tasks:
+  - `P2-T2`
+- Notes:
+  - Auth runtime currently uses dedicated Better Auth tables (`user`, `session`, `account`, `verification`) separate from the app-level `users` table; identity-to-RBAC bridging remains follow-up work in Phase 2.
