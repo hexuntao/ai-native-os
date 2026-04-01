@@ -102,7 +102,9 @@ function verifyEnvironmentMatrixDocumentation(): void {
     )
   }
 
-  assert.match(environmentMatrix, /P6-F1 worker deployment alignment/)
+  assert.match(environmentMatrix, /P6-F1/)
+  assert.match(environmentMatrix, /GET \/health/)
+  assert.match(environmentMatrix, /P6-T3/)
   assert.match(environmentMatrix, /Mode A: 全 Serverless/)
   assert.match(environmentMatrix, /Mode B: 混合/)
   assert.match(environmentMatrix, /Mode C: 全自托管/)

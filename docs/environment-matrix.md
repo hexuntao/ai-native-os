@@ -2,7 +2,7 @@
 
 Last Updated: 2026-04-01
 Owner: Scheduler Thread
-Scope: Phase 6 `P6-T1`
+Scope: Phase 6 `P6-T1` + `P6-F1`
 
 ## 1. 当前支持边界
 
@@ -10,9 +10,10 @@ Scope: Phase 6 `P6-T1`
   - `apps/web` on Next.js / Node
   - `apps/api` on Node.js
   - `apps/jobs` on Node.js / Trigger.dev
+  - `apps/worker` on Cloudflare-compatible runtime contract
   - `packages/auth` / `packages/db` 本地与服务端运行
 - 当前仓库尚未完成的部署面对齐：
-  - `apps/worker` 仍是 skeleton，不能宣称 Cloudflare Worker runtime 已对齐
+  - `apps/worker` 已完成 runtime / binding contract 对齐，但 `wrangler` 与 staging deploy 仍待 `P6-T3`
   - `Mode A: 全 Serverless` 仍是目标态，不是当前已验证交付态
 
 ## 2. 当前运行时环境变量
@@ -63,19 +64,19 @@ Scope: Phase 6 `P6-T1`
 
 ## 4. Worker 与 Cloudflare 绑定合同
 
-这些不是 `.env` 环境变量，而是 Cloudflare binding。当前仓库还没有完成对应 runtime 对齐，因此这里先把合同固定下来，后续由 `P6-F1` 落地。
+这些不是 `.env` 环境变量，而是 Cloudflare binding。`P6-F1` 已把这些 binding 的运行时合同落到 `apps/worker` 代码中，但真正的 `wrangler` 绑定声明与平台发布仍属于 `P6-T3`。
 
 | Binding | Intended Consumer | Status | Notes |
 |---|---|---|---|
-| `R2_BUCKET` | `apps/api`, `apps/worker` | target-state | 文件对象存储 |
-| `NOTIFICATION_QUEUE` | `apps/api`, `apps/worker` | target-state | 通知队列生产者 / 消费者 |
-| `CACHE_INVALIDATION_QUEUE` | `apps/worker` | target-state | 缓存失效消费 |
+| `R2_BUCKET` | `apps/api`, `apps/worker` | runtime-aligned | `apps/worker` 已使用该 binding 写入队列回执对象 |
+| `NOTIFICATION_QUEUE` | `apps/api`, `apps/worker` | runtime-aligned | 已在 worker 代码中固定消息合同与队列名 |
+| `CACHE_INVALIDATION_QUEUE` | `apps/worker` | runtime-aligned | 已在 worker 代码中固定消息合同与队列名 |
 
 ## 5. 部署模式准入
 
 | Mode | Current Status | Why |
 |---|---|---|
-| `Mode A: 全 Serverless` | partial | 设计文档已定义，但 `apps/worker` 未对齐，API 也尚未具备完整 Cloudflare deploy config |
+| `Mode A: 全 Serverless` | partial | worker runtime 合同已对齐，但 API/worker 的 `wrangler` 配置与 staging deploy 仍未完成 |
 | `Mode B: 混合` | next-up | 最贴近当前仓库实际形态：`web`、`api`、`jobs` 都已有 Node runtime |
 | `Mode C: 全自托管` | partial | 需要 `P6-T2` Docker topology 与 `P6-T5` rollback/playbook 才能闭环 |
 
@@ -97,9 +98,11 @@ Scope: Phase 6 `P6-T1`
 
 这些值后续只有在对应能力真正接线时，才应升级为运行时合同。
 
-## 7. 下一个纠偏任务
+## 7. Worker 对齐结果
 
-- `P6-F1 worker deployment alignment`
-  - 目标：把 `apps/worker` 从 skeleton 提升到可部署的 Cloudflare Worker runtime
-  - 交付：真实入口、绑定契约、最小 smoke test、后续 `wrangler` 配置前置条件
-  - 原因：不先完成这一步，`P6-T3` 无法诚实地宣称覆盖 worker deploy surface
+- `P6-F1` 已完成：
+  - `apps/worker` 现在暴露了真实的 Worker 入口，而不是 skeleton 标记
+  - 只读 smoke path 已固定为 `GET /health`
+  - `notifications` / `cache-invalidation` 两类队列消息会写入 `R2_BUCKET` 回执
+- 下一步：
+  - `P6-T3` 负责把这些代码级合同映射到 `wrangler`、Cloudflare bindings 与 staging deploy

@@ -8,6 +8,10 @@
     "dev": "tsx watch src/index.ts",
     "format": "biome check --write .",
     "lint": "biome check .",
+    "test": "tsx --test $(find src -type f -name '*.test.ts' | sort)",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest"
   }
 }

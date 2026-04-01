@@ -20,7 +20,7 @@
 > 说明：
 > - 本章的部署模板描述的是目标态架构。
 > - 当前仓库已经落地并验证过的真实运行时合同，以 `docs/environment-matrix.md` 为准。
-> - `apps/worker` 及 Cloudflare bindings 仍处于后续 Phase 6 对齐范围，在 `P6-F1` / `P6-T3` 完成前不能按“已支持”处理。
+> - `apps/worker` 已完成 runtime / binding contract 对齐；`wrangler`、Cloudflare bindings 声明与 staging deploy 仍属于 `P6-T3` 范围。
 
 ### 2.1 统一环境变量模板
 
