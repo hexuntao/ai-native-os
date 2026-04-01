@@ -1,5 +1,15 @@
 'use client'
 
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  cn,
+} from '@ai-native-os/ui'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -12,70 +22,97 @@ interface DashboardShellProps {
   shellState: AuthenticatedShellState
 }
 
+/**
+ * 为所有已登录页面提供统一的 dashboard 外壳，并消费共享导航/按钮/卡片原语。
+ */
 export function DashboardShell({ children, shellState }: DashboardShellProps): ReactNode {
   const pathname = usePathname()
 
   return (
-    <main className="app-shell">
-      <section className="metric-grid">
-        <article className="metric-card panel">
-          <p className="metric-label">Operator</p>
-          <strong>{shellState.session.user.name}</strong>
-          <span className="muted-copy">{shellState.session.user.email}</span>
-        </article>
-        <article className="metric-card panel">
-          <p className="metric-label">Roles</p>
-          <ul className="role-list">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Operator</p>
+            <CardTitle className="text-3xl">{shellState.session.user.name}</CardTitle>
+            <CardDescription>{shellState.session.user.email}</CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Roles</p>
+            <CardTitle className="text-3xl">{shellState.roleCodes.length}</CardTitle>
+            <CardDescription>Mapped RBAC roles for the authenticated subject.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
             {shellState.roleCodes.map((roleCode) => (
-              <li key={roleCode}>{roleCode}</li>
+              <Badge key={roleCode} variant="secondary">
+                {roleCode}
+              </Badge>
             ))}
-          </ul>
-        </article>
-        <article className="metric-card panel">
-          <p className="metric-label">Permission Rules</p>
-          <strong>{shellState.permissionRuleCount}</strong>
-          <span className="muted-copy">
-            {shellState.hiddenNavigationCount} surfaces hidden by ability checks
-          </span>
-        </article>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              Permission Rules
+            </p>
+            <CardTitle className="text-3xl">{shellState.permissionRuleCount}</CardTitle>
+            <CardDescription>
+              {shellState.hiddenNavigationCount} surfaces hidden by ability checks
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </section>
 
-      <section className="dashboard-grid">
-        <aside className="sidebar panel">
-          <div className="sidebar-header">
-            <p className="section-kicker">Authenticated Dashboard</p>
-            <h1 className="sidebar-title">AI Native OS</h1>
-            <p className="muted-copy">
+      <section className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+        <Card className="lg:sticky lg:top-6">
+          <CardHeader className="gap-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              Authenticated Dashboard
+            </p>
+            <CardTitle className="text-3xl">AI Native OS</CardTitle>
+            <CardDescription>
               App Router shell with server-rendered permission filtering and client-side provider
               baseline.
-            </p>
-          </div>
+            </CardDescription>
+          </CardHeader>
 
-          <nav aria-label="Primary navigation">
-            <ul className="nav-list">
-              {shellState.visibleNavigation.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    className="nav-link"
-                    data-active={String(isNavigationItemActive(item.href, pathname))}
-                    href={item.href}
-                  >
-                    <span className="nav-link-label">{item.label}</span>
-                    <span className="nav-link-hint">{item.description}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <CardContent className="grid gap-5">
+            <nav aria-label="Primary navigation">
+              <ul className="grid gap-2">
+                {shellState.visibleNavigation.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      className={cn(
+                        'grid gap-1 rounded-[var(--radius-lg)] border px-4 py-3 transition-transform duration-150 hover:-translate-y-0.5',
+                        isNavigationItemActive(item.href, pathname)
+                          ? 'border-primary/20 bg-primary/10'
+                          : 'border-transparent bg-transparent hover:border-border/70 hover:bg-card-strong/60',
+                      )}
+                      href={item.href}
+                    >
+                      <span className="text-lg font-medium">{item.label}</span>
+                      <span className="text-sm leading-6 text-muted-foreground">
+                        {item.description}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
 
-          <form action="/auth/sign-out" method="POST" style={{ marginTop: 18 }}>
-            <button className="secondary-button" type="submit">
-              Sign out
-            </button>
-          </form>
-        </aside>
+            <form action="/auth/sign-out" method="POST">
+              <Button type="submit" variant="secondary">
+                Sign out
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-        <section className="content-panel panel">{children}</section>
+        <Card className="min-h-[34rem]">
+          <CardContent className="p-6">{children}</CardContent>
+        </Card>
       </section>
     </main>
   )
