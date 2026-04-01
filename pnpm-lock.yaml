@@ -65,7 +65,11 @@ importers:
 
   apps/jobs: {}
 
-  apps/web: {}
+  apps/web:
+    dependencies:
+      '@ai-native-os/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/worker: {}
 

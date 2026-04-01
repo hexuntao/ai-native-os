@@ -1,8 +1,8 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 2 P2-T5 completed, P2-T6 ready
-Current Phase: Phase 2 `Auth + RBAC`
+Current Mode: Phase 2 completed, P3-T1 ready
+Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
 ## 1. Repository Snapshot
@@ -31,8 +31,8 @@ Overall Status: `ready_to_execute`
 | Phase | Name | Status | Exit Condition |
 |---|---|---|---|
 | 1 | Foundation Infrastructure | done | Monorepo, db/shared/api skeleton, local infra available |
-| 2 | Auth + RBAC | active | Better Auth + CASL + seed roles + minimal auth shell |
-| 3 | AI Core | backlog | Mastra + tools + workflows + MCP + RAG |
+| 2 | Auth + RBAC | done | Better Auth + CASL + seed roles + minimal auth shell |
+| 3 | AI Core | active | Mastra + tools + workflows + MCP + RAG |
 | 4 | Web UI | backlog | Dashboard + system pages + CopilotKit + generative UI |
 | 5 | Observability | backlog | Audit + telemetry + evals + feedback + prompt governance |
 | 6 | Deployment | backlog | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
@@ -52,7 +52,7 @@ Overall Status: `ready_to_execute`
 | P2-T3 | 2 | Implement RBAC tables, seeds, and permission-loading service | done | P1-T3 | seed and lookup verification |
 | P2-T4 | 2 | Implement CASL ability builder and permission middleware | done | P2-T2, P2-T3 | 403/condition verification |
 | P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | done | P2-T4 | ability fetch and deserialize |
-| P2-T6 | 2 | Build minimal auth shell and permission provider in web app | ready | P2-T1, P2-T5 | protected layout smoke |
+| P2-T6 | 2 | Build minimal auth shell and permission provider in web app | done | P2-T1, P2-T5 | protected layout smoke |
 | P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | backlog | P2-T4 | Mastra mount smoke |
 | P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | backlog | P2-T4, P3-T1 | tool schema + audit verification |
 | P3-T3 | 3 | Implement initial agents | backlog | P3-T2 | agent generation smoke |
@@ -81,7 +81,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P2-T6 Build minimal auth shell and permission provider in web app
+1. P3-T1 Integrate Mastra with Hono and register core runtime
 
 Auto-unlock rules:
 
@@ -94,7 +94,7 @@ Auto-unlock rules:
 - If P2-T5 -> `done`
   - mark P2-T6 as `ready`
 - If P2-T6 -> `done`
-  - Phase 2 is functionally complete pending bridge hardening follow-up
+  - mark P3-T1 as `ready`
 
 ## 5. Phase 1 Execution Checklist
 
@@ -129,13 +129,13 @@ Phase 1 QA executed:
 
 Known current blockers:
 
-- Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, and serialized ability query endpoints are implemented.
-- Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains a Phase 2 follow-up.
-- The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 2+ follow-up.
+- Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, serialized ability query endpoints, and the minimal web auth shell are implemented.
+- Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
+- The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
 
 Blocker resolution order:
 
-1. P2-T6
+1. P3-T1
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 
@@ -463,3 +463,38 @@ Use this section format after every task execution:
   - `P2-T6`
 - Notes:
   - The serialized ability endpoint intentionally returns normalized `PermissionRule[]` rather than raw CASL internal rule objects, so frontend consumers get a stable contract.
+
+### P2-T6 Build minimal auth shell and permission provider in web app
+- Status: done
+- Changed files:
+  - `apps/web/package.json`
+  - `apps/web/src/server.ts`
+  - `apps/web/src/server.test.ts`
+  - `apps/web/src/lib/ability.ts`
+  - `apps/web/src/lib/ability.test.ts`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/lib/env.ts`
+  - `apps/web/src/lib/http.ts`
+  - `apps/web/src/lib/page.ts`
+  - `pnpm-lock.yaml`
+  - `Status.md`
+- Commands:
+  - `pnpm install`
+  - `pnpm biome check --write apps/web/src apps/web/package.json`
+  - `pnpm --filter @ai-native-os/web typecheck`
+  - `pnpm --filter @ai-native-os/web test`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed:verify`
+  - `curl -sS http://localhost:3001/health`
+  - `curl -sS http://localhost:3000`
+  - `curl -sS -i -X POST http://localhost:3000/login -H 'content-type: application/x-www-form-urlencoded' --data 'email=viewer%40ai-native-os.local&password=Passw0rd%21Passw0rd%21'`
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Web now serves a real auth shell that proxies Better Auth login/logout, fetches serialized ability and permission payloads from the API, and filters visible navigation server-side based on the authenticated user's CASL ability.
+- Unlocked tasks:
+  - `P3-T1`
+- Notes:
+  - The shell degrades safely to the unauthenticated sign-in surface when the API is unavailable, while the full smoke validation used the standard `http://localhost:3000` app origin because Better Auth trusted origins default to that development URL.
