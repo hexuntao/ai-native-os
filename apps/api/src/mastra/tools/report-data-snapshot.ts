@@ -4,9 +4,20 @@ import { z } from 'zod'
 
 import { defineProtectedMastraTool } from './base'
 
-const reportDataSnapshotInputSchema = z.object({})
+/**
+ * 系统报表快照 Tool。
+ *
+ * 职责边界：
+ * - 仅生成核心实体数量的只读快照，供 Agent/Workflow 生成概览报表
+ * - 不执行任何写操作，也不暴露原始敏感记录
+ *
+ * 权限与审计：
+ * - 权限固定为 `export:Report`
+ * - 每次调用都通过基座写入 AI 审计日志
+ */
+export const reportDataSnapshotInputSchema = z.object({})
 
-const reportDataSnapshotOutputSchema = z.object({
+export const reportDataSnapshotOutputSchema = z.object({
   counts: z.object({
     aiAuditLogs: z.number().int().nonnegative(),
     menus: z.number().int().nonnegative(),

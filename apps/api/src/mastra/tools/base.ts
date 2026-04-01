@@ -6,7 +6,7 @@ import {
   defineAbilityFor,
   type PermissionRule,
 } from '@ai-native-os/shared'
-import { createTool, type ToolAction, type ToolExecutionContext } from '@mastra/core/tools'
+import { createTool, type Tool, type ToolExecutionContext } from '@mastra/core/tools'
 import type { z } from 'zod'
 
 import {
@@ -39,7 +39,7 @@ export interface RegisteredMastraTool {
   inputSchema: z.ZodType<unknown>
   outputSchema: z.ZodType<unknown>
   permission: MastraToolPermission
-  tool: ToolAction<
+  tool: Tool<
     unknown,
     unknown,
     unknown,

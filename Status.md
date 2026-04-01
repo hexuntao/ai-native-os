@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 P3-T3 completed, P3-T4 ready
+Current Mode: Phase 3 P3-T4 completed, P3-T5 ready
 Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
@@ -24,8 +24,9 @@ Overall Status: `ready_to_execute`
 - Not yet present:
   - CI workflows
   - production deployment files
-  - initial agent implementations
-  - workflow orchestration runtime
+  - CopilotKit / AG-UI backend bridge
+  - pgvector-backed RAG runtime
+  - MCP server and external MCP client wiring
 
 ## 2. Phase Summary
 
@@ -59,10 +60,10 @@ Overall Status: `ready_to_execute`
 | P3-F1 | 3 | Unify Mastra auth boundary and authenticated request-context bridge | done | P3-T1, P3-T2 | authenticated `/mastra/*` smoke |
 | P3-F2 | 3 | Remove empty-runtime assumptions and align runtime metadata | done | P3-F1 | runtime summary + test cleanup |
 | P3-T3 | 3 | Implement initial agents | done | P3-T2, P3-F1, P3-F2 | agent generation smoke |
-| P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | ready | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
-| P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | backlog | P3-T1, P3-T3 | streaming endpoint smoke |
+| P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | done | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
+| P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | ready | P3-T1, P3-T3 | streaming endpoint smoke |
 | P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | ready | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
-| P3-T7 | 3 | Implement MCP server and external MCP client integration | backlog | P3-T2, P3-T3 | MCP discovery smoke |
+| P3-T7 | 3 | Implement MCP server and external MCP client integration | ready | P3-T2, P3-T3, P3-T4 | MCP discovery smoke |
 | P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | backlog | P2-T6 | authenticated shell smoke |
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | backlog | P1-T2 | package/ui build smoke |
 | P4-T3 | 4 | Implement system management pages | backlog | P4-T1, P4-T2, Phase 2 | CRUD page smoke |
@@ -84,8 +85,9 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-T4 Implement AI workflows and Trigger.dev task orchestration
+1. P3-T5 Implement CopilotKit and AG-UI backend bridge
 2. P3-T6 Implement pgvector-backed RAG indexing and retrieval
+3. P3-T7 Implement MCP server and external MCP client integration
 
 Auto-unlock rules:
 
@@ -104,8 +106,12 @@ Auto-unlock rules:
 - If P3-T2 -> `done`
   - mark P3-T3 as `ready`
   - mark P3-T4 as `ready`
+- If P3-T3 -> `done`
+  - mark P3-T5 as `ready`
 - If P3-T1 -> `done`
   - mark P3-T6 as `ready`
+- If P3-T4 -> `done`
+  - mark P3-T7 as `ready`
 
 Temporary Phase 3 correction rules:
 
@@ -152,13 +158,16 @@ Known current blockers:
 - Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, serialized ability query endpoints, and the minimal web auth shell are implemented.
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
-- Mastra runtime now has registered read/report/config tools and initial read-only agents with RBAC-aware cataloging and AI audit persistence, but workflow orchestration, MCP wiring, outbound notifications, route-level Mastra authorization hardening, and RAG remain pending Phase 3 tasks.
+- Mastra runtime now has registered read/report/config tools, initial read-only agents, a report workflow, and Trigger.dev report orchestration; however, jobs still rely on a narrow in-process scheduler principal for workflow execution because a formal service-to-service identity contract has not been implemented yet.
+- MCP wiring, outbound notifications, CopilotKit/AG-UI streaming, route-level Mastra authorization hardening beyond authenticated access, and pgvector-backed RAG remain pending Phase 3 tasks.
 
 Blocker resolution order:
 
-1. P3-T4
-2. Better Auth ↔ RBAC principal bridge hardening
-3. Redis runtime wiring
+1. P3-T5
+2. P3-T6
+3. P3-T7
+4. Better Auth ↔ RBAC principal bridge hardening
+5. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -671,3 +680,38 @@ Use this section format after every task execution:
 - Notes:
   - This task intentionally avoids write-capable tools because Mastra route-level authorization is not yet hardened beyond authenticated access.
   - Tool-level RBAC and AI audit logging remain the effective enforcement boundary for current agent execution.
+
+### P3-T4 Implement AI workflows and Trigger.dev task orchestration
+- Status: done
+- Changed files:
+  - `apps/api/package.json`
+  - `apps/api/src/index.test.ts`
+  - `apps/api/src/mastra/registry.ts`
+  - `apps/api/src/mastra/request-context.ts`
+  - `apps/api/src/mastra/tools/base.ts`
+  - `apps/api/src/mastra/tools/report-data-snapshot.ts`
+  - `apps/api/src/mastra/workflows/index.ts`
+  - `apps/api/src/mastra/workflows/report-schedule.ts`
+  - `apps/api/src/mastra/workflows/report-schedule.test.ts`
+  - `apps/jobs/package.json`
+  - `apps/jobs/src/index.ts`
+  - `apps/jobs/src/index.test.ts`
+  - `apps/jobs/src/trigger/report-schedule.ts`
+  - `apps/jobs/trigger.config.ts`
+  - `pnpm-lock.yaml`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write apps/api/src/mastra/tools/report-data-snapshot.ts apps/api/src/mastra/workflows/report-schedule.ts apps/api/src/mastra/workflows/index.ts apps/api/src/mastra/workflows/report-schedule.test.ts apps/api/src/mastra/registry.ts apps/api/src/index.test.ts apps/jobs/src/trigger/report-schedule.ts apps/jobs/src/index.ts apps/jobs/src/index.test.ts apps/jobs/trigger.config.ts apps/api/package.json apps/jobs/package.json`
+  - `pnpm install`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Added the first read-only Mastra workflow, `report-schedule`, with workflow-level audit logging and request-id correlation to the underlying `report-data-snapshot` tool. Added a Trigger.dev scheduled task entrypoint in `apps/jobs`, plus `apps/jobs/trigger.config.ts`, so the project now has a concrete background orchestration runtime instead of a skeleton. Authenticated Mastra workflow routes are visible, workflow runtime summary now reports `workflows_ready`, and end-to-end tests prove the workflow and scheduled task both execute successfully and persist audit records.
+- Unlocked tasks:
+  - `P3-T5`
+  - `P3-T7`
+- Notes:
+  - Because the project still lacks a formal service-to-service identity model, the jobs runtime uses an in-process least-privilege scheduler principal that grants only `export:Report`; it does not open a new external HTTP bypass for `/mastra/*`.
+  - This task intentionally stays read-only and does not introduce approval flows, notifications, or write-capable workflows before the route-level authorization and service-identity story are fully hardened.

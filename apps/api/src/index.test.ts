@@ -508,6 +508,18 @@ test('Mastra runtime summary route reflects the current runtime registry state',
   assert.equal(payload.json.toolCount, 6)
   assert.deepEqual(payload.json.registeredAgentIds.sort(), ['admin-copilot', 'audit-analyst'])
   assert.equal(payload.json.agentCount, payload.json.registeredAgentIds.length)
+  assert.deepEqual(payload.json.registeredWorkflowIds.sort(), ['report-schedule'])
   assert.equal(payload.json.workflowCount, payload.json.registeredWorkflowIds.length)
-  assert.equal(payload.json.runtimeStage, 'agents_ready')
+  assert.equal(payload.json.runtimeStage, 'workflows_ready')
+})
+
+test('Mastra workflow routes expose the registered report workflow for authenticated users', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/mastra/workflows', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as unknown
+
+  assert.equal(response.status, 200)
+  assert.ok(JSON.stringify(payload).includes('report-schedule'))
 })

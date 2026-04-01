@@ -8,6 +8,12 @@
     "dev": "tsx watch src/index.ts",
     "format": "biome check --write .",
     "lint": "biome check .",
+    "test": "tsx --test $(find src -type f -name '*.test.ts' | sort)",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ai-native-os/api": "workspace:*",
+    "@ai-native-os/db": "workspace:*",
+    "@trigger.dev/sdk": "^4.4.3"
   }
 }

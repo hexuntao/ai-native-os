@@ -2,6 +2,7 @@ import type { ToolAction, ToolExecutionContext } from '@mastra/core/tools'
 
 import { mastraAgentRegistry } from './agents'
 import { mastraTools as registeredMastraTools } from './tools'
+import { mastraWorkflows as registeredMastraWorkflows } from './workflows'
 
 /**
  * Mastra 注册表。
@@ -14,7 +15,7 @@ import { mastraTools as registeredMastraTools } from './tools'
  * 当前状态：
  * - Tool 已启用并受 RBAC + audit 约束
  * - 首批只读 Agent 已注册
- * - Workflow 仍待后续 Phase 3 任务注册
+ * - 首个只读报表 Workflow 已注册，供 Trigger.dev 编排调用
  */
 export const mastraAgents = mastraAgentRegistry
 
@@ -31,4 +32,4 @@ export const mastraTools = registeredMastraTools as Record<
   >
 >
 
-export const mastraWorkflows = {}
+export const mastraWorkflows = registeredMastraWorkflows

@@ -2,8 +2,6 @@ import { permissionRuleListSchema } from '@ai-native-os/shared'
 import { RequestContext } from '@mastra/core/request-context'
 import { z } from 'zod'
 
-import type { AppContext } from '@/orpc/context'
-
 export const mastraToolRequestContextSchema = z.object({
   authUserId: z.string(),
   permissionRules: permissionRuleListSchema,
@@ -14,6 +12,19 @@ export const mastraToolRequestContextSchema = z.object({
 })
 
 export type MastraToolRequestContextValues = z.infer<typeof mastraToolRequestContextSchema>
+
+export interface MastraAppContextSource {
+  permissionRules: MastraToolRequestContextValues['permissionRules']
+  rbacUserId: MastraToolRequestContextValues['rbacUserId']
+  requestId: MastraToolRequestContextValues['requestId']
+  roleCodes: MastraToolRequestContextValues['roleCodes']
+  session: {
+    user: {
+      email?: string | null
+    }
+  } | null
+  userId: string | null
+}
 
 export function createMastraRequestContext(
   values: MastraToolRequestContextValues,
@@ -31,7 +42,7 @@ export function createMastraRequestContext(
 }
 
 export function createMastraRequestContextFromAppContext(
-  context: AppContext,
+  context: MastraAppContextSource,
 ): RequestContext<MastraToolRequestContextValues> {
   if (!context.userId) {
     throw new Error('Authenticated app context is required to build Mastra request context')
