@@ -8,10 +8,11 @@ import {
   loadUserPermissionProfileByEmail,
 } from '@ai-native-os/db'
 import type { RequestContext } from '@mastra/core/request-context'
-
+import { indexKnowledgeDocument } from '../rag/indexing'
 import { createMastraRequestContext } from '../request-context'
 import {
   aiAuditLogSearchRegistration,
+  knowledgeSemanticSearchRegistration,
   reportDataSnapshotRegistration,
   userDirectoryRegistration,
 } from './index'
@@ -132,4 +133,57 @@ test('report-data-snapshot tool returns aggregate counts for report-capable prin
   assert.ok(parsedResult.counts.users > 0)
   assert.ok(parsedResult.counts.roles > 0)
   assert.ok(parsedResult.generatedAt.length > 0)
+})
+
+test('knowledge-semantic-search tool returns indexed knowledge for administrators', async () => {
+  const requestContext = await createToolRequestContextForRole('admin')
+
+  await indexKnowledgeDocument({
+    input: {
+      chunkOverlap: 32,
+      chunkSize: 180,
+      content: `
+访问控制策略说明
+
+当管理员需要排查权限问题时，应先核对角色绑定，再查看权限规则和菜单映射。
+如果问题出现在多角色用户，应重点检查条件权限和字段级限制。
+`,
+      documentId: '3c69bb0c-cdf8-45f7-aaf6-4d8cb4b2ea1e',
+      metadata: {
+        domain: 'rbac',
+      },
+      sourceType: 'policy',
+      sourceUri: 'https://example.com/rbac-policy',
+      title: 'RBAC Investigation Guide',
+    },
+  })
+
+  const execute = knowledgeSemanticSearchRegistration.tool.execute
+
+  assert.ok(execute)
+
+  const result = await execute(
+    {
+      documentId: '3c69bb0c-cdf8-45f7-aaf6-4d8cb4b2ea1e',
+      limit: 3,
+      query: '如何排查多角色用户的权限问题',
+    },
+    {
+      requestContext: toUntypedRequestContext(requestContext),
+    },
+  )
+  const parsedResult = knowledgeSemanticSearchRegistration.outputSchema.parse(result) as {
+    matches: Array<{
+      content: string
+      documentId: string
+      title: string
+    }>
+  }
+  const auditRows = await listAiAuditLogsByToolId(knowledgeSemanticSearchRegistration.id)
+
+  assert.equal(parsedResult.matches[0]?.documentId, '3c69bb0c-cdf8-45f7-aaf6-4d8cb4b2ea1e')
+  assert.equal(parsedResult.matches[0]?.title, 'RBAC Investigation Guide')
+  assert.ok(parsedResult.matches[0]?.content.includes('多角色用户'))
+  assert.equal(auditRows[0]?.status, 'success')
+  assert.equal(auditRows[0]?.subject, 'AiKnowledge')
 })

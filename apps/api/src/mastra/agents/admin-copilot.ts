@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent'
 
 import { resolveMastraEnvironment } from '@/mastra/env'
 import {
+  knowledgeSemanticSearchRegistration,
   permissionProfileRegistration,
   reportDataSnapshotRegistration,
   runtimeConfigRegistration,
@@ -39,6 +40,7 @@ export const adminCopilot = new Agent({
 - 权限画像查询
 - 运行时安全配置读取
 - 报表快照汇总
+- 知识库语义检索
 
 ## 严格约束
 - 当前阶段只允许只读分析，不执行任何写操作
@@ -55,6 +57,7 @@ export const adminCopilot = new Agent({
   name: 'Admin Copilot',
   tools: {
     permissionProfile: permissionProfileRegistration.tool,
+    knowledgeSemanticSearch: knowledgeSemanticSearchRegistration.tool,
     reportDataSnapshot: reportDataSnapshotRegistration.tool,
     runtimeConfig: runtimeConfigRegistration.tool,
     userDirectory: userDirectoryRegistration.tool,

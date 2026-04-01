@@ -47,6 +47,9 @@ importers:
       '@ai-native-os/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@ai-sdk/openai':
+        specifier: ^2.0.101
+        version: 2.0.101(zod@4.3.6)
       '@casl/ability':
         specifier: latest
         version: 6.8.0
@@ -71,6 +74,9 @@ importers:
       '@scalar/hono-api-reference':
         specifier: latest
         version: 0.10.5(hono@4.12.9)
+      ai:
+        specifier: ^5.0.162
+        version: 5.0.162(zod@4.3.6)
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(kysely@0.28.15)(pg@8.20.0)
@@ -89,6 +95,9 @@ importers:
       '@ai-native-os/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ai-native-os/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@trigger.dev/sdk':
         specifier: ^4.4.3
         version: 4.4.3(ai@5.0.162(zod@4.3.6))(zod@4.3.6)
@@ -3194,7 +3203,6 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.22(zod@4.3.6)
       '@vercel/oidc': 3.1.0
       zod: 4.3.6
-    optional: true
 
   '@ai-sdk/google@2.0.64(zod@3.25.76)':
     dependencies:
@@ -3214,6 +3222,12 @@ snapshots:
       '@ai-sdk/provider': 2.0.1
       '@ai-sdk/provider-utils': 3.0.22(zod@3.25.76)
       zod: 3.25.76
+
+  '@ai-sdk/openai@2.0.101(zod@4.3.6)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.1
+      '@ai-sdk/provider-utils': 3.0.22(zod@4.3.6)
+      zod: 4.3.6
 
   '@ai-sdk/provider-utils@2.2.8(zod@4.3.6)':
     dependencies:
@@ -3249,7 +3263,6 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
       zod: 4.3.6
-    optional: true
 
   '@ai-sdk/provider-utils@4.0.0(zod@4.3.6)':
     dependencies:
@@ -4584,7 +4597,6 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.22(zod@4.3.6)
       '@opentelemetry/api': 1.9.0
       zod: 4.3.6
-    optional: true
 
   ajv-formats@3.0.1(ajv@8.18.0):
     optionalDependencies:

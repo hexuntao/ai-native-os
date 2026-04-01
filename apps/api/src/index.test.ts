@@ -479,6 +479,7 @@ test('AI tool catalog endpoint exposes enabled tools for the authenticated princ
   assert.equal(toolById.get('user-directory')?.enabled, true)
   assert.equal(toolById.get('operation-log-search')?.enabled, true)
   assert.equal(toolById.get('ai-audit-log-search')?.enabled, false)
+  assert.equal(toolById.get('knowledge-semantic-search')?.enabled, false)
   assert.equal(toolById.get('runtime-config')?.enabled, false)
 })
 
@@ -536,7 +537,7 @@ test('Mastra runtime summary route reflects the current runtime registry state',
   assert.equal(payload.json.routePrefix, '/mastra')
   assert.equal(payload.json.openapiPath, '/openapi.json')
   assert.equal(payload.json.defaultModel, 'openai/gpt-4.1-mini')
-  assert.equal(payload.json.toolCount, 6)
+  assert.equal(payload.json.toolCount, 7)
   assert.deepEqual(payload.json.registeredAgentIds.sort(), ['admin-copilot', 'audit-analyst'])
   assert.equal(payload.json.agentCount, payload.json.registeredAgentIds.length)
   assert.deepEqual(payload.json.registeredWorkflowIds.sort(), ['report-schedule'])

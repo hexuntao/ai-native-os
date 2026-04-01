@@ -1,3 +1,4 @@
+export { executeRagIndexingTask, ragIndexingTask } from './trigger/rag-indexing'
 export { executeReportScheduleTask, reportScheduleTask } from './trigger/report-schedule'
 
 /**
@@ -11,5 +12,6 @@ export const jobsRuntime = {
   name: '@ai-native-os/jobs',
   scheduledTaskIds: ['report-schedule-trigger'],
   status: 'workflow-orchestration-ready',
+  taskIds: ['rag-indexing', 'report-schedule-trigger'],
   triggerConfigPath: 'apps/jobs/trigger.config.ts',
 } as const

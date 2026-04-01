@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 P3-T5 completed, P3-T6 ready
+Current Mode: Phase 3 P3-T6 completed, P3-T7 ready
 Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
@@ -25,7 +25,6 @@ Overall Status: `ready_to_execute`
   - CI workflows
   - production deployment files
   - CopilotKit frontend sidebar and assistant chat UI
-  - pgvector-backed RAG runtime
   - MCP server and external MCP client wiring
 
 ## 2. Phase Summary
@@ -62,7 +61,7 @@ Overall Status: `ready_to_execute`
 | P3-T3 | 3 | Implement initial agents | done | P3-T2, P3-F1, P3-F2 | agent generation smoke |
 | P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | done | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
 | P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | done | P3-T1, P3-T3 | streaming endpoint smoke |
-| P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | ready | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
+| P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | done | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
 | P3-T7 | 3 | Implement MCP server and external MCP client integration | ready | P3-T2, P3-T3, P3-T4 | MCP discovery smoke |
 | P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | backlog | P2-T6 | authenticated shell smoke |
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | backlog | P1-T2 | package/ui build smoke |
@@ -85,8 +84,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-T6 Implement pgvector-backed RAG indexing and retrieval
-2. P3-T7 Implement MCP server and external MCP client integration
+1. P3-T7 Implement MCP server and external MCP client integration
 
 Auto-unlock rules:
 
@@ -162,15 +160,15 @@ Known current blockers:
 - Mastra runtime now has registered read/report/config tools, initial read-only agents, a report workflow, and Trigger.dev report orchestration; however, jobs still rely on a narrow in-process scheduler principal for workflow execution because a formal service-to-service identity contract has not been implemented yet.
 - CopilotKit / AG-UI backend bridge is implemented and authenticated, but the documented frontend Copilot sidebar and assistant chat UX still remain a Phase 4 task because `apps/web` has not yet been migrated to the project’s Next.js baseline.
 - Current CopilotKit bridge depends on upstream packages that still emit peer warnings around `@ag-ui/encoder`, and the repository still carries an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime behavior and tests are green, but this remains dependency-risk follow-up.
-- MCP wiring, outbound notifications, route-level Mastra authorization hardening beyond authenticated access, and pgvector-backed RAG remain pending Phase 3 tasks.
+- pgvector-backed RAG is now implemented with `ai_knowledge` storage, semantic retrieval, and a Trigger.dev indexing task. However, production still requires a real embedding provider key, while deterministic local embeddings are intentionally limited to development and test.
+- MCP wiring, outbound notifications, and route-level Mastra authorization hardening beyond authenticated access remain pending Phase 3 tasks.
 
 Blocker resolution order:
 
-1. P3-T6
-2. P3-T7
-3. Better Auth ↔ RBAC principal bridge hardening
-4. Redis runtime wiring
-5. CopilotKit frontend UI migration in Phase 4
+1. P3-T7
+2. Better Auth ↔ RBAC principal bridge hardening
+3. Redis runtime wiring
+4. CopilotKit frontend UI migration in Phase 4
 
 ## 7. QA Recording Template
 
@@ -741,3 +739,48 @@ Use this section format after every task execution:
 - Notes:
   - This task intentionally implements only the backend bridge. The documented Copilot sidebar and assistant chat UI remain a Phase 4 frontend task because `apps/web` is still not on the project’s Next.js baseline.
   - Upstream `@copilotkit/runtime` and AG-UI packages still emit peer warnings around `@ag-ui/encoder`, and the repository retains an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime and tests are green, but dependency harmonization remains follow-up work.
+
+### P3-T6 Implement pgvector-backed RAG indexing and retrieval
+- Status: done
+- Changed files:
+  - `packages/shared/src/schemas/ai-knowledge.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/db/src/schema/ai-knowledge.ts`
+  - `packages/db/src/schema/index.ts`
+  - `packages/db/src/ai/knowledge.ts`
+  - `packages/db/src/ai/knowledge.test.ts`
+  - `packages/db/src/index.ts`
+  - `packages/db/src/migrations/0003_sour_firestar.sql`
+  - `packages/db/src/migrations/meta/0003_snapshot.json`
+  - `packages/db/src/migrations/meta/_journal.json`
+  - `apps/api/src/mastra/rag/chunking.ts`
+  - `apps/api/src/mastra/rag/embeddings.ts`
+  - `apps/api/src/mastra/rag/indexing.ts`
+  - `apps/api/src/mastra/rag/retrieval.ts`
+  - `apps/api/src/mastra/tools/knowledge-semantic-search.ts`
+  - `apps/api/src/mastra/tools/index.ts`
+  - `apps/api/src/mastra/tools/index.test.ts`
+  - `apps/api/src/mastra/agents/admin-copilot.ts`
+  - `apps/api/src/index.test.ts`
+  - `apps/api/package.json`
+  - `apps/jobs/src/trigger/rag-indexing.ts`
+  - `apps/jobs/src/index.ts`
+  - `apps/jobs/src/index.test.ts`
+  - `pnpm-lock.yaml`
+  - `Status.md`
+- Commands:
+  - `pnpm install`
+  - `pnpm biome check --write packages/shared/src/schemas/ai-knowledge.ts packages/db/src/schema/ai-knowledge.ts packages/db/src/ai/knowledge.ts packages/db/src/ai/knowledge.test.ts apps/api/src/mastra/rag/chunking.ts apps/api/src/mastra/rag/embeddings.ts apps/api/src/mastra/rag/indexing.ts apps/api/src/mastra/rag/retrieval.ts apps/api/src/mastra/tools/knowledge-semantic-search.ts apps/api/src/mastra/tools/index.ts apps/api/src/mastra/agents/admin-copilot.ts apps/api/src/mastra/tools/index.test.ts apps/api/src/index.test.ts apps/jobs/src/trigger/rag-indexing.ts apps/jobs/src/index.ts apps/jobs/src/index.test.ts apps/api/package.json`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:generate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:migrate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test`
+- Result:
+  - Added an `ai_knowledge` pgvector-backed storage model with HNSW cosine index, shared RAG schemas, deterministic chunking, embedding and retrieval helpers, and a protected `knowledge-semantic-search` Tool under `read:AiKnowledge`. The runtime now exposes real semantic knowledge retrieval to `admin-copilot`, and `apps/jobs` provides a concrete `rag-indexing` Trigger.dev task that indexes sample documents and makes them semantically searchable end-to-end.
+- Unlocked tasks:
+  - none
+- Notes:
+  - Production RAG must use a real embedding provider via `OPENAI_API_KEY`; deterministic local embeddings are intentionally limited to development and test so QA can run without external model dependencies.
+  - This task implements the backend RAG slice only. Knowledge CRUD UI and upload workflows remain later frontend/application tasks.

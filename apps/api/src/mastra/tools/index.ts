@@ -2,6 +2,7 @@ import type { AppAbility } from '@ai-native-os/shared'
 
 import { aiAuditLogSearchRegistration } from './ai-audit-log-search'
 import type { RegisteredMastraTool } from './base'
+import { knowledgeSemanticSearchRegistration } from './knowledge-semantic-search'
 import { operationLogSearchRegistration } from './operation-log-search'
 import { permissionProfileRegistration } from './permission-profile'
 import { reportDataSnapshotRegistration } from './report-data-snapshot'
@@ -13,6 +14,7 @@ const registeredMastraTools = [
   permissionProfileRegistration,
   operationLogSearchRegistration,
   aiAuditLogSearchRegistration,
+  knowledgeSemanticSearchRegistration,
   reportDataSnapshotRegistration,
   runtimeConfigRegistration,
 ] as const satisfies readonly RegisteredMastraTool[]
@@ -20,6 +22,7 @@ const registeredMastraTools = [
 export const mastraToolRegistry = registeredMastraTools
 export {
   aiAuditLogSearchRegistration,
+  knowledgeSemanticSearchRegistration,
   operationLogSearchRegistration,
   permissionProfileRegistration,
   reportDataSnapshotRegistration,
