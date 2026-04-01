@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 
 import { db, roles, userRoles, users } from '@ai-native-os/db'
+import { deserializeAbility } from '@ai-native-os/shared'
 import { eq } from 'drizzle-orm'
 
 import { app } from './index'
@@ -229,4 +230,80 @@ test('permission admin endpoint returns 403 when the authenticated role lacks pe
   assert.equal(response.status, 403)
   assert.equal(payload.json?.code, 'FORBIDDEN')
   assert.equal(payload.json?.message, 'Missing permission manage:Permission')
+})
+
+test('current permissions endpoint returns normalized RBAC rules for the active user', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+
+  const response = await app.request('http://localhost/api/v1/system/permissions/current', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as {
+    json: {
+      permissionRules: Array<{
+        action: string
+        subject: string
+      }>
+      rbacUserId: string | null
+      roleCodes: string[]
+      userId: string
+    }
+  }
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(payload.json.roleCodes, ['viewer'])
+  assert.ok(payload.json.rbacUserId)
+  assert.ok(payload.json.userId)
+  assert.ok(
+    payload.json.permissionRules.some((rule) => rule.action === 'read' && rule.subject === 'Role'),
+  )
+})
+
+test('serialized ability endpoint returns rules that can be deserialized by frontend consumers', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+
+  const response = await app.request('http://localhost/api/v1/system/permissions/ability', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as {
+    json: {
+      roleCodes: string[]
+      rules: Array<{
+        action:
+          | 'approve'
+          | 'assign'
+          | 'create'
+          | 'delete'
+          | 'export'
+          | 'import'
+          | 'manage'
+          | 'read'
+          | 'update'
+        subject:
+          | 'AiAgent'
+          | 'AiAuditLog'
+          | 'AiKnowledge'
+          | 'AiWorkflow'
+          | 'Approval'
+          | 'Config'
+          | 'Dict'
+          | 'Menu'
+          | 'OnlineUser'
+          | 'OperationLog'
+          | 'Permission'
+          | 'Report'
+          | 'Role'
+          | 'User'
+          | 'all'
+      }>
+      userId: string
+    }
+  }
+  const ability = deserializeAbility(payload.json.rules)
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(payload.json.roleCodes, ['viewer'])
+  assert.ok(payload.json.userId)
+  assert.equal(ability.can('read', 'Role'), true)
+  assert.equal(ability.can('manage', 'Permission'), false)
 })

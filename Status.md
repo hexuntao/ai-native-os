@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 2 P2-T4 completed, P2-T5 ready
+Current Mode: Phase 2 P2-T5 completed, P2-T6 ready
 Current Phase: Phase 2 `Auth + RBAC`
 Overall Status: `ready_to_execute`
 
@@ -51,8 +51,8 @@ Overall Status: `ready_to_execute`
 | P2-T2 | 2 | Integrate auth middleware into Hono and expose auth routes | done | P2-T1 | 401/auth route smoke |
 | P2-T3 | 2 | Implement RBAC tables, seeds, and permission-loading service | done | P1-T3 | seed and lookup verification |
 | P2-T4 | 2 | Implement CASL ability builder and permission middleware | done | P2-T2, P2-T3 | 403/condition verification |
-| P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | ready | P2-T4 | ability fetch and deserialize |
-| P2-T6 | 2 | Build minimal auth shell and permission provider in web app | backlog | P2-T1, P2-T5 | protected layout smoke |
+| P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | done | P2-T4 | ability fetch and deserialize |
+| P2-T6 | 2 | Build minimal auth shell and permission provider in web app | ready | P2-T1, P2-T5 | protected layout smoke |
 | P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | backlog | P2-T4 | Mastra mount smoke |
 | P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | backlog | P2-T4, P3-T1 | tool schema + audit verification |
 | P3-T3 | 3 | Implement initial agents | backlog | P3-T2 | agent generation smoke |
@@ -81,7 +81,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P2-T5 Expose permission query endpoints and serialized ability payload
+1. P2-T6 Build minimal auth shell and permission provider in web app
 
 Auto-unlock rules:
 
@@ -93,6 +93,8 @@ Auto-unlock rules:
   - mark P2-T5 as `ready`
 - If P2-T5 -> `done`
   - mark P2-T6 as `ready`
+- If P2-T6 -> `done`
+  - Phase 2 is functionally complete pending bridge hardening follow-up
 
 ## 5. Phase 1 Execution Checklist
 
@@ -127,15 +129,15 @@ Phase 1 QA executed:
 
 Known current blockers:
 
-- Better Auth route exposure, RBAC seed data, permission loading, and CASL enforcement middleware are implemented, but serialized ability query endpoints are not implemented yet.
+- Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, and serialized ability query endpoints are implemented.
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains a Phase 2 follow-up.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 2+ follow-up.
 
 Blocker resolution order:
 
-1. P2-T5
-2. P2-T6
-3. Better Auth ↔ RBAC principal bridge hardening
+1. P2-T6
+2. Better Auth ↔ RBAC principal bridge hardening
+3. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -434,3 +436,30 @@ Use this section format after every task execution:
   - `P2-T5`
 - Notes:
   - Runtime permission loading currently bridges Better Auth users to app RBAC principals by email. This is sufficient for Phase 2 middleware and tests, but dedicated identity linking is still follow-up work.
+
+### P2-T5 Expose permission query endpoints and serialized ability payload
+- Status: done
+- Changed files:
+  - `packages/shared/src/schemas/ability.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/api/src/routes/index.ts`
+  - `apps/api/src/routes/system/current-ability.ts`
+  - `apps/api/src/routes/system/current-permissions.ts`
+  - `apps/api/src/index.test.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write packages/shared/src apps/api/src`
+  - `pnpm --filter @ai-native-os/shared typecheck`
+  - `pnpm --filter @ai-native-os/api typecheck`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm --filter @ai-native-os/api test`
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - API now exposes `/api/v1/system/permissions/current` for normalized RBAC rules and `/api/v1/system/permissions/ability` for a frontend-deserializable ability payload, both covered by runtime tests using `deserializeAbility`.
+- Unlocked tasks:
+  - `P2-T6`
+- Notes:
+  - The serialized ability endpoint intentionally returns normalized `PermissionRule[]` rather than raw CASL internal rule objects, so frontend consumers get a stable contract.

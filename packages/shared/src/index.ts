@@ -1,6 +1,7 @@
 export * from './abilities/define-ability'
 export * from './abilities/subjects'
 export * from './constants/error-codes'
+export * from './schemas/ability'
 export * from './schemas/common'
 export * from './schemas/health'
 export * from './types'
