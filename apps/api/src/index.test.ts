@@ -446,14 +446,17 @@ test('AI audit logs endpoint returns recent entries for administrators', async (
   assert.ok(payload.json.logs.some((log) => log.toolId === testToolId && log.status === 'success'))
 })
 
-test('Mastra runtime summary route exposes the phase-3 scaffold configuration', async () => {
+test('Mastra runtime summary route reflects the current runtime registry state', async () => {
   const response = await app.request('http://localhost/api/v1/system/mastra-runtime')
   const payload = (await response.json()) as {
     json: {
       agentCount: number
       defaultModel: string
       openapiPath: string
+      registeredAgentIds: string[]
+      registeredWorkflowIds: string[]
       routePrefix: string
+      runtimeStage: 'agents_ready' | 'tools_only' | 'workflows_ready'
       toolCount: number
       workflowCount: number
     }
@@ -463,7 +466,8 @@ test('Mastra runtime summary route exposes the phase-3 scaffold configuration', 
   assert.equal(payload.json.routePrefix, '/mastra')
   assert.equal(payload.json.openapiPath, '/openapi.json')
   assert.equal(payload.json.defaultModel, 'openai/gpt-4.1-mini')
-  assert.equal(payload.json.agentCount, 0)
   assert.equal(payload.json.toolCount, 6)
-  assert.equal(payload.json.workflowCount, 0)
+  assert.equal(payload.json.agentCount, payload.json.registeredAgentIds.length)
+  assert.equal(payload.json.workflowCount, payload.json.registeredWorkflowIds.length)
+  assert.equal(payload.json.runtimeStage, 'tools_only')
 })

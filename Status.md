@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 P3-F1 completed, P3-F2 ready
+Current Mode: Phase 3 P3-F2 completed, P3-T3 ready
 Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
@@ -57,11 +57,11 @@ Overall Status: `ready_to_execute`
 | P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | done | P2-T4 | Mastra mount smoke |
 | P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | done | P2-T4, P3-T1 | tool schema + audit verification |
 | P3-F1 | 3 | Unify Mastra auth boundary and authenticated request-context bridge | done | P3-T1, P3-T2 | authenticated `/mastra/*` smoke |
-| P3-F2 | 3 | Remove empty-runtime assumptions and align runtime metadata | ready | P3-F1 | runtime summary + test cleanup |
-| P3-T3 | 3 | Implement initial agents | backlog | P3-T2, P3-F1, P3-F2 | agent generation smoke |
-| P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | backlog | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
+| P3-F2 | 3 | Remove empty-runtime assumptions and align runtime metadata | done | P3-F1 | runtime summary + test cleanup |
+| P3-T3 | 3 | Implement initial agents | ready | P3-T2, P3-F1, P3-F2 | agent generation smoke |
+| P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | ready | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
 | P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | backlog | P3-T1, P3-T3 | streaming endpoint smoke |
-| P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | backlog | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
+| P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | ready | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
 | P3-T7 | 3 | Implement MCP server and external MCP client integration | backlog | P3-T2, P3-T3 | MCP discovery smoke |
 | P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | backlog | P2-T6 | authenticated shell smoke |
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | backlog | P1-T2 | package/ui build smoke |
@@ -84,7 +84,9 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-F2 Remove empty-runtime assumptions and align runtime metadata
+1. P3-T3 Implement initial agents
+2. P3-T4 Implement AI workflows and Trigger.dev task orchestration
+3. P3-T6 Implement pgvector-backed RAG indexing and retrieval
 
 Auto-unlock rules:
 
@@ -151,15 +153,13 @@ Known current blockers:
 - Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, serialized ability query endpoints, and the minimal web auth shell are implemented.
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
-- Mastra runtime routes are now behind authenticated request-context bridging, but runtime metadata and tests still preserve empty-agent and empty-workflow assumptions. That correction is the next mandatory task before any new AI Core feature work.
 - Mastra runtime now has registered read/report/config tools with RBAC-aware cataloging and AI audit persistence, but initial agents, workflows, MCP wiring, outbound notifications, and RAG remain pending Phase 3 tasks.
 
 Blocker resolution order:
 
-1. P3-F2
-2. P3-T3
-3. Better Auth ↔ RBAC principal bridge hardening
-4. Redis runtime wiring
+1. P3-T3
+2. Better Auth ↔ RBAC principal bridge hardening
+3. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -628,3 +628,25 @@ Use this section format after every task execution:
 - Notes:
   - This correction intentionally secures the whole Mastra runtime prefix instead of keeping public diagnostic access.
   - Runtime metadata cleanup and empty-registry test assumptions still require `P3-F2` before any new Agent or Workflow implementation starts.
+
+### P3-F2 Remove empty-runtime assumptions and align runtime metadata
+- Status: done
+- Changed files:
+  - `apps/api/src/lib/openapi.ts`
+  - `apps/api/src/mastra/index.ts`
+  - `apps/api/src/mastra/registry.ts`
+  - `apps/api/src/index.test.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm --filter @ai-native-os/api biome check --write src/lib/openapi.ts src/mastra/index.ts src/mastra/registry.ts src/index.test.ts`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - OpenAPI metadata now reflects the current API surface instead of a stale Phase 1 skeleton label, Mastra runtime summary now exposes registered agent/workflow IDs plus a derived runtime stage, and integration tests verify that summary against the live registry instead of hard-coding empty agent/workflow counts.
+- Unlocked tasks:
+  - `P3-T3`
+  - `P3-T4`
+  - `P3-T6`
+- Notes:
+  - This task intentionally does not pretend agents or workflows already exist; it only removes false assumptions that would block their later introduction.
