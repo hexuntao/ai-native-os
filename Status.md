@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 2 P2-T2 completed, P2-T3 ready
+Current Mode: Phase 2 P2-T3 completed, P2-T4 ready
 Current Phase: Phase 2 `Auth + RBAC`
 Overall Status: `ready_to_execute`
 
@@ -24,7 +24,6 @@ Overall Status: `ready_to_execute`
 - Not yet present:
   - CI workflows
   - production deployment files
-  - auth and RBAC implementation code
   - AI runtime code
 
 ## 2. Phase Summary
@@ -32,7 +31,7 @@ Overall Status: `ready_to_execute`
 | Phase | Name | Status | Exit Condition |
 |---|---|---|---|
 | 1 | Foundation Infrastructure | done | Monorepo, db/shared/api skeleton, local infra available |
-| 2 | Auth + RBAC | ready | Better Auth + CASL + seed roles + minimal auth shell |
+| 2 | Auth + RBAC | active | Better Auth + CASL + seed roles + minimal auth shell |
 | 3 | AI Core | backlog | Mastra + tools + workflows + MCP + RAG |
 | 4 | Web UI | backlog | Dashboard + system pages + CopilotKit + generative UI |
 | 5 | Observability | backlog | Audit + telemetry + evals + feedback + prompt governance |
@@ -50,8 +49,8 @@ Overall Status: `ready_to_execute`
 | P1-T6 | 1 | Add local dev infrastructure for database and cache | done | P1-T1 | Docker service smoke |
 | P2-T1 | 2 | Implement Better Auth server and client configuration | done | P1-T5 | login/session smoke |
 | P2-T2 | 2 | Integrate auth middleware into Hono and expose auth routes | done | P2-T1 | 401/auth route smoke |
-| P2-T3 | 2 | Implement RBAC tables, seeds, and permission-loading service | ready | P1-T3 | seed and lookup verification |
-| P2-T4 | 2 | Implement CASL ability builder and permission middleware | backlog | P2-T2, P2-T3 | 403/condition verification |
+| P2-T3 | 2 | Implement RBAC tables, seeds, and permission-loading service | done | P1-T3 | seed and lookup verification |
+| P2-T4 | 2 | Implement CASL ability builder and permission middleware | ready | P2-T2, P2-T3 | 403/condition verification |
 | P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | backlog | P2-T4 | ability fetch and deserialize |
 | P2-T6 | 2 | Build minimal auth shell and permission provider in web app | backlog | P2-T1, P2-T5 | protected layout smoke |
 | P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | backlog | P2-T4 | Mastra mount smoke |
@@ -82,7 +81,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P2-T3 Implement RBAC tables, seeds, and permission-loading service
+1. P2-T4 Implement CASL ability builder and permission middleware
 
 Auto-unlock rules:
 
@@ -90,8 +89,8 @@ Auto-unlock rules:
   - mark P2-T2 as `ready`
 - If P2-T3 -> `done`
   - mark P2-T4 as `ready` because P2-T2 is already `done`
-- If P2-T1 and P2-T3 both -> `done`
-  - current main-thread priority remains P2-T2
+- If P2-T4 -> `done`
+  - mark P2-T5 as `ready`
 
 ## 5. Phase 1 Execution Checklist
 
@@ -126,15 +125,15 @@ Phase 1 QA executed:
 
 Known current blockers:
 
-- Better Auth route exposure and protected-route boundary are implemented, but RBAC persistence and ability enforcement are not implemented yet.
-- RBAC persistence exists at schema level, but seeds and permission-loading service are not implemented yet.
+- Better Auth route exposure, RBAC seed data, and permission loading service are implemented, but CASL ability enforcement middleware is not implemented yet.
+- Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains a Phase 2 follow-up.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 2+ follow-up.
 
 Blocker resolution order:
 
-1. P2-T3
-2. P2-T4
-3. P2-T5 and P2-T6
+1. P2-T4
+2. P2-T5
+3. P2-T6
 
 ## 7. QA Recording Template
 
@@ -375,3 +374,30 @@ Use this section format after every task execution:
   - none
 - Notes:
   - Current protected-route verification uses a minimal `system.session` endpoint. RBAC-aware authorization remains deferred to `P2-T4` after roles and permissions are wired in `P2-T3`.
+
+### P2-T3 Implement RBAC tables, seeds, and permission-loading service
+- Status: done
+- Changed files:
+  - `packages/db/package.json`
+  - `packages/db/src/client.ts`
+  - `packages/db/src/index.ts`
+  - `packages/db/src/rbac/load-permissions.ts`
+  - `packages/db/src/rbac/load-permissions.test.ts`
+  - `packages/db/src/seed/index.ts`
+  - `packages/db/src/seed/rbac.ts`
+  - `packages/db/src/seed/rbac.test.ts`
+  - `packages/db/src/seed/verify-rbac-seed.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm install`
+  - `pnpm biome check --write packages/db/src packages/db/package.json`
+  - `pnpm --filter @ai-native-os/db typecheck`
+  - `pnpm --filter @ai-native-os/db test`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed:verify`
+- Result:
+  - Default RBAC roles, permissions, menus, and seeded application users are now inserted idempotently, and `packages/db` exports permission-loading services by user id and email for downstream CASL middleware.
+- Unlocked tasks:
+  - `P2-T4`
+- Notes:
+  - Current RBAC verification uses the app-level `users` table with seeded principals; runtime mapping from Better Auth identities into these RBAC principals is still pending in later Phase 2 work.

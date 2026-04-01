@@ -11,12 +11,15 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
     "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/seed/index.ts",
+    "db:seed:verify": "tsx src/seed/verify-rbac-seed.ts",
     "format": "biome check --write .",
     "lint": "biome check .",
     "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@ai-native-os/shared": "workspace:*",
     "dotenv": "latest",
     "drizzle-orm": "latest",
     "pg": "latest"
