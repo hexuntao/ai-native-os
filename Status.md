@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 2 P2-T1 completed, P2-T2 and P2-T3 ready
+Current Mode: Phase 2 P2-T2 completed, P2-T3 ready
 Current Phase: Phase 2 `Auth + RBAC`
 Overall Status: `ready_to_execute`
 
@@ -49,7 +49,7 @@ Overall Status: `ready_to_execute`
 | P1-T5 | 1 | Build Hono + oRPC + Scalar API skeleton | done | P1-T3, P1-T4 | API boot + docs + health |
 | P1-T6 | 1 | Add local dev infrastructure for database and cache | done | P1-T1 | Docker service smoke |
 | P2-T1 | 2 | Implement Better Auth server and client configuration | done | P1-T5 | login/session smoke |
-| P2-T2 | 2 | Integrate auth middleware into Hono and expose auth routes | ready | P2-T1 | 401/auth route smoke |
+| P2-T2 | 2 | Integrate auth middleware into Hono and expose auth routes | done | P2-T1 | 401/auth route smoke |
 | P2-T3 | 2 | Implement RBAC tables, seeds, and permission-loading service | ready | P1-T3 | seed and lookup verification |
 | P2-T4 | 2 | Implement CASL ability builder and permission middleware | backlog | P2-T2, P2-T3 | 403/condition verification |
 | P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | backlog | P2-T4 | ability fetch and deserialize |
@@ -82,15 +82,14 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P2-T2 Integrate auth middleware into Hono and expose auth routes
-2. P2-T3 Implement RBAC tables, seeds, and permission-loading service
+1. P2-T3 Implement RBAC tables, seeds, and permission-loading service
 
 Auto-unlock rules:
 
 - If P2-T1 -> `done`
   - mark P2-T2 as `ready`
 - If P2-T3 -> `done`
-  - keep P2-T4 blocked until P2-T2 is also `done`
+  - mark P2-T4 as `ready` because P2-T2 is already `done`
 - If P2-T1 and P2-T3 both -> `done`
   - current main-thread priority remains P2-T2
 
@@ -127,16 +126,15 @@ Phase 1 QA executed:
 
 Known current blockers:
 
-- Better Auth package is implemented, but `/api/auth/*` route exposure and request-context integration are not implemented yet.
+- Better Auth route exposure and protected-route boundary are implemented, but RBAC persistence and ability enforcement are not implemented yet.
 - RBAC persistence exists at schema level, but seeds and permission-loading service are not implemented yet.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 2+ follow-up.
 
 Blocker resolution order:
 
-1. P2-T2
-2. P2-T3
-3. P2-T4
-4. P2-T5 and P2-T6
+1. P2-T3
+2. P2-T4
+3. P2-T5 and P2-T6
 
 ## 7. QA Recording Template
 
@@ -345,3 +343,35 @@ Use this section format after every task execution:
   - `P2-T2`
 - Notes:
   - Auth runtime currently uses dedicated Better Auth tables (`user`, `session`, `account`, `verification`) separate from the app-level `users` table; identity-to-RBAC bridging remains follow-up work in Phase 2.
+
+### P2-T2 Integrate auth middleware into Hono and expose auth routes
+- Status: done
+- Changed files:
+  - `apps/api/package.json`
+  - `apps/api/src/middleware/auth.ts`
+  - `apps/api/src/orpc/context.ts`
+  - `apps/api/src/orpc/procedures.ts`
+  - `apps/api/src/routes/index.ts`
+  - `apps/api/src/routes/system/session.ts`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/index.test.ts`
+  - `packages/auth/src/server.ts`
+  - `packages/auth/src/client.ts`
+  - `packages/auth/src/smoke.ts`
+  - `packages/auth/src/index.test.ts`
+  - `pnpm-lock.yaml`
+- Commands:
+  - `pnpm install`
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm --filter @ai-native-os/api dev`
+  - `curl -i -sS http://localhost:3001/api/auth/get-session`
+  - `curl -i -sS http://localhost:3001/api/v1/system/session`
+- Result:
+  - Better Auth is mounted at `/api/auth/*`, API requests now hydrate auth session into Hono/oRPC context, and the protected session route returns `401` without a session and `200` with a valid auth cookie.
+- Unlocked tasks:
+  - none
+- Notes:
+  - Current protected-route verification uses a minimal `system.session` endpoint. RBAC-aware authorization remains deferred to `P2-T4` after roles and permissions are wired in `P2-T3`.

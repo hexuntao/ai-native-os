@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { authBasePath, resolveAuthEnvironment } from '@/env'
+import { authBasePath, resolveAuthEnvironment } from './env'
 
 test('resolveAuthEnvironment falls back to local defaults in development', () => {
   const environment = resolveAuthEnvironment({

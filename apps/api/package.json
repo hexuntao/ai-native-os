@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@ai-native-os/auth": "workspace:*",
     "@ai-native-os/db": "workspace:*",
     "@ai-native-os/shared": "workspace:*",
     "@hono/node-server": "^1.19.12",

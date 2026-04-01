@@ -1,7 +1,7 @@
 import type { BetterAuthClientOptions } from 'better-auth/client'
 import { createAuthClient } from 'better-auth/client'
 
-import { resolveAuthEnvironment } from '@/env'
+import { resolveAuthEnvironment } from './env'
 
 export function createAiNativeAuthClient(
   options: BetterAuthClientOptions = {},

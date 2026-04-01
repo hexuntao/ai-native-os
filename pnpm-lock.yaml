@@ -29,6 +29,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@ai-native-os/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@ai-native-os/db':
         specifier: workspace:*
         version: link:../../packages/db

@@ -10,12 +10,13 @@ import { requestId } from 'hono/request-id'
 import { secureHeaders } from 'hono/secure-headers'
 
 import { generateOpenApiDocument } from '@/lib/openapi'
+import { type ApiEnv, authSessionMiddleware, handleAuthRequest } from '@/middleware/auth'
 import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
 
 const rpcHandler = new RPCHandler(appRouter)
 
-export const app = new Hono()
+export const app = new Hono<ApiEnv>()
 
 app.use('*', secureHeaders())
 app.use(
@@ -71,10 +72,14 @@ app.get(
   }),
 )
 
+app.all('/api/auth/*', async (c) => handleAuthRequest(c.req.raw))
+
+app.use('/api/v1/*', authSessionMiddleware)
+
 app.all('/api/v1/*', async (c) => {
   const result = await rpcHandler.handle(c.req.raw, {
     prefix: '/api/v1',
-    context: createAppContext(c),
+    context: await createAppContext(c),
   })
 
   if (!result.matched) {

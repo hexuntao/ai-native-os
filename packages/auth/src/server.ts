@@ -2,7 +2,7 @@ import { account, db, session, user, verification } from '@ai-native-os/db'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
 
-import { authBasePath, resolveAuthEnvironment } from '@/env'
+import { authBasePath, resolveAuthEnvironment } from './env'
 
 export const authEnvironment = resolveAuthEnvironment()
 
@@ -27,3 +27,10 @@ export const auth = betterAuth({
 })
 
 export type AuthInstance = typeof auth
+export type AuthSession = typeof auth.$Infer.Session
+
+export async function getAuthSession(headers: Headers): Promise<AuthSession | null> {
+  return auth.api.getSession({
+    headers,
+  })
+}

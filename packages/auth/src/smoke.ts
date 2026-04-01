@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { auth } from '@/server'
+import { auth } from './server'
 
 function buildAuthUrl(pathname: string): string {
   return new URL(pathname, auth.options.baseURL).toString()
