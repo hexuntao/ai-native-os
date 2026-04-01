@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 4 completed, Phase 5 ready
+Current Mode: Phase 5 P5-T1 completed, P5-T2 ready
 Current Phase: Phase 5 `Observability`
 Overall Status: `ready_to_execute`
 
@@ -33,7 +33,7 @@ Overall Status: `ready_to_execute`
 | 2 | Auth + RBAC | done | Better Auth + CASL + seed roles + minimal auth shell |
 | 3 | AI Core | done | Mastra + tools + workflows + MCP + RAG |
 | 4 | Web UI | done | Dashboard + system pages + CopilotKit + generative UI |
-| 5 | Observability | ready | Audit + telemetry + evals + feedback + prompt governance |
+| 5 | Observability | in_progress | Audit + telemetry + evals + feedback + prompt governance |
 | 6 | Deployment | backlog | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
 
 ## 3. Task Ledger
@@ -68,7 +68,7 @@ Overall Status: `ready_to_execute`
 | P4-T4 | 4 | Implement monitor and AI management pages | done | P4-F1, P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
 | P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | done | P3-T5, P4-T1 | chat stream smoke |
 | P4-T6 | 4 | Implement generative UI components | done | P4-T5 | action render smoke |
-| P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | ready | Phase 2, Phase 3 | log trace verification |
+| P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | done | Phase 2, Phase 3 | log trace verification |
 | P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | ready | P1-T5 | telemetry + health smoke |
 | P5-T3 | 5 | Implement AI feedback capture and human override tracking | ready | P3-T4, P4-T5 | feedback persistence smoke |
 | P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | ready | P3-T3, P3-T4 | eval run result verification |
@@ -83,10 +83,9 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P5-T1 Implement operation log and AI audit log pipelines end-to-end
-2. P5-T2 Add Sentry, OpenTelemetry, request IDs, and health checks
-3. P5-T3 Implement AI feedback capture and human override tracking
-4. P5-T4 Implement Mastra Evals datasets, scorers, and runners
+1. P5-T2 Add Sentry, OpenTelemetry, request IDs, and health checks
+2. P5-T3 Implement AI feedback capture and human override tracking
+3. P5-T4 Implement Mastra Evals datasets, scorers, and runners
 
 Auto-unlock rules:
 
@@ -170,10 +169,11 @@ Known current blockers:
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
 - The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
 - The new `ai/evals` contract-first endpoint is intentionally a stable skeleton backed by runtime summary only. Dedicated eval persistence, scorers, and experiment history remain a Phase 5 observability task.
+- Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
 
 Blocker resolution order:
 
-1. P5-T1
+1. P5-T2
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 
@@ -204,6 +204,32 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P5-T1 Implement operation log and AI audit log pipelines end-to-end
+- Status: done
+- Changed files:
+  - `packages/db/src/observability/operation-logs.ts`
+  - `packages/db/src/observability/operation-logs.test.ts`
+  - `packages/db/src/index.ts`
+  - `apps/api/src/middleware/auth.ts`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/index.test.ts`
+  - `apps/api/src/routes/contract-first.test.ts`
+  - `apps/api/src/mastra/rag/indexing.ts`
+  - `apps/jobs/src/index.test.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Added a shared `writeOperationLog` persistence helper with deterministic anonymous/system fallback actors, request-info normalization, and query helpers for module-level and request-level verification. The API auth mount now wraps Better Auth sign-up, sign-in, and sign-out flows with best-effort operation log writes, and the RAG indexing pipeline now emits matching operation logs alongside the existing AI audit trail. Regression tests prove that auth activity surfaces in `/api/v1/monitor/logs`, knowledge indexing creates `ai_knowledge` operation logs, and the full workspace test suite remains green.
+- Unlocked tasks:
+  - none
+- Notes:
+  - `P5-T1` intentionally logs only the current real write paths instead of inventing new CRUD surfaces; broader telemetry and distributed request tracing remain `P5-T2`.
+  - Auth-related operation logs currently fall back to anonymous actors when a Better Auth principal has not yet been mapped onto an application RBAC user. This is acceptable for the current phase, but principal-bridge hardening remains open follow-up.
 
 ### P4-T6 Implement generative UI components
 - Status: done

@@ -2,7 +2,15 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 
-import { db, roles, userRoles, users, writeAiAuditLog } from '@ai-native-os/db'
+import {
+  anonymousOperationActorId,
+  db,
+  listOperationLogsByModule,
+  roles,
+  userRoles,
+  users,
+  writeAiAuditLog,
+} from '@ai-native-os/db'
 import { deserializeAbility } from '@ai-native-os/shared'
 import { eq } from 'drizzle-orm'
 
@@ -341,6 +349,85 @@ test('auth routes create a session that unlocks the protected session endpoint',
   assert.equal(sessionPayload.json.authenticated, true)
   assert.equal(sessionPayload.json.user.email, email)
   assert.equal(sessionPayload.json.user.name, 'API Auth Test User')
+})
+
+test('auth routes write operation logs for sign-up, sign-in, and sign-out flows', async () => {
+  const email = `api-observability-${randomUUID()}@example.com`
+  const password = 'Passw0rd!Passw0rd!'
+  const origin = 'http://localhost:3000'
+  const signUpResponse = await app.request('http://localhost/api/auth/sign-up/email', {
+    body: JSON.stringify({
+      callbackURL: origin,
+      email,
+      name: 'API Observability User',
+      password,
+    }),
+    headers: {
+      'content-type': 'application/json',
+      origin,
+    },
+    method: 'POST',
+  })
+
+  assert.equal(signUpResponse.status, 200)
+
+  const signInResponse = await app.request('http://localhost/api/auth/sign-in/email', {
+    body: JSON.stringify({
+      email,
+      password,
+      rememberMe: true,
+    }),
+    headers: {
+      'content-type': 'application/json',
+      origin,
+    },
+    method: 'POST',
+  })
+
+  assert.equal(signInResponse.status, 200)
+
+  const authHeaders = convertSetCookieToCookie(signInResponse.headers)
+  authHeaders.set('origin', origin)
+
+  const signOutResponse = await app.request('http://localhost/api/auth/sign-out', {
+    headers: authHeaders,
+    method: 'POST',
+  })
+
+  assert.equal(signOutResponse.status, 200)
+
+  const authLogs = await listOperationLogsByModule('auth')
+
+  assert.ok(
+    authLogs.some(
+      (log) =>
+        log.action === 'create_user' &&
+        log.module === 'auth' &&
+        log.operatorId === anonymousOperationActorId &&
+        log.requestInfo?.userEmail === email &&
+        log.status === 'success',
+    ),
+  )
+  assert.ok(
+    authLogs.some(
+      (log) =>
+        log.action === 'create_session' &&
+        log.module === 'auth' &&
+        log.operatorId === anonymousOperationActorId &&
+        log.requestInfo?.userEmail === email &&
+        log.status === 'success',
+    ),
+  )
+  assert.ok(
+    authLogs.some(
+      (log) =>
+        log.action === 'delete_session' &&
+        log.module === 'auth' &&
+        log.operatorId === anonymousOperationActorId &&
+        log.requestInfo?.userEmail === email &&
+        log.status === 'success',
+    ),
+  )
 })
 
 test('RBAC summary endpoint returns role-derived context for authorized users', async () => {

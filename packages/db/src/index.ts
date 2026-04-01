@@ -1,6 +1,7 @@
 export * from './ai/audit-logs'
 export * from './ai/knowledge'
 export * from './client'
+export * from './observability/operation-logs'
 export * from './rbac/load-permissions'
 export * from './schema'
 export * from './seed/rbac'

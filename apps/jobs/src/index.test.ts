@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 import { semanticSearchKnowledgeBase } from '@ai-native-os/api/mastra/rag/retrieval'
-import { listAiAuditLogsByToolId } from '@ai-native-os/db'
+import { listAiAuditLogsByToolId, listOperationLogsByModule } from '@ai-native-os/db'
 import { executeRagIndexingTask, ragIndexingTask } from './trigger/rag-indexing'
 import { executeReportScheduleTask, reportScheduleTask } from './trigger/report-schedule'
 
@@ -51,6 +51,7 @@ test('rag indexing task indexes a sample document and makes it searchable', asyn
     query: '查询订阅收入增长的原因',
   })
   const taskLogs = await listAiAuditLogsByToolId('task:rag-indexing')
+  const operationLogs = await listOperationLogsByModule('ai_knowledge')
 
   assert.equal(result.taskId, 'rag-indexing')
   assert.equal(result.documentId, documentId)
@@ -67,6 +68,14 @@ test('rag indexing task indexes a sample document and makes it searchable', asyn
         'documentId' in log.input &&
         (log.input as { documentId?: string }).documentId === documentId &&
         log.status === 'success',
+    ),
+  )
+  assert.ok(
+    operationLogs.some(
+      (log: (typeof operationLogs)[number]) =>
+        log.action === 'update_document_index' &&
+        log.status === 'success' &&
+        log.targetId === documentId,
     ),
   )
 })

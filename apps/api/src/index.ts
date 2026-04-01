@@ -49,7 +49,7 @@ import { getMastraRuntimeSummary, mastra, mastraEnvironment } from '@/mastra'
 import { handleMastraMcpRequest, mastraMcpEndpointPath } from '@/mastra/mcp/server'
 import { readMastraRequestContext } from '@/mastra/request-context'
 import { SecureMastraServer } from '@/mastra/server'
-import { type ApiEnv, authSessionMiddleware, handleAuthRequest } from '@/middleware/auth'
+import { type ApiEnv, authSessionMiddleware, handleAuditedAuthRequest } from '@/middleware/auth'
 import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
 import { listAiAuditLogs } from '@/routes/ai/audit'
@@ -285,7 +285,7 @@ app.get(
   }),
 )
 
-app.all('/api/auth/*', async (c) => handleAuthRequest(c.req.raw))
+app.all('/api/auth/*', async (c) => handleAuditedAuthRequest(c))
 
 app.use(mastraMcpEndpointPath, authSessionMiddleware)
 app.use(copilotKitEndpointPath, authSessionMiddleware)

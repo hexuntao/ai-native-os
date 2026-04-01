@@ -190,6 +190,15 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   assert.ok(rolesPayload.json.data.some((role) => role.code === 'viewer'))
   assert.ok(menusPayload.json.data.some((menu) => menu.path === '/system/roles'))
   assert.ok(Array.isArray(logsPayload.json.data))
+  assert.ok(
+    logsPayload.json.data.some(
+      (row) =>
+        typeof row === 'object' &&
+        row !== null &&
+        'module' in row &&
+        (row as { module?: string }).module === 'auth',
+    ),
+  )
   assert.ok(onlinePayload.json.data.some((sessionRow) => sessionRow.roleCodes.includes('viewer')))
   assert.equal(serverPayload.json.health.api, 'ok')
   assert.ok(serverPayload.json.runtime.toolCount >= 1)

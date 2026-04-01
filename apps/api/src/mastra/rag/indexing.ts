@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { replaceKnowledgeDocument, writeAiAuditLog } from '@ai-native-os/db'
+import { replaceKnowledgeDocument, writeAiAuditLog, writeOperationLog } from '@ai-native-os/db'
 import {
   type AiKnowledgeDocumentInput,
   type AiKnowledgeIndexResult,
@@ -13,6 +13,7 @@ import { chunkKnowledgeDocument } from './chunking'
 import { embedKnowledgeChunks } from './embeddings'
 
 const ragIndexingAuditToolId = 'task:rag-indexing'
+const ragIndexingOperationModule = 'ai_knowledge'
 
 export type RagIndexingDocumentInput = AiKnowledgeDocumentInput
 
@@ -101,6 +102,26 @@ export async function indexKnowledgeDocument(args: {
       toolId: ragIndexingAuditToolId,
     })
 
+    try {
+      await writeOperationLog({
+        action: 'update_document_index',
+        detail: `Indexed knowledge document ${input.title} with ${parsedResult.chunkCount} chunks.`,
+        fallbackActorKind: 'system',
+        module: ragIndexingOperationModule,
+        operatorId: contextValues.rbacUserId,
+        requestInfo: {
+          requestId: contextValues.requestId,
+          sourceType: input.sourceType,
+          sourceUri: input.sourceUri ?? 'internal',
+        },
+        targetId: input.documentId,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      console.error(`Failed to persist knowledge operation log: ${message}`)
+    }
+
     return parsedResult
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -120,6 +141,29 @@ export async function indexKnowledgeDocument(args: {
       subject: 'AiKnowledge',
       toolId: ragIndexingAuditToolId,
     })
+
+    try {
+      await writeOperationLog({
+        action: 'update_document_index',
+        detail: `Failed to index knowledge document ${input.title}.`,
+        errorMessage: message,
+        fallbackActorKind: 'system',
+        module: ragIndexingOperationModule,
+        operatorId: contextValues.rbacUserId,
+        requestInfo: {
+          requestId: contextValues.requestId,
+          sourceType: input.sourceType,
+          sourceUri: input.sourceUri ?? 'internal',
+        },
+        status: 'error',
+        targetId: input.documentId,
+      })
+    } catch (operationLogError) {
+      const operationLogMessage =
+        operationLogError instanceof Error ? operationLogError.message : String(operationLogError)
+
+      console.error(`Failed to persist knowledge operation log: ${operationLogMessage}`)
+    }
 
     throw error
   }
