@@ -1,3 +1,4 @@
+export * from './ai/audit-logs'
 export * from './client'
 export * from './rbac/load-permissions'
 export * from './schema'

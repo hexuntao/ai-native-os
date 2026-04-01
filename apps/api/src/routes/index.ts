@@ -1,3 +1,5 @@
+import { aiAuditLogsProcedure } from './system/ai-audit-logs'
+import { aiToolCatalogProcedure } from './system/ai-tool-catalog'
 import { currentAbilityProcedure } from './system/current-ability'
 import { currentPermissionsProcedure } from './system/current-permissions'
 import { permissionAdminCheckProcedure } from './system/permission-admin-check'
@@ -7,6 +9,14 @@ import { sessionProcedure } from './system/session'
 
 export const appRouter = {
   system: {
+    ai: {
+      'audit-logs': {
+        recent: aiAuditLogsProcedure,
+      },
+      tools: {
+        catalog: aiToolCatalogProcedure,
+      },
+    },
     'permission-admin-check': permissionAdminCheckProcedure,
     ping: pingProcedure,
     permissions: {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 
-import { db, roles, userRoles, users } from '@ai-native-os/db'
+import { db, roles, userRoles, users, writeAiAuditLog } from '@ai-native-os/db'
 import { deserializeAbility } from '@ai-native-os/shared'
 import { eq } from 'drizzle-orm'
 
@@ -344,6 +344,64 @@ test('serialized ability endpoint returns rules that can be deserialized by fron
   assert.equal(ability.can('manage', 'Permission'), false)
 })
 
+test('AI tool catalog endpoint exposes enabled tools for the authenticated principal', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+
+  const response = await app.request('http://localhost/api/v1/system/ai/tools/catalog', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as {
+    json: {
+      tools: Array<{
+        enabled: boolean
+        id: string
+      }>
+    }
+  }
+
+  const toolById = new Map(payload.json.tools.map((tool) => [tool.id, tool]))
+
+  assert.equal(response.status, 200)
+  assert.equal(toolById.get('user-directory')?.enabled, true)
+  assert.equal(toolById.get('operation-log-search')?.enabled, true)
+  assert.equal(toolById.get('ai-audit-log-search')?.enabled, false)
+  assert.equal(toolById.get('runtime-config')?.enabled, false)
+})
+
+test('AI audit logs endpoint returns recent entries for administrators', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const testToolId = `api-audit-${randomUUID()}`
+
+  await writeAiAuditLog({
+    action: 'read',
+    actorAuthUserId: `auth-${randomUUID()}`,
+    actorRbacUserId: null,
+    requestInfo: {
+      requestId: randomUUID(),
+      userEmail: 'admin@ai-native-os.local',
+    },
+    roleCodes: ['admin'],
+    status: 'success',
+    subject: 'AiAuditLog',
+    toolId: testToolId,
+  })
+
+  const response = await app.request('http://localhost/api/v1/system/ai/audit-logs/recent', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as {
+    json: {
+      logs: Array<{
+        status: string
+        toolId: string
+      }>
+    }
+  }
+
+  assert.equal(response.status, 200)
+  assert.ok(payload.json.logs.some((log) => log.toolId === testToolId && log.status === 'success'))
+})
+
 test('Mastra runtime summary route exposes the phase-3 scaffold configuration', async () => {
   const response = await app.request('http://localhost/api/v1/system/mastra-runtime')
   const payload = (await response.json()) as {
@@ -362,6 +420,6 @@ test('Mastra runtime summary route exposes the phase-3 scaffold configuration', 
   assert.equal(payload.json.openapiPath, '/openapi.json')
   assert.equal(payload.json.defaultModel, 'openai/gpt-4.1-mini')
   assert.equal(payload.json.agentCount, 0)
-  assert.equal(payload.json.toolCount, 0)
+  assert.equal(payload.json.toolCount, 6)
   assert.equal(payload.json.workflowCount, 0)
 })

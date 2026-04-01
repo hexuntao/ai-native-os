@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 P3-T1 completed, P3-T2 ready
+Current Mode: Phase 3 P3-T2 completed, P3-T3 ready
 Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
@@ -55,11 +55,11 @@ Overall Status: `ready_to_execute`
 | P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | done | P2-T4 | ability fetch and deserialize |
 | P2-T6 | 2 | Build minimal auth shell and permission provider in web app | done | P2-T1, P2-T5 | protected layout smoke |
 | P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | done | P2-T4 | Mastra mount smoke |
-| P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | ready | P2-T4, P3-T1 | tool schema + audit verification |
-| P3-T3 | 3 | Implement initial agents | backlog | P3-T2 | agent generation smoke |
-| P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | backlog | P3-T1, P3-T2 | workflow/task smoke |
+| P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | done | P2-T4, P3-T1 | tool schema + audit verification |
+| P3-T3 | 3 | Implement initial agents | ready | P3-T2 | agent generation smoke |
+| P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | ready | P3-T1, P3-T2 | workflow/task smoke |
 | P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | backlog | P3-T1, P3-T3 | streaming endpoint smoke |
-| P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | backlog | P1-T3, P3-T1 | index + semantic query smoke |
+| P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | ready | P1-T3, P3-T1 | index + semantic query smoke |
 | P3-T7 | 3 | Implement MCP server and external MCP client integration | backlog | P3-T2, P3-T3 | MCP discovery smoke |
 | P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | backlog | P2-T6 | authenticated shell smoke |
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | backlog | P1-T2 | package/ui build smoke |
@@ -82,7 +82,9 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-T2 Build core agent tool framework with RBAC and audit enforcement
+1. P3-T3 Implement initial agents
+2. P3-T4 Implement AI workflows and Trigger.dev task orchestration
+3. P3-T6 Implement pgvector-backed RAG indexing and retrieval
 
 Auto-unlock rules:
 
@@ -98,6 +100,11 @@ Auto-unlock rules:
   - mark P3-T1 as `ready`
 - If P3-T1 -> `done`
   - mark P3-T2 as `ready`
+- If P3-T2 -> `done`
+  - mark P3-T3 as `ready`
+  - mark P3-T4 as `ready`
+- If P3-T1 -> `done`
+  - mark P3-T6 as `ready`
 
 ## 5. Phase 1 Execution Checklist
 
@@ -135,11 +142,11 @@ Known current blockers:
 - Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, serialized ability query endpoints, and the minimal web auth shell are implemented.
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
-- Mastra runtime is mounted with an empty registry only; real tools, agents, workflows, MCP wiring, and RAG remain pending Phase 3 tasks.
+- Mastra runtime now has registered read/report/config tools with RBAC-aware cataloging and AI audit persistence, but initial agents, workflows, MCP wiring, outbound notifications, and RAG remain pending Phase 3 tasks.
 
 Blocker resolution order:
 
-1. P3-T2
+1. P3-T3
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 
@@ -537,3 +544,54 @@ Use this section format after every task execution:
 - Notes:
   - The current Mastra registry is intentionally empty for `P3-T1`; real tools, agents, workflows, and knowledge integrations start in later Phase 3 tasks.
   - Biome now ignores generated output directories (`dist`, `.next`, `drizzle`) so root QA gates validate source files instead of build artifacts.
+
+### P3-T2 Build core agent tool framework with RBAC and audit enforcement
+- Status: done
+- Changed files:
+  - `packages/db/src/schema/ai-audit-logs.ts`
+  - `packages/db/src/schema/index.ts`
+  - `packages/db/src/ai/audit-logs.ts`
+  - `packages/db/src/index.ts`
+  - `packages/db/src/migrations/0002_dusty_silver_surfer.sql`
+  - `packages/db/src/migrations/meta/0002_snapshot.json`
+  - `packages/db/src/migrations/meta/_journal.json`
+  - `packages/shared/src/schemas/ai-tools.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/api/src/mastra/request-context.ts`
+  - `apps/api/src/mastra/registry.ts`
+  - `apps/api/src/mastra/tools/base.ts`
+  - `apps/api/src/mastra/tools/user-directory.ts`
+  - `apps/api/src/mastra/tools/permission-profile.ts`
+  - `apps/api/src/mastra/tools/operation-log-search.ts`
+  - `apps/api/src/mastra/tools/ai-audit-log-search.ts`
+  - `apps/api/src/mastra/tools/report-data-snapshot.ts`
+  - `apps/api/src/mastra/tools/runtime-config.ts`
+  - `apps/api/src/mastra/tools/index.ts`
+  - `apps/api/src/mastra/tools/index.test.ts`
+  - `apps/api/src/routes/system/ai-tool-catalog.ts`
+  - `apps/api/src/routes/system/ai-audit-logs.ts`
+  - `apps/api/src/routes/index.ts`
+  - `apps/api/src/index.test.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write packages/db/src packages/shared/src apps/api/src`
+  - `pnpm --filter @ai-native-os/db typecheck`
+  - `pnpm --filter @ai-native-os/shared typecheck`
+  - `pnpm --filter @ai-native-os/api typecheck`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:generate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:migrate`
+  - `pnpm --filter @ai-native-os/db test`
+  - `pnpm --filter @ai-native-os/api test`
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Mastra now exposes a reusable protected-tool base with request-context validation, CASL enforcement, and AI audit-log persistence; the runtime registers user directory, permission profile, operation log search, AI audit log search, report snapshot, and safe runtime config tools, and the API exposes authenticated tool catalog and AI audit-log read endpoints.
+- Unlocked tasks:
+  - `P3-T3`
+  - `P3-T4`
+  - `P3-T6`
+- Notes:
+  - Current tools are intentionally read/report/config oriented to stay inside the existing RBAC subject model and avoid pseudo side effects.
+  - Outbound notification tooling remains a follow-up once a dedicated notification subject and delivery runtime are added.
