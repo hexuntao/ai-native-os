@@ -1,5 +1,6 @@
 import { aiAuditListProcedure } from './ai/audit'
 import { aiEvalsListProcedure } from './ai/evals'
+import { aiFeedbackCreateProcedure, aiFeedbackListProcedure } from './ai/feedback'
 import { aiKnowledgeListProcedure } from './ai/knowledge'
 import { monitorLogsListProcedure } from './monitor/logs'
 import { monitorOnlineListProcedure } from './monitor/online'
@@ -19,6 +20,10 @@ export const appRouter = {
   ai: {
     audit: aiAuditListProcedure,
     evals: aiEvalsListProcedure,
+    feedback: {
+      create: aiFeedbackCreateProcedure,
+      list: aiFeedbackListProcedure,
+    },
     knowledge: aiKnowledgeListProcedure,
   },
   monitor: {

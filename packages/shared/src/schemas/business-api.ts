@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
 import { appActions, appSubjects } from '../abilities/subjects'
+import {
+  aiFeedbackEntrySchema,
+  aiFeedbackSummarySchema,
+  aiFeedbackUserActionSchema,
+} from './ai-feedback'
 import { aiKnowledgeMetadataSchema } from './ai-knowledge'
 import { aiAuditLogEntrySchema } from './ai-tools'
 import { paginatedResponseSchema } from './common'
@@ -176,6 +181,17 @@ export const listAiAuditLogsInputSchema = queryPaginationSchema.extend({
 
 export const aiAuditListResponseSchema = paginatedResponseSchema(aiAuditLogEntrySchema)
 
+export const listAiFeedbackInputSchema = queryPaginationSchema.extend({
+  accepted: booleanQuerySchema.optional(),
+  auditLogId: z.string().uuid().optional(),
+  search: z.string().trim().min(1).max(100).optional(),
+  userAction: aiFeedbackUserActionSchema.optional(),
+})
+
+export const aiFeedbackListResponseSchema = paginatedResponseSchema(aiFeedbackEntrySchema).extend({
+  summary: aiFeedbackSummarySchema,
+})
+
 export const listAiEvalsInputSchema = queryPaginationSchema
 
 export const aiEvalListItemSchema = z.object({
@@ -215,5 +231,7 @@ export type ListKnowledgeInput = z.infer<typeof listKnowledgeInputSchema>
 export type KnowledgeListResponse = z.infer<typeof knowledgeListResponseSchema>
 export type ListAiAuditLogsInput = z.infer<typeof listAiAuditLogsInputSchema>
 export type AiAuditListResponse = z.infer<typeof aiAuditListResponseSchema>
+export type ListAiFeedbackInput = z.infer<typeof listAiFeedbackInputSchema>
+export type AiFeedbackListResponse = z.infer<typeof aiFeedbackListResponseSchema>
 export type ListAiEvalsInput = z.infer<typeof listAiEvalsInputSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>

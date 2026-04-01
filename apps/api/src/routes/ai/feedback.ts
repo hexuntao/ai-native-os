@@ -1,0 +1,132 @@
+import {
+  AiFeedbackAuditLogNotFoundError,
+  createAiFeedback,
+  listAiFeedback,
+  writeOperationLog,
+} from '@ai-native-os/db'
+import {
+  type AiFeedbackCreateInput,
+  type AiFeedbackEntry,
+  type AiFeedbackListResponse,
+  aiFeedbackEntrySchema,
+  aiFeedbackListResponseSchema,
+  createAiFeedbackInputSchema,
+  type ListAiFeedbackInput,
+  listAiFeedbackInputSchema,
+} from '@ai-native-os/shared'
+import { ORPCError } from '@orpc/server'
+
+import { requireAnyPermission } from '@/orpc/procedures'
+
+const aiFeedbackPermissions = [
+  { action: 'read', subject: 'AiAuditLog' },
+  { action: 'manage', subject: 'all' },
+] as const
+
+function serializeAiFeedbackEntry(record: {
+  accepted: boolean
+  actorAuthUserId: string
+  actorRbacUserId: string | null
+  auditLogId: string
+  correction: string | null
+  createdAt: Date
+  feedbackText: string | null
+  id: string
+  userAction: AiFeedbackCreateInput['userAction']
+}): AiFeedbackEntry {
+  return {
+    accepted: record.accepted,
+    actorAuthUserId: record.actorAuthUserId,
+    actorRbacUserId: record.actorRbacUserId,
+    auditLogId: record.auditLogId,
+    correction: record.correction,
+    createdAt: record.createdAt.toISOString(),
+    feedbackText: record.feedbackText,
+    id: record.id,
+    userAction: record.userAction,
+  }
+}
+
+/**
+ * 读取 AI 反馈分页数据，供监控与人工接管页面展示。
+ */
+export async function listFeedback(input: ListAiFeedbackInput): Promise<AiFeedbackListResponse> {
+  return listAiFeedback(input)
+}
+
+/**
+ * 记录一次用户对 AI 建议的采纳、拒绝或人工修正，并同步写入操作日志。
+ */
+export async function createFeedback(
+  input: AiFeedbackCreateInput,
+  context: {
+    actorAuthUserId: string
+    actorRbacUserId: string | null
+    requestId: string
+  },
+): Promise<AiFeedbackEntry> {
+  let feedbackRecord: Awaited<ReturnType<typeof createAiFeedback>>
+
+  try {
+    feedbackRecord = await createAiFeedback({
+      ...input,
+      actorAuthUserId: context.actorAuthUserId,
+      actorRbacUserId: context.actorRbacUserId,
+    })
+  } catch (error) {
+    if (error instanceof AiFeedbackAuditLogNotFoundError) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: error.message,
+      })
+    }
+
+    throw error
+  }
+
+  await writeOperationLog({
+    action: input.accepted ? 'create_feedback' : 'record_override',
+    detail: `Recorded ${input.userAction} feedback for AI audit ${input.auditLogId}.`,
+    fallbackActorKind: 'anonymous',
+    module: 'ai_feedback',
+    operatorId: context.actorRbacUserId,
+    requestInfo: {
+      accepted: input.accepted,
+      auditLogId: input.auditLogId,
+      requestId: context.requestId,
+      userAction: input.userAction,
+    },
+    targetId: input.auditLogId,
+  })
+
+  return serializeAiFeedbackEntry(feedbackRecord)
+}
+
+export const aiFeedbackListProcedure = requireAnyPermission(aiFeedbackPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/feedback',
+    tags: ['AI:Feedback'],
+    summary: 'List AI feedback entries',
+    description: 'Returns paginated AI feedback and human override records.',
+  })
+  .input(listAiFeedbackInputSchema)
+  .output(aiFeedbackListResponseSchema)
+  .handler(async ({ input }) => listFeedback(input))
+
+export const aiFeedbackCreateProcedure = requireAnyPermission(aiFeedbackPermissions)
+  .route({
+    method: 'POST',
+    path: '/api/v1/ai/feedback',
+    tags: ['AI:Feedback'],
+    summary: 'Create AI feedback entry',
+    description: 'Persists operator feedback for an AI audit log and tracks human overrides.',
+  })
+  .input(createAiFeedbackInputSchema)
+  .output(aiFeedbackEntrySchema)
+  .handler(async ({ context, input }) =>
+    createFeedback(input, {
+      actorAuthUserId: context.userId,
+      actorRbacUserId: context.rbacUserId,
+      requestId: context.requestId,
+    }),
+  )

@@ -216,7 +216,7 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
 
 test('AI contract routes expose knowledge, evals skeleton, and audit logs for administrators', async () => {
   const authHeaders = await createSessionForRole('admin')
-  const [knowledgeResponse, evalsResponse, auditResponse] = await Promise.all([
+  const [knowledgeResponse, evalsResponse, auditResponse, feedbackResponse] = await Promise.all([
     app.request('http://localhost/api/v1/ai/knowledge?page=1&pageSize=5', {
       headers: authHeaders,
     }),
@@ -224,6 +224,9 @@ test('AI contract routes expose knowledge, evals skeleton, and audit logs for ad
       headers: authHeaders,
     }),
     app.request('http://localhost/api/v1/ai/audit?page=1&pageSize=5', {
+      headers: authHeaders,
+    }),
+    app.request('http://localhost/api/v1/ai/feedback?page=1&pageSize=5', {
       headers: authHeaders,
     }),
   ])
@@ -242,18 +245,43 @@ test('AI contract routes expose knowledge, evals skeleton, and audit logs for ad
   }
   const auditPayload = (await auditResponse.json()) as {
     json: {
-      data: Array<unknown>
+      data: Array<{
+        feedbackCount: number
+        humanOverride: boolean
+        latestUserAction: string | null
+      }>
       pagination: { page: number }
+    }
+  }
+  const feedbackPayload = (await feedbackResponse.json()) as {
+    json: {
+      data: Array<unknown>
+      summary: {
+        accepted: number
+        humanOverrideCount: number
+      }
     }
   }
 
   assert.equal(knowledgeResponse.status, 200)
   assert.equal(evalsResponse.status, 200)
   assert.equal(auditResponse.status, 200)
+  assert.equal(feedbackResponse.status, 200)
   assert.ok(knowledgePayload.json.pagination.total >= 0)
   assert.equal(evalsPayload.json.summary.configured, false)
   assert.equal(evalsPayload.json.summary.totalExperiments, 0)
   assert.equal(auditPayload.json.pagination.page, 1)
+  assert.ok(
+    auditPayload.json.data.every(
+      (row) =>
+        typeof row.feedbackCount === 'number' &&
+        typeof row.humanOverride === 'boolean' &&
+        (typeof row.latestUserAction === 'string' || row.latestUserAction === null),
+    ),
+  )
+  assert.ok(Array.isArray(feedbackPayload.json.data))
+  assert.ok(feedbackPayload.json.summary.accepted >= 0)
+  assert.ok(feedbackPayload.json.summary.humanOverrideCount >= 0)
 })
 
 test('super admin can read the contract-first permission list route', async () => {

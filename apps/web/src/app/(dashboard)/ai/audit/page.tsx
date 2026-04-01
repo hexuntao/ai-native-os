@@ -1,7 +1,6 @@
 import {
   Badge,
   Field,
-  FieldHint,
   FieldLabel,
   Input,
   Table,
@@ -13,6 +12,7 @@ import {
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
 
+import { AiFeedbackDialog } from '@/components/ai/ai-feedback-dialog'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { PaginationControls } from '@/components/management/pagination-controls'
@@ -59,9 +59,9 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
           value: formatCount(payload.data.filter((row) => row.status === 'forbidden').length),
         },
         {
-          detail: 'Distinct tools represented in the current slice.',
-          label: 'Tools seen',
-          value: formatCount(new Set(payload.data.map((row) => row.toolId)).size),
+          detail: 'Audit rows that already carry a recorded human override.',
+          label: 'Overrides',
+          value: formatCount(payload.data.filter((row) => row.humanOverride).length),
         },
       ]}
       title="AI Audit Ledger"
@@ -112,6 +112,7 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
               <TableHead>Scope</TableHead>
               <TableHead>Actor</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Feedback</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -137,6 +138,15 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
                     {row.status}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  <AiFeedbackDialog
+                    auditLogId={row.id}
+                    feedbackCount={row.feedbackCount}
+                    humanOverride={row.humanOverride}
+                    latestUserAction={row.latestUserAction}
+                    toolId={row.toolId}
+                  />
+                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDateTime(row.createdAt)}
                 </TableCell>
@@ -146,13 +156,14 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
         </Table>
       </div>
 
-      <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-        <FieldLabel>Audit boundary</FieldLabel>
-        <FieldHint>
+      <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
+        <p className="text-sm font-medium text-foreground">Audit boundary</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Agent reasoning, prompt versions, and HITL approvals are not yet represented here. This
-          page reflects the current tool-level audit chain only.
-        </FieldHint>
-      </Field>
+          page now captures operator feedback and human overrides on top of the existing tool-level
+          audit chain, but it is not a full approval workflow surface yet.
+        </p>
+      </div>
 
       <PaginationControls
         nextHref={

@@ -3,11 +3,15 @@ import {
   type AppSubjects,
   aiAuditListResponseSchema,
   aiEvalListResponseSchema,
+  aiFeedbackEntrySchema,
+  aiFeedbackListResponseSchema,
+  createAiFeedbackInputSchema,
   currentPermissionsResponseSchema,
   healthResponseSchema,
   knowledgeListResponseSchema,
   listAiAuditLogsInputSchema,
   listAiEvalsInputSchema,
+  listAiFeedbackInputSchema,
   listKnowledgeInputSchema,
   listMenusInputSchema,
   listOnlineUsersInputSchema,
@@ -25,6 +29,7 @@ import {
 } from '@ai-native-os/shared'
 import { serve } from '@hono/node-server'
 import type { HonoBindings, HonoVariables } from '@mastra/hono'
+import { ORPCError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
 import { Scalar } from '@scalar/hono-api-reference'
 import type { Context } from 'hono'
@@ -54,6 +59,7 @@ import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
 import { listAiAuditLogs } from '@/routes/ai/audit'
 import { listAiEvals } from '@/routes/ai/evals'
+import { createFeedback, listFeedback } from '@/routes/ai/feedback'
 import { listKnowledge } from '@/routes/ai/knowledge'
 import { listMonitorLogs } from '@/routes/monitor/logs'
 import { listOnlineUsers } from '@/routes/monitor/online'
@@ -74,6 +80,10 @@ initializeTelemetry()
 
 const contractFirstReadRequirements = {
   aiAudit: [
+    { action: 'read', subject: 'AiAuditLog' },
+    { action: 'manage', subject: 'all' },
+  ],
+  aiFeedback: [
     { action: 'read', subject: 'AiAuditLog' },
     { action: 'manage', subject: 'all' },
   ],
@@ -158,6 +168,37 @@ function jsonBadRequest<TEnv extends AppEnv>(c: Context<TEnv>, error: z.ZodError
 }
 
 /**
+ * 复用 oRPC 错误语义，将 contract-first 兼容入口的业务异常映射为稳定 HTTP 响应。
+ */
+function jsonOrpcError<TEnv extends AppEnv>(
+  c: Context<TEnv>,
+  error: {
+    code: string
+    message: string
+  },
+): Response {
+  if (error.code === 'UNAUTHORIZED') {
+    return jsonUnauthorized(c)
+  }
+
+  if (error.code === 'FORBIDDEN') {
+    return jsonForbidden(c, error.message)
+  }
+
+  if (error.code === 'BAD_REQUEST') {
+    return c.json(
+      {
+        code: 'BAD_REQUEST',
+        message: error.message,
+      },
+      400,
+    )
+  }
+
+  throw error
+}
+
+/**
  * 判断当前请求上下文是否满足任一权限要求。
  */
 function canAccessContractFirstRoute(
@@ -202,7 +243,70 @@ async function handleContractFirstGet<TInput, TOutput, TEnv extends AppEnv>(
     return jsonBadRequest(c, parsedInput.error)
   }
 
-  const payload = await loader(parsedInput.data)
+  let payload: TOutput
+
+  try {
+    payload = await loader(parsedInput.data)
+  } catch (error) {
+    if (error instanceof ORPCError) {
+      return jsonOrpcError(c, error)
+    }
+
+    throw error
+  }
+
+  return c.json({
+    json: outputSchema.parse(payload),
+  })
+}
+
+/**
+ * 为 contract-first POST 路由提供 JSON body 兼容层，同时复用统一认证与 RBAC 约束。
+ */
+async function handleContractFirstPost<TInput, TOutput, TEnv extends AppEnv>(
+  c: Context<TEnv>,
+  inputSchema: z.ZodType<TInput>,
+  outputSchema: z.ZodType<TOutput>,
+  requirements: ReadonlyArray<{
+    action: AppActions
+    subject: AppSubjects
+  }>,
+  loader: (
+    input: TInput,
+    context: Awaited<ReturnType<typeof createAppContext>>,
+  ) => Promise<TOutput>,
+): Promise<Response> {
+  const context = await createAppContext(c)
+
+  if (!context.session) {
+    return jsonUnauthorized(c)
+  }
+
+  if (!canAccessContractFirstRoute(context, requirements)) {
+    return jsonForbidden(
+      c,
+      requirements.map((requirement) => `${requirement.action}:${requirement.subject}`).join(' | '),
+    )
+  }
+
+  const requestJson = await c.req.json().catch(() => null)
+  const parsedInput = inputSchema.safeParse(requestJson)
+
+  if (!parsedInput.success) {
+    return jsonBadRequest(c, parsedInput.error)
+  }
+
+  let payload: TOutput
+
+  try {
+    payload = await loader(parsedInput.data, context)
+  } catch (error) {
+    if (error instanceof ORPCError) {
+      return jsonOrpcError(c, error)
+    }
+
+    throw error
+  }
 
   return c.json({
     json: outputSchema.parse(payload),
@@ -378,6 +482,31 @@ app.get('/api/v1/ai/audit', (c) =>
     aiAuditListResponseSchema,
     contractFirstReadRequirements.aiAudit,
     listAiAuditLogs,
+  ),
+)
+
+app.get('/api/v1/ai/feedback', (c) =>
+  handleContractFirstGet(
+    c,
+    listAiFeedbackInputSchema,
+    aiFeedbackListResponseSchema,
+    contractFirstReadRequirements.aiFeedback,
+    listFeedback,
+  ),
+)
+
+app.post('/api/v1/ai/feedback', (c) =>
+  handleContractFirstPost(
+    c,
+    createAiFeedbackInputSchema,
+    aiFeedbackEntrySchema,
+    contractFirstReadRequirements.aiFeedback,
+    async (input, context) =>
+      createFeedback(input, {
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
   ),
 )
 

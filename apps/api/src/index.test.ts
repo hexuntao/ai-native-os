@@ -5,7 +5,9 @@ import test from 'node:test'
 import {
   anonymousOperationActorId,
   db,
+  listAiFeedbackByAuditLogId,
   listOperationLogsByModule,
+  listRecentAiAuditLogs,
   roles,
   userRoles,
   users,
@@ -627,6 +629,72 @@ test('AI audit logs endpoint returns recent entries for administrators', async (
 
   assert.equal(response.status, 200)
   assert.ok(payload.json.logs.some((log) => log.toolId === testToolId && log.status === 'success'))
+})
+
+test('AI feedback route persists feedback, marks human override, and writes an operation log', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const auditLog = await writeAiAuditLog({
+    action: 'read',
+    actorAuthUserId: `auth-feedback-${randomUUID()}`,
+    actorRbacUserId: null,
+    input: {
+      prompt: 'summarize the latest audit status',
+    },
+    output: {
+      summary: 'stale answer',
+    },
+    requestInfo: {
+      requestId: `feedback-api-${randomUUID()}`,
+    },
+    roleCodes: ['admin'],
+    status: 'success',
+    subject: 'AiAuditLog',
+    toolId: `api-feedback-${randomUUID()}`,
+  })
+
+  const response = await app.request('http://localhost/api/v1/ai/feedback', {
+    body: JSON.stringify({
+      accepted: false,
+      auditLogId: auditLog.id,
+      correction: 'Use the corrected audit summary instead.',
+      feedbackText: 'The original answer ignored the latest override state.',
+      userAction: 'edited',
+    }),
+    headers: new Headers({
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    }),
+    method: 'POST',
+  })
+  const payload = (await response.json()) as {
+    json: {
+      accepted: boolean
+      auditLogId: string
+      correction: string | null
+      userAction: string
+    }
+  }
+  const feedbackRows = await listAiFeedbackByAuditLogId(auditLog.id)
+  const refreshedAuditLog = (await listRecentAiAuditLogs(20)).find((row) => row.id === auditLog.id)
+  const feedbackOperationLogs = await listOperationLogsByModule('ai_feedback')
+
+  assert.equal(response.status, 200)
+  assert.equal(payload.json.auditLogId, auditLog.id)
+  assert.equal(payload.json.accepted, false)
+  assert.equal(payload.json.userAction, 'edited')
+  assert.equal(payload.json.correction, 'Use the corrected audit summary instead.')
+  assert.equal(feedbackRows[0]?.auditLogId, auditLog.id)
+  assert.equal(feedbackRows[0]?.userAction, 'edited')
+  assert.equal(refreshedAuditLog?.humanOverride, true)
+  assert.ok(
+    feedbackOperationLogs.some(
+      (log) =>
+        log.module === 'ai_feedback' &&
+        log.targetId === auditLog.id &&
+        log.status === 'success' &&
+        log.requestInfo?.userAction === 'edited',
+    ),
+  )
 })
 
 test('Mastra runtime summary route reflects the current runtime registry state', async () => {

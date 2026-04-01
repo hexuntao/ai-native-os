@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 5 P5-T2 completed, P5-T3 ready
+Current Mode: Phase 5 P5-T3 completed, P5-T4 ready
 Current Phase: Phase 5 `Observability`
 Overall Status: `ready_to_execute`
 
@@ -70,7 +70,7 @@ Overall Status: `ready_to_execute`
 | P4-T6 | 4 | Implement generative UI components | done | P4-T5 | action render smoke |
 | P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | done | Phase 2, Phase 3 | log trace verification |
 | P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | done | P1-T5 | telemetry + health smoke |
-| P5-T3 | 5 | Implement AI feedback capture and human override tracking | ready | P3-T4, P4-T5 | feedback persistence smoke |
+| P5-T3 | 5 | Implement AI feedback capture and human override tracking | done | P3-T4, P4-T5 | feedback persistence smoke |
 | P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | ready | P3-T3, P3-T4 | eval run result verification |
 | P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | backlog | P5-T4 | version activate/rollback verification |
 | P6-T1 | 6 | Finalize environment matrix and secret contract | backlog | Phase 3 | env-only boot verification |
@@ -83,8 +83,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P5-T3 Implement AI feedback capture and human override tracking
-2. P5-T4 Implement Mastra Evals datasets, scorers, and runners
+1. P5-T4 Implement Mastra Evals datasets, scorers, and runners
 
 Auto-unlock rules:
 
@@ -170,12 +169,14 @@ Known current blockers:
 - The new `ai/evals` contract-first endpoint is intentionally a stable skeleton backed by runtime summary only. Dedicated eval persistence, scorers, and experiment history remain a Phase 5 observability task.
 - Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
 - API telemetry bootstrap, request-id propagation, and shared health snapshots are now implemented. `/health` and `/api/v1/monitor/server` report database, redis, and telemetry states from the same helper; telemetry backends stay `unknown` until `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` are configured explicitly.
+- AI feedback capture and human override tracking are now implemented across the database, API, and web audit surface. Operator actions persist into `ai_feedback`, flip the linked `ai_audit_logs.human_override` flag when needed, and write matching `operation_logs` entries so the HITL path itself is auditable.
 
 Blocker resolution order:
 
-1. P5-T3
-2. Better Auth ↔ RBAC principal bridge hardening
-3. Redis runtime wiring
+1. P5-T4
+2. P5-T5
+3. Better Auth ↔ RBAC principal bridge hardening
+4. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -204,6 +205,53 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P5-T3 Implement AI feedback capture and human override tracking
+- Status: done
+- Changed files:
+  - `apps/api/src/index.test.ts`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/mastra/tools/ai-audit-log-search.ts`
+  - `apps/api/src/routes/ai/audit.ts`
+  - `apps/api/src/routes/ai/feedback.ts`
+  - `apps/api/src/routes/contract-first.test.ts`
+  - `apps/api/src/routes/index.ts`
+  - `apps/api/src/routes/system/ai-audit-logs.ts`
+  - `apps/web/src/app/(dashboard)/ai/audit/page.tsx`
+  - `apps/web/src/app/api/ai/feedback/route.ts`
+  - `apps/web/src/components/ai/ai-feedback-dialog.tsx`
+  - `packages/db/src/ai/audit-logs.ts`
+  - `packages/db/src/ai/feedback.test.ts`
+  - `packages/db/src/ai/feedback.ts`
+  - `packages/db/src/index.ts`
+  - `packages/db/src/migrations/0004_dear_redwing.sql`
+  - `packages/db/src/migrations/meta/0004_snapshot.json`
+  - `packages/db/src/migrations/meta/_journal.json`
+  - `packages/db/src/schema/ai-audit-logs.ts`
+  - `packages/db/src/schema/ai-feedback.ts`
+  - `packages/db/src/schema/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/schemas/ai-feedback.ts`
+  - `packages/shared/src/schemas/ai-tools.ts`
+  - `packages/shared/src/schemas/business-api.ts`
+  - `packages/ui/src/index.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm typecheck`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:generate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:migrate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+- Result:
+  - Added an end-to-end AI feedback and human-override pipeline without bypassing the existing auth, RBAC, or audit boundaries. The database now persists operator feedback in `ai_feedback` and marks linked audit rows with `human_override` when a rejection, edit, or override occurs. The API exposes documented contract-first `GET/POST /api/v1/ai/feedback` routes, converts invalid audit-log references into `BAD_REQUEST` instead of generic 500s, and records matching `operation_logs` entries so HITL actions are auditable. The AI audit surfaces in both API and web now show feedback counts, latest user action, and override state, and the dashboard audit page provides a same-origin feedback dialog instead of introducing a new business-logic path in `apps/web/app/api`. Static checks, database migration, seed, tests, and production build all passed.
+- Unlocked tasks:
+  - none
+- Notes:
+  - This task intentionally captures feedback at the existing audit-log boundary rather than inventing prompt-level or message-level identifiers. That keeps the implementation aligned with the current Phase 3/4 runtime surface and avoids false precision ahead of eval and prompt-governance work.
+  - Human override tracking is now represented at the tool-audit level, but formal approval chains, scorer-driven evals, and prompt release governance remain separate Phase 5 tasks.
 
 ### P5-T2 Add Sentry, OpenTelemetry, request IDs, and health checks
 - Status: done

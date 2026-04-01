@@ -26,6 +26,7 @@ export interface AiAuditLogRecord {
   actorRbacUserId: string | null
   createdAt: Date
   errorMessage: string | null
+  humanOverride: boolean
   id: string
   input: unknown
   output: unknown
@@ -55,6 +56,7 @@ function mapAuditLogRow(row: typeof aiAuditLogs.$inferSelect): AiAuditLogRecord 
     actorRbacUserId: row.actorRbacUserId,
     createdAt: row.createdAt,
     errorMessage: row.errorMessage,
+    humanOverride: row.humanOverride,
     id: row.id,
     input: row.input,
     output: row.output,

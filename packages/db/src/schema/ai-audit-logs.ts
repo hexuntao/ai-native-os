@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import { boolean, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const aiAuditLogs = pgTable('ai_audit_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -12,6 +12,7 @@ export const aiAuditLogs = pgTable('ai_audit_logs', {
   output: jsonb('output').$type<unknown>().default(null),
   requestInfo: jsonb('request_info').$type<Record<string, string> | null>().default(null),
   status: varchar('status', { length: 20 }).notNull(),
+  humanOverride: boolean('human_override').notNull().default(false),
   errorMessage: text('error_message'),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 })

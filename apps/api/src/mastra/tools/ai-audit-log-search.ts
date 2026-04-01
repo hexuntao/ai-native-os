@@ -1,4 +1,4 @@
-import { listRecentAiAuditLogs } from '@ai-native-os/db'
+import { getAiFeedbackAggregatesByAuditLogIds, listRecentAiAuditLogs } from '@ai-native-os/db'
 import { z } from 'zod'
 
 import { defineProtectedMastraTool } from './base'
@@ -16,7 +16,11 @@ const aiAuditLogSearchOutputSchema = z.object({
       actorRbacUserId: z.string().uuid().nullable(),
       createdAt: z.string(),
       errorMessage: z.string().nullable(),
+      feedbackCount: z.number().int().min(0),
+      humanOverride: z.boolean(),
       id: z.string().uuid(),
+      latestFeedbackAt: z.string().nullable(),
+      latestUserAction: z.enum(['accepted', 'edited', 'overridden', 'rejected']).nullable(),
       requestId: z.string().nullable(),
       roleCodes: z.array(z.string()),
       status: z.enum(['error', 'forbidden', 'success']),
@@ -34,14 +38,23 @@ export const aiAuditLogSearchRegistration = defineProtectedMastraTool({
     const filteredRows = parsedInput.status
       ? rows.filter((row) => row.status === parsedInput.status)
       : rows
+    const feedbackAggregates = await getAiFeedbackAggregatesByAuditLogIds(
+      filteredRows.map((row) => row.id),
+    )
 
     return {
       logs: filteredRows.map((row) => ({
+        ...(feedbackAggregates.get(row.id) ?? {
+          feedbackCount: 0,
+          latestFeedbackAt: null,
+          latestUserAction: null,
+        }),
         action: row.action,
         actorAuthUserId: row.actorAuthUserId,
         actorRbacUserId: row.actorRbacUserId,
         createdAt: row.createdAt.toISOString(),
         errorMessage: row.errorMessage,
+        humanOverride: row.humanOverride,
         id: row.id,
         requestId: row.requestInfo?.requestId ?? null,
         roleCodes: row.roleCodes,

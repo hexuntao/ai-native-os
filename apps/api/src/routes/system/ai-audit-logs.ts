@@ -1,4 +1,4 @@
-import { listRecentAiAuditLogs } from '@ai-native-os/db'
+import { getAiFeedbackAggregatesByAuditLogIds, listRecentAiAuditLogs } from '@ai-native-os/db'
 import { aiAuditLogListResponseSchema } from '@ai-native-os/shared'
 
 import { requirePermission } from '@/orpc/procedures'
@@ -14,14 +14,21 @@ export const aiAuditLogsProcedure = requirePermission('read', 'AiAuditLog')
   .output(aiAuditLogListResponseSchema)
   .handler(async () => {
     const rows = await listRecentAiAuditLogs(20)
+    const feedbackAggregates = await getAiFeedbackAggregatesByAuditLogIds(rows.map((row) => row.id))
 
     return {
       logs: rows.map((row) => ({
+        ...(feedbackAggregates.get(row.id) ?? {
+          feedbackCount: 0,
+          latestFeedbackAt: null,
+          latestUserAction: null,
+        }),
         action: row.action,
         actorAuthUserId: row.actorAuthUserId,
         actorRbacUserId: row.actorRbacUserId,
         createdAt: row.createdAt.toISOString(),
         errorMessage: row.errorMessage,
+        humanOverride: row.humanOverride,
         id: row.id,
         requestId: row.requestInfo?.requestId ?? null,
         roleCodes: row.roleCodes,

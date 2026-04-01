@@ -1,4 +1,4 @@
-import { aiAuditLogs, db } from '@ai-native-os/db'
+import { aiAuditLogs, db, getAiFeedbackAggregatesByAuditLogIds } from '@ai-native-os/db'
 import {
   type AiAuditListResponse,
   type AppActions,
@@ -36,14 +36,23 @@ export async function listAiAuditLogs(input: ListAiAuditLogsInput): Promise<AiAu
     .orderBy(desc(aiAuditLogs.createdAt))
     .limit(input.pageSize)
     .offset((input.page - 1) * input.pageSize)
+  const feedbackAggregates = await getAiFeedbackAggregatesByAuditLogIds(
+    pageRows.map((row) => row.id),
+  )
 
   return {
     data: pageRows.map((row) => ({
+      ...(feedbackAggregates.get(row.id) ?? {
+        feedbackCount: 0,
+        latestFeedbackAt: null,
+        latestUserAction: null,
+      }),
       action: row.action as AppActions,
       actorAuthUserId: row.actorAuthUserId,
       actorRbacUserId: row.actorRbacUserId,
       createdAt: row.createdAt.toISOString(),
       errorMessage: row.errorMessage,
+      humanOverride: row.humanOverride,
       id: row.id,
       requestId: row.requestInfo?.requestId ?? null,
       roleCodes: row.roleCodes,

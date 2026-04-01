@@ -29,6 +29,13 @@
       "when": 1775030527376,
       "tag": "0003_sour_firestar",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775052103995,
+      "tag": "0004_dear_redwing",
+      "breakpoints": true
     }
   ]
 }
