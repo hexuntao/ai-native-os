@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 5 P5-T1 completed, P5-T2 ready
+Current Mode: Phase 5 P5-T2 completed, P5-T3 ready
 Current Phase: Phase 5 `Observability`
 Overall Status: `ready_to_execute`
 
@@ -69,7 +69,7 @@ Overall Status: `ready_to_execute`
 | P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | done | P3-T5, P4-T1 | chat stream smoke |
 | P4-T6 | 4 | Implement generative UI components | done | P4-T5 | action render smoke |
 | P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | done | Phase 2, Phase 3 | log trace verification |
-| P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | ready | P1-T5 | telemetry + health smoke |
+| P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | done | P1-T5 | telemetry + health smoke |
 | P5-T3 | 5 | Implement AI feedback capture and human override tracking | ready | P3-T4, P4-T5 | feedback persistence smoke |
 | P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | ready | P3-T3, P3-T4 | eval run result verification |
 | P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | backlog | P5-T4 | version activate/rollback verification |
@@ -83,9 +83,8 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P5-T2 Add Sentry, OpenTelemetry, request IDs, and health checks
-2. P5-T3 Implement AI feedback capture and human override tracking
-3. P5-T4 Implement Mastra Evals datasets, scorers, and runners
+1. P5-T3 Implement AI feedback capture and human override tracking
+2. P5-T4 Implement Mastra Evals datasets, scorers, and runners
 
 Auto-unlock rules:
 
@@ -170,10 +169,11 @@ Known current blockers:
 - The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
 - The new `ai/evals` contract-first endpoint is intentionally a stable skeleton backed by runtime summary only. Dedicated eval persistence, scorers, and experiment history remain a Phase 5 observability task.
 - Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
+- API telemetry bootstrap, request-id propagation, and shared health snapshots are now implemented. `/health` and `/api/v1/monitor/server` report database, redis, and telemetry states from the same helper; telemetry backends stay `unknown` until `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` are configured explicitly.
 
 Blocker resolution order:
 
-1. P5-T2
+1. P5-T3
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 
@@ -204,6 +204,42 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P5-T2 Add Sentry, OpenTelemetry, request IDs, and health checks
+- Status: done
+- Changed files:
+  - `apps/api/package.json`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/index.test.ts`
+  - `apps/api/src/lib/health.ts`
+  - `apps/api/src/lib/health.test.ts`
+  - `apps/api/src/lib/telemetry.ts`
+  - `apps/api/src/lib/telemetry.test.ts`
+  - `apps/api/src/middleware/auth.ts`
+  - `apps/api/src/orpc/context.ts`
+  - `apps/api/src/routes/contract-first.test.ts`
+  - `apps/api/src/routes/monitor/server.ts`
+  - `apps/web/src/app/(dashboard)/monitor/server/page.tsx`
+  - `packages/shared/src/schemas/business-api.ts`
+  - `packages/shared/src/schemas/health.ts`
+  - `pnpm-lock.yaml`
+  - `Status.md`
+- Commands:
+  - `pnpm add --filter @ai-native-os/api @sentry/node @opentelemetry/api @opentelemetry/auto-instrumentations-node @opentelemetry/exporter-trace-otlp-http @opentelemetry/sdk-node`
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `REDIS_URL=redis://:redis@127.0.0.1:6380 pnpm --filter @ai-native-os/api dev`
+  - `curl -sS -i http://localhost:3001/health`
+  - `curl -sS -i -H 'x-request-id: p5-smoke-request' http://localhost:3001/api/v1/system/ping`
+- Result:
+  - Added env-gated Sentry and OpenTelemetry bootstrap to the API runtime, centralized request-id propagation through Hono middleware variables and response headers, and replaced the duplicated health logic with a shared snapshot helper reused by `/health` and `/api/v1/monitor/server`. Health responses now report `database`, `redis`, and `telemetry` states from a single contract, Redis probing supports `REDIS_URL` or host/port/password tuples, and the monitor page renders the new telemetry status fields. Static checks, unit/integration tests, and process-level smoke passed; with `REDIS_URL=redis://:redis@127.0.0.1:6380`, `/health` returned `redis: ok`, and a caller-supplied `x-request-id` was preserved end-to-end.
+- Unlocked tasks:
+  - none
+- Notes:
+  - Telemetry backends intentionally stay `unknown` until their DSN/export endpoint environment variables are configured. This keeps local and test environments stable without pretending observability is active.
+  - Redis health now reflects the configured runtime dependency, but the broader queue/worker runtime is still outside the API health contract until deployment wiring is completed in Phase 6.
 
 ### P5-T1 Implement operation log and AI audit log pipelines end-to-end
 - Status: done

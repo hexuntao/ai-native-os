@@ -58,7 +58,17 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
             <Badge variant={payload.health.database === 'ok' ? 'accent' : 'secondary'}>
               database:{payload.health.database}
             </Badge>
-            <Badge variant="secondary">redis:{payload.health.redis}</Badge>
+            <Badge variant={payload.health.redis === 'ok' ? 'accent' : 'secondary'}>
+              redis:{payload.health.redis}
+            </Badge>
+            <Badge
+              variant={payload.health.telemetry.openTelemetry === 'ok' ? 'accent' : 'secondary'}
+            >
+              otel:{payload.health.telemetry.openTelemetry}
+            </Badge>
+            <Badge variant={payload.health.telemetry.sentry === 'ok' ? 'accent' : 'secondary'}>
+              sentry:{payload.health.telemetry.sentry}
+            </Badge>
             <Badge variant={payload.health.status === 'ok' ? 'accent' : 'secondary'}>
               overall:{payload.health.status}
             </Badge>
@@ -89,6 +99,14 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
               <TableRow>
                 <TableCell className="font-medium">Redis status</TableCell>
                 <TableCell>{payload.health.redis}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">OpenTelemetry status</TableCell>
+                <TableCell>{payload.health.telemetry.openTelemetry}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Sentry status</TableCell>
+                <TableCell>{payload.health.telemetry.sentry}</TableCell>
               </TableRow>
             </TableBody>
           </Table>

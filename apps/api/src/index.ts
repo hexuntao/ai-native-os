@@ -1,4 +1,3 @@
-import { db } from '@ai-native-os/db'
 import {
   type AppActions,
   type AppSubjects,
@@ -28,7 +27,6 @@ import { serve } from '@hono/node-server'
 import type { HonoBindings, HonoVariables } from '@mastra/hono'
 import { RPCHandler } from '@orpc/server/fetch'
 import { Scalar } from '@scalar/hono-api-reference'
-import { sql } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -44,7 +42,9 @@ import {
   handleAgUiRuntimeSummaryRequest,
   handleCopilotKitRequest,
 } from '@/copilotkit/runtime'
+import { getApiHealthSnapshot } from '@/lib/health'
 import { generateOpenApiDocument } from '@/lib/openapi'
+import { initializeTelemetry } from '@/lib/telemetry'
 import { getMastraRuntimeSummary, mastra, mastraEnvironment } from '@/mastra'
 import { handleMastraMcpRequest, mastraMcpEndpointPath } from '@/mastra/mcp/server'
 import { readMastraRequestContext } from '@/mastra/request-context'
@@ -70,6 +70,7 @@ interface AppEnv extends ApiEnv {
 }
 
 export const app = new Hono<AppEnv>()
+initializeTelemetry()
 
 const contractFirstReadRequirements = {
   aiAudit: [
@@ -226,36 +227,21 @@ app.use(
     credentials: true,
   }),
 )
-app.use('*', requestId())
+app.use('*', requestId({ headerName: 'x-request-id' }))
 app.use('*', async (c, next) => {
   const start = Date.now()
   await next()
   const durationMs = Date.now() - start
-  console.log(`${c.req.method} ${c.req.path} ${c.res.status} ${durationMs}ms`)
+  c.header('x-request-id', c.get('requestId'))
+  console.log(
+    `[${c.get('requestId')}] ${c.req.method} ${c.req.path} ${c.res.status} ${durationMs}ms`,
+  )
 })
 
 app.get('/health', async (c) => {
-  let database: 'ok' | 'error' = 'ok'
+  const response = healthResponseSchema.parse(await getApiHealthSnapshot())
 
-  try {
-    await db.execute(sql`select 1`)
-  } catch {
-    database = 'error'
-  }
-
-  const payload = {
-    status: database === 'ok' ? 'ok' : 'degraded',
-    checks: {
-      api: 'ok',
-      database,
-      redis: 'unknown',
-    },
-    timestamp: new Date().toISOString(),
-  } as const
-
-  const response = healthResponseSchema.parse(payload)
-
-  return c.json(response, database === 'ok' ? 200 : 503)
+  return c.json(response, response.status === 'ok' ? 200 : 503)
 })
 
 app.get('/api/openapi.json', async (c) => {

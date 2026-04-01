@@ -4,6 +4,7 @@ import { appActions, appSubjects } from '../abilities/subjects'
 import { aiKnowledgeMetadataSchema } from './ai-knowledge'
 import { aiAuditLogEntrySchema } from './ai-tools'
 import { paginatedResponseSchema } from './common'
+import { dependencyHealthStatusSchema, telemetryHealthSchema } from './health'
 
 const queryPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -139,9 +140,10 @@ export const serverSummarySchema = z.object({
   }),
   health: z.object({
     api: z.literal('ok'),
-    database: z.enum(['error', 'ok']),
-    redis: z.literal('unknown'),
+    database: dependencyHealthStatusSchema,
+    redis: dependencyHealthStatusSchema,
     status: z.enum(['degraded', 'ok']),
+    telemetry: telemetryHealthSchema,
   }),
   runtime: z.object({
     agentCount: z.number().int().min(0),

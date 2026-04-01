@@ -175,7 +175,14 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   }
   const serverPayload = (await serverResponse.json()) as {
     json: {
-      health: { api: string }
+      health: {
+        api: string
+        redis: string
+        telemetry: {
+          openTelemetry: string
+          sentry: string
+        }
+      }
       runtime: { toolCount: number }
     }
   }
@@ -201,6 +208,9 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   )
   assert.ok(onlinePayload.json.data.some((sessionRow) => sessionRow.roleCodes.includes('viewer')))
   assert.equal(serverPayload.json.health.api, 'ok')
+  assert.ok(['ok', 'error', 'unknown'].includes(serverPayload.json.health.redis))
+  assert.ok(['ok', 'error', 'unknown'].includes(serverPayload.json.health.telemetry.openTelemetry))
+  assert.ok(['ok', 'error', 'unknown'].includes(serverPayload.json.health.telemetry.sentry))
   assert.ok(serverPayload.json.runtime.toolCount >= 1)
 })
 

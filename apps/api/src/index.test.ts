@@ -114,12 +114,25 @@ async function createSessionForRole(roleCode: string): Promise<Headers> {
 test('health endpoint responds without crashing the app', async () => {
   const response = await app.request('http://localhost/health')
   const payload = (await response.json()) as {
-    checks: { api: string; database: string; redis: string }
+    checks: {
+      api: string
+      database: string
+      redis: string
+      telemetry: {
+        openTelemetry: string
+        sentry: string
+      }
+    }
     status: string
   }
 
   assert.ok(response.status === 200 || response.status === 503)
+  assert.ok((response.headers.get('x-request-id') ?? '').length > 0)
   assert.equal(payload.checks.api, 'ok')
+  assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.database))
+  assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.redis))
+  assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.telemetry.openTelemetry))
+  assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.telemetry.sentry))
   assert.ok(['ok', 'degraded'].includes(payload.status))
 })
 
@@ -132,6 +145,18 @@ test('ping endpoint returns the initial oRPC payload', async () => {
   assert.equal(response.status, 200)
   assert.equal(payload.json.ok, true)
   assert.equal(payload.json.service, 'api')
+})
+
+test('request id middleware preserves caller supplied request ids', async () => {
+  const requestId = `request-${randomUUID()}`
+  const response = await app.request('http://localhost/api/v1/system/ping', {
+    headers: {
+      'x-request-id': requestId,
+    },
+  })
+
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('x-request-id'), requestId)
 })
 
 test('Mastra runtime routes reject unauthenticated requests', async () => {

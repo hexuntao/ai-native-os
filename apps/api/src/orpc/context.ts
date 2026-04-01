@@ -15,13 +15,12 @@ export interface AppContext {
 }
 
 export async function createAppContext<TEnv extends ApiEnv>(c: Context<TEnv>): Promise<AppContext> {
-  const requestIdHeader = c.req.header('x-request-id')
   const authSession = c.get('authSession')
 
   return {
     ability: c.get('ability'),
     permissionRules: c.get('permissionRules'),
-    requestId: requestIdHeader ?? crypto.randomUUID(),
+    requestId: c.get('requestId'),
     rbacUserId: c.get('rbacUserId'),
     roleCodes: c.get('roleCodes'),
     session: authSession,

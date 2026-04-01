@@ -143,7 +143,7 @@ export async function handleAuditedAuthRequest<TEnv extends ApiEnv>(
   const actorEmail = emailFromRequest ?? authSessionBefore?.user.email ?? null
   const response = await auth.handler(request)
   const permissionProfile = actorEmail ? await loadUserPermissionProfileByEmail(actorEmail) : null
-  const requestId = response.headers.get('x-request-id') ?? crypto.randomUUID()
+  const requestId = c.get('requestId')
   const operationStatus = response.ok ? 'success' : 'error'
   const errorMessage =
     operationStatus === 'error'

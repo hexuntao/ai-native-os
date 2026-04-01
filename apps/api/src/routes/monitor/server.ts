@@ -1,7 +1,6 @@
-import { db } from '@ai-native-os/db'
 import { serverSummarySchema } from '@ai-native-os/shared'
-import { sql } from 'drizzle-orm'
 
+import { getApiHealthSnapshot } from '@/lib/health'
 import { getMastraRuntimeSummary } from '@/mastra'
 import { requireAnyPermission } from '@/orpc/procedures'
 
@@ -23,14 +22,7 @@ export const monitorServerSummaryProcedure = requireAnyPermission([
   })
   .output(serverSummarySchema)
   .handler(async () => {
-    let database: 'ok' | 'error' = 'ok'
-
-    try {
-      await db.execute(sql`select 1`)
-    } catch {
-      database = 'error'
-    }
-
+    const healthSnapshot = await getApiHealthSnapshot()
     const runtimeSummary = getMastraRuntimeSummary()
 
     return {
@@ -39,10 +31,8 @@ export const monitorServerSummaryProcedure = requireAnyPermission([
         port: Number.parseInt(process.env.PORT ?? '3001', 10),
       },
       health: {
-        api: 'ok',
-        database,
-        redis: 'unknown',
-        status: database === 'ok' ? 'ok' : 'degraded',
+        ...healthSnapshot.checks,
+        status: healthSnapshot.status,
       },
       runtime: {
         agentCount: runtimeSummary.agentCount,
