@@ -8,10 +8,11 @@
     "dev": "tsx watch src/index.ts",
     "format": "biome check --write .",
     "lint": "biome check .",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test $(find src -type f -name '*.test.ts' | sort)",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@casl/ability": "latest",
     "@ai-native-os/auth": "workspace:*",
     "@ai-native-os/db": "workspace:*",
     "@ai-native-os/shared": "workspace:*",

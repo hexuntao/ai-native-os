@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 2 P2-T3 completed, P2-T4 ready
+Current Mode: Phase 2 P2-T4 completed, P2-T5 ready
 Current Phase: Phase 2 `Auth + RBAC`
 Overall Status: `ready_to_execute`
 
@@ -50,8 +50,8 @@ Overall Status: `ready_to_execute`
 | P2-T1 | 2 | Implement Better Auth server and client configuration | done | P1-T5 | login/session smoke |
 | P2-T2 | 2 | Integrate auth middleware into Hono and expose auth routes | done | P2-T1 | 401/auth route smoke |
 | P2-T3 | 2 | Implement RBAC tables, seeds, and permission-loading service | done | P1-T3 | seed and lookup verification |
-| P2-T4 | 2 | Implement CASL ability builder and permission middleware | ready | P2-T2, P2-T3 | 403/condition verification |
-| P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | backlog | P2-T4 | ability fetch and deserialize |
+| P2-T4 | 2 | Implement CASL ability builder and permission middleware | done | P2-T2, P2-T3 | 403/condition verification |
+| P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | ready | P2-T4 | ability fetch and deserialize |
 | P2-T6 | 2 | Build minimal auth shell and permission provider in web app | backlog | P2-T1, P2-T5 | protected layout smoke |
 | P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | backlog | P2-T4 | Mastra mount smoke |
 | P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | backlog | P2-T4, P3-T1 | tool schema + audit verification |
@@ -81,7 +81,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P2-T4 Implement CASL ability builder and permission middleware
+1. P2-T5 Expose permission query endpoints and serialized ability payload
 
 Auto-unlock rules:
 
@@ -91,6 +91,8 @@ Auto-unlock rules:
   - mark P2-T4 as `ready` because P2-T2 is already `done`
 - If P2-T4 -> `done`
   - mark P2-T5 as `ready`
+- If P2-T5 -> `done`
+  - mark P2-T6 as `ready`
 
 ## 5. Phase 1 Execution Checklist
 
@@ -125,15 +127,15 @@ Phase 1 QA executed:
 
 Known current blockers:
 
-- Better Auth route exposure, RBAC seed data, and permission loading service are implemented, but CASL ability enforcement middleware is not implemented yet.
+- Better Auth route exposure, RBAC seed data, permission loading, and CASL enforcement middleware are implemented, but serialized ability query endpoints are not implemented yet.
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains a Phase 2 follow-up.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 2+ follow-up.
 
 Blocker resolution order:
 
-1. P2-T4
-2. P2-T5
-3. P2-T6
+1. P2-T5
+2. P2-T6
+3. Better Auth ↔ RBAC principal bridge hardening
 
 ## 7. QA Recording Template
 
@@ -401,3 +403,34 @@ Use this section format after every task execution:
   - `P2-T4`
 - Notes:
   - Current RBAC verification uses the app-level `users` table with seeded principals; runtime mapping from Better Auth identities into these RBAC principals is still pending in later Phase 2 work.
+
+### P2-T4 Implement CASL ability builder and permission middleware
+- Status: done
+- Changed files:
+  - `apps/api/package.json`
+  - `apps/api/src/index.test.ts`
+  - `apps/api/src/lib/authorization.test.ts`
+  - `apps/api/src/middleware/auth.ts`
+  - `apps/api/src/orpc/context.ts`
+  - `apps/api/src/orpc/procedures.ts`
+  - `apps/api/src/routes/index.ts`
+  - `apps/api/src/routes/system/permission-admin-check.ts`
+  - `apps/api/src/routes/system/rbac-summary.ts`
+  - `Status.md`
+  - `pnpm-lock.yaml`
+- Commands:
+  - `pnpm install`
+  - `pnpm biome check --write apps/api/src apps/api/package.json`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm --filter @ai-native-os/api typecheck`
+  - `pnpm --filter @ai-native-os/api test`
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - API requests now hydrate CASL ability, role codes, and permission rules into context from RBAC data, route-level permission guards return `403` when access is denied, and condition-based CASL evaluation is covered by test.
+- Unlocked tasks:
+  - `P2-T5`
+- Notes:
+  - Runtime permission loading currently bridges Better Auth users to app RBAC principals by email. This is sufficient for Phase 2 middleware and tests, but dedicated identity linking is still follow-up work.

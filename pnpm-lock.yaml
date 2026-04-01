@@ -38,6 +38,9 @@ importers:
       '@ai-native-os/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@casl/ability':
+        specifier: latest
+        version: 6.8.0
       '@hono/node-server':
         specifier: ^1.19.12
         version: 1.19.12(hono@4.12.9)
