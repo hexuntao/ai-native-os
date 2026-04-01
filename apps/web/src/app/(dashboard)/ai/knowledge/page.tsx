@@ -13,6 +13,7 @@ import {
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
 
+import { GenerativeKnowledgePanel } from '@/components/generative/generative-knowledge-panel'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -104,6 +105,8 @@ export default async function AiKnowledgePage({
           </a>
         </div>
       </form>
+
+      <GenerativeKnowledgePanel rows={payload.data} />
 
       <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
         <Table>

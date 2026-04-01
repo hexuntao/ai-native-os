@@ -1,8 +1,8 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 4 P4-T4 completed, P4-T6 ready
-Current Phase: Phase 4 `Web UI`
+Current Mode: Phase 4 completed, Phase 5 ready
+Current Phase: Phase 5 `Observability`
 Overall Status: `ready_to_execute`
 
 ## 1. Repository Snapshot
@@ -24,7 +24,6 @@ Overall Status: `ready_to_execute`
 - Not yet present:
   - CI workflows
   - production deployment files
-  - generative UI components
 
 ## 2. Phase Summary
 
@@ -33,8 +32,8 @@ Overall Status: `ready_to_execute`
 | 1 | Foundation Infrastructure | done | Monorepo, db/shared/api skeleton, local infra available |
 | 2 | Auth + RBAC | done | Better Auth + CASL + seed roles + minimal auth shell |
 | 3 | AI Core | done | Mastra + tools + workflows + MCP + RAG |
-| 4 | Web UI | active | Dashboard + system pages + CopilotKit + generative UI |
-| 5 | Observability | backlog | Audit + telemetry + evals + feedback + prompt governance |
+| 4 | Web UI | done | Dashboard + system pages + CopilotKit + generative UI |
+| 5 | Observability | ready | Audit + telemetry + evals + feedback + prompt governance |
 | 6 | Deployment | backlog | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
 
 ## 3. Task Ledger
@@ -68,11 +67,11 @@ Overall Status: `ready_to_execute`
 | P4-T3 | 4 | Implement system management pages | done | P4-F1, P4-T1, P4-T2, Phase 2 | system page smoke |
 | P4-T4 | 4 | Implement monitor and AI management pages | done | P4-F1, P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
 | P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | done | P3-T5, P4-T1 | chat stream smoke |
-| P4-T6 | 4 | Implement generative UI components | ready | P4-T5 | action render smoke |
-| P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | backlog | Phase 2, Phase 3 | log trace verification |
-| P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | backlog | P1-T5 | telemetry + health smoke |
-| P5-T3 | 5 | Implement AI feedback capture and human override tracking | backlog | P3-T4, P4-T5 | feedback persistence smoke |
-| P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | backlog | P3-T3, P3-T4 | eval run result verification |
+| P4-T6 | 4 | Implement generative UI components | done | P4-T5 | action render smoke |
+| P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | ready | Phase 2, Phase 3 | log trace verification |
+| P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | ready | P1-T5 | telemetry + health smoke |
+| P5-T3 | 5 | Implement AI feedback capture and human override tracking | ready | P3-T4, P4-T5 | feedback persistence smoke |
+| P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | ready | P3-T3, P3-T4 | eval run result verification |
 | P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | backlog | P5-T4 | version activate/rollback verification |
 | P6-T1 | 6 | Finalize environment matrix and secret contract | backlog | Phase 3 | env-only boot verification |
 | P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | backlog | Phase 1, Phase 3 | Docker smoke deploy |
@@ -84,7 +83,10 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P4-T6 Implement generative UI components
+1. P5-T1 Implement operation log and AI audit log pipelines end-to-end
+2. P5-T2 Add Sentry, OpenTelemetry, request IDs, and health checks
+3. P5-T3 Implement AI feedback capture and human override tracking
+4. P5-T4 Implement Mastra Evals datasets, scorers, and runners
 
 Auto-unlock rules:
 
@@ -171,7 +173,7 @@ Known current blockers:
 
 Blocker resolution order:
 
-1. P4-T6
+1. P5-T1
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 
@@ -202,6 +204,39 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P4-T6 Implement generative UI components
+- Status: done
+- Changed files:
+  - `apps/web/src/app/(dashboard)/ai/knowledge/page.tsx`
+  - `apps/web/src/app/(dashboard)/system/users/page.tsx`
+  - `apps/web/src/components/copilot/copilot-panel.tsx`
+  - `apps/web/src/components/generative/generative-bar-chart.tsx`
+  - `apps/web/src/components/generative/generative-knowledge-panel.tsx`
+  - `apps/web/src/components/generative/generative-users-panel.tsx`
+  - `apps/web/src/lib/generative.test.ts`
+  - `apps/web/src/lib/generative.ts`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm --filter @ai-native-os/api dev`
+  - `pnpm --filter @ai-native-os/web dev`
+  - `curl -sS -L -b /tmp/ai-native-os-web.cookies http://localhost:3000/system/users`
+  - `curl -sS -L -b /tmp/ai-native-os-admin.cookies http://localhost:3000/ai/knowledge`
+- Result:
+  - Added Phase 4 generative UI surfaces without expanding scope beyond the existing RBAC boundary. `Users Directory` now includes a natural-language lens that derives read-only structured filters, a generated summary, role distribution chart, and focused table from the current page slice. `Knowledge Vault` now includes a parallel generative lens for source-type, recency, and chunk-coverage analysis. In addition, the Copilot sidebar now registers a safe frontend action, `preview_dashboard_focus`, so the authenticated assistant can trigger a read-only focus card render and local state update inside the Copilot surface. Static checks, tests, build, and authenticated route smoke passed.
+- Unlocked tasks:
+  - `P5-T1`
+  - `P5-T2`
+  - `P5-T3`
+  - `P5-T4`
+- Notes:
+  - Browser-level smoke for AI management pages requires an authenticated admin Better Auth account to exist locally; this run standardized that path by explicitly signing up and signing in `admin@ai-native-os.local` before loading `/ai/knowledge`.
+  - The page-level generative panels intentionally operate only on the data already visible in the current page slice. They do not trigger new writes, RAG indexing, or privileged tool execution.
+  - The Copilot-triggered render path is intentionally read-only and confined to the sidebar so `P4-T6` satisfies the plan requirement for AI-triggered component state changes without introducing mutation flows ahead of Phase 5 governance.
 
 ### P4-T4 Implement monitor and AI management pages
 - Status: done

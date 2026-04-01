@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@ai-native-os/ui'
-import { CopilotKit } from '@copilotkit/react-core'
+import { CopilotKit, useCopilotAction, useCopilotReadable } from '@copilotkit/react-core'
 import { CopilotChat } from '@copilotkit/react-ui'
 import { useQuery } from '@tanstack/react-query'
 import { usePathname } from 'next/navigation'
@@ -30,6 +30,13 @@ import {
 interface CopilotPanelProps {
   initialBridgeSummary: CopilotBridgeSummary | null
   shellState: AuthenticatedShellState
+}
+
+interface GeneratedFocusCard {
+  generatedAt: string
+  headline: string
+  narrative: string
+  routeScope: string
 }
 
 function resolveStatusBadgeVariant(
@@ -65,6 +72,140 @@ function formatRequestContext(sessionContext: CopilotSessionContextEvent | null)
   }
 
   return `Request ${sessionContext.requestId.slice(0, 8)} · ${sessionContext.roleCodes.join(', ')}`
+}
+
+interface CopilotFocusBridgeProps {
+  pathname: string
+  sessionContext: CopilotSessionContextEvent | null
+  shellState: AuthenticatedShellState
+}
+
+/**
+ * 在 CopilotKit 运行时内注册只读前端动作，让助手可以安全地产生 dashboard 焦点卡片。
+ */
+function CopilotFocusBridge({
+  pathname,
+  sessionContext,
+  shellState,
+}: CopilotFocusBridgeProps): ReactNode {
+  const [generatedFocusCard, setGeneratedFocusCard] = useState<GeneratedFocusCard | null>(null)
+
+  useCopilotReadable(
+    {
+      description:
+        'Current dashboard surface state that the assistant may use when generating read-only focus cards.',
+      value: {
+        pathname,
+        permissionRuleCount: shellState.permissionRuleCount,
+        roleCodes: shellState.roleCodes,
+        sessionContext: sessionContext
+          ? {
+              requestId: sessionContext.requestId,
+              roleCodes: sessionContext.roleCodes,
+            }
+          : null,
+        visibleNavigation: shellState.visibleNavigation.map((item) => ({
+          description: item.description,
+          href: item.href,
+          label: item.label,
+        })),
+      },
+    },
+    [pathname, sessionContext, shellState],
+  )
+
+  useCopilotAction(
+    {
+      available: 'enabled',
+      description:
+        'Render a read-only dashboard focus card for the current route without mutating data.',
+      handler: ({
+        headline,
+        narrative,
+        routeScope,
+      }: {
+        headline: string
+        narrative: string
+        routeScope: string
+      }) => {
+        startTransition(() => {
+          setGeneratedFocusCard({
+            generatedAt: new Date().toISOString(),
+            headline,
+            narrative,
+            routeScope,
+          })
+        })
+      },
+      name: 'preview_dashboard_focus',
+      parameters: [
+        {
+          description: 'Short title for the generated focus card.',
+          name: 'headline',
+          required: true,
+          type: 'string',
+        },
+        {
+          description: 'One concise paragraph explaining the focus.',
+          name: 'narrative',
+          required: true,
+          type: 'string',
+        },
+        {
+          description: 'Route or surface name that this focus card applies to.',
+          name: 'routeScope',
+          required: true,
+          type: 'string',
+        },
+      ] as const,
+      render: ({ args, status }) => (
+        <div className="rounded-[var(--radius-lg)] border border-border/70 bg-background/80 p-4 shadow-[var(--shadow-soft)]">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            AI-triggered focus
+          </p>
+          <p className="mt-2 text-sm font-medium text-foreground">{args.headline}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{args.narrative}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge variant="outline">{args.routeScope}</Badge>
+            <Badge variant="secondary">{status}</Badge>
+          </div>
+        </div>
+      ),
+    },
+    [pathname],
+  )
+
+  if (!generatedFocusCard) {
+    return (
+      <div className="rounded-[var(--radius-lg)] border border-dashed border-border/80 bg-card-strong/70 p-4">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+          AI-triggered focus
+        </p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Ask the assistant to call <code>preview_dashboard_focus</code> to pin a read-only focus
+          card for the current route.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-border/70 bg-card-strong/82 p-4 shadow-[var(--shadow-soft)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-2">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            AI-triggered focus
+          </p>
+          <p className="text-sm font-medium text-foreground">{generatedFocusCard.headline}</p>
+        </div>
+        <Badge variant="accent">{generatedFocusCard.routeScope}</Badge>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{generatedFocusCard.narrative}</p>
+      <p className="mt-3 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+        Generated at {generatedFocusCard.generatedAt}
+      </p>
+    </div>
+  )
 }
 
 /**
@@ -189,12 +330,19 @@ export function CopilotPanel({ initialBridgeSummary, shellState }: CopilotPanelP
               runtimeUrl={bridgeSummary.endpoint}
               {...(threadId ? { threadId } : {})}
             >
-              <div className="rounded-[var(--radius-xl)] border border-border/80 bg-card-strong/88 p-3 shadow-[var(--shadow-soft)]">
-                <CopilotChat
-                  className="min-h-[32rem]"
-                  instructions={instructions}
-                  suggestions={suggestions}
+              <div className="grid gap-4">
+                <CopilotFocusBridge
+                  pathname={pathname}
+                  sessionContext={sessionContext}
+                  shellState={shellState}
                 />
+                <div className="rounded-[var(--radius-xl)] border border-border/80 bg-card-strong/88 p-3 shadow-[var(--shadow-soft)]">
+                  <CopilotChat
+                    className="min-h-[32rem]"
+                    instructions={instructions}
+                    suggestions={suggestions}
+                  />
+                </div>
               </div>
             </CopilotKit>
           ) : (

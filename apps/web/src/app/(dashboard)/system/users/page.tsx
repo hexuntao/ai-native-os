@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
-
+import { GenerativeUsersPanel } from '@/components/generative/generative-users-panel'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
@@ -84,6 +84,8 @@ export default async function SystemUsersPage({
           </FilterSelect>
         </Field>
       </FilterToolbar>
+
+      <GenerativeUsersPanel rows={payload.data} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
