@@ -20,12 +20,12 @@ const badgeVariants = cva(
 )
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
 /**
  * 用于呈现角色、状态或范围标签等低信息密度元素。
  */
 export function Badge({ className, variant, ...props }: BadgeProps): React.ReactNode {
-  return <div className={cn(badgeVariants({ className, variant }))} {...props} />
+  return <span className={cn(badgeVariants({ className, variant }))} {...props} />
 }

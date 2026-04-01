@@ -1,5 +1,6 @@
 'use client'
 
+import type { CopilotBridgeSummary } from '@ai-native-os/shared'
 import {
   Badge,
   Button,
@@ -14,18 +15,24 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { CopilotPanel } from '@/components/copilot/copilot-panel'
 import type { AuthenticatedShellState } from '@/lib/api'
 import { isNavigationItemActive } from '@/lib/shell'
 
 interface DashboardShellProps {
   children: ReactNode
+  initialBridgeSummary: CopilotBridgeSummary | null
   shellState: AuthenticatedShellState
 }
 
 /**
  * 为所有已登录页面提供统一的 dashboard 外壳，并消费共享导航/按钮/卡片原语。
  */
-export function DashboardShell({ children, shellState }: DashboardShellProps): ReactNode {
+export function DashboardShell({
+  children,
+  initialBridgeSummary,
+  shellState,
+}: DashboardShellProps): ReactNode {
   const pathname = usePathname()
 
   return (
@@ -65,7 +72,7 @@ export function DashboardShell({ children, shellState }: DashboardShellProps): R
         </Card>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+      <section className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)_24rem] xl:items-start">
         <Card className="lg:sticky lg:top-6">
           <CardHeader className="gap-3">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
@@ -113,6 +120,8 @@ export function DashboardShell({ children, shellState }: DashboardShellProps): R
         <Card className="min-h-[34rem]">
           <CardContent className="p-6">{children}</CardContent>
         </Card>
+
+        <CopilotPanel initialBridgeSummary={initialBridgeSummary} shellState={shellState} />
       </section>
     </main>
   )

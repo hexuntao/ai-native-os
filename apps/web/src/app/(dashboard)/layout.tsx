@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { DashboardShell } from '@/components/shell/dashboard-shell'
+import { loadCurrentCopilotBridgeSummary } from '@/lib/server-copilot'
 import { loadCurrentShellState } from '@/lib/server-shell'
 
 interface DashboardLayoutProps {
@@ -17,5 +18,11 @@ export default async function DashboardLayout({
     redirect('/')
   }
 
-  return <DashboardShell shellState={shellState}>{children}</DashboardShell>
+  const initialBridgeSummary = await loadCurrentCopilotBridgeSummary()
+
+  return (
+    <DashboardShell initialBridgeSummary={initialBridgeSummary} shellState={shellState}>
+      {children}
+    </DashboardShell>
+  )
 }

@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 4 P4-T2 completed, P4-T5 ready
+Current Mode: Phase 4 P4-T5 completed, P4-T6 ready
 Current Phase: Phase 4 `Web UI`
 Overall Status: `ready_to_execute`
 
@@ -24,7 +24,8 @@ Overall Status: `ready_to_execute`
 - Not yet present:
   - CI workflows
   - production deployment files
-  - CopilotKit frontend sidebar and assistant chat UI
+  - generative UI components
+  - contract-first business API surfaces required by `P4-T3` and `P4-T4`
 
 ## 2. Phase Summary
 
@@ -66,8 +67,8 @@ Overall Status: `ready_to_execute`
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | done | P1-T2 | package/ui build smoke |
 | P4-T3 | 4 | Implement system management pages | blocked | P4-T1, P4-T2, Phase 2 | CRUD page smoke |
 | P4-T4 | 4 | Implement monitor and AI management pages | blocked | P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
-| P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | ready | P3-T5, P4-T1 | chat stream smoke |
-| P4-T6 | 4 | Implement generative UI components | backlog | P4-T5 | action render smoke |
+| P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | done | P3-T5, P4-T1 | chat stream smoke |
+| P4-T6 | 4 | Implement generative UI components | ready | P4-T5 | action render smoke |
 | P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | backlog | Phase 2, Phase 3 | log trace verification |
 | P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | backlog | P1-T5 | telemetry + health smoke |
 | P5-T3 | 5 | Implement AI feedback capture and human override tracking | backlog | P3-T4, P4-T5 | feedback persistence smoke |
@@ -83,7 +84,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P4-T5 Integrate CopilotKit sidebar and assistant-style chat UX
+1. P4-T6 Implement generative UI components
 
 Auto-unlock rules:
 
@@ -157,7 +158,7 @@ Known current blockers:
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
 - Mastra runtime now has registered read/report/config tools, initial read-only agents, a report workflow, and Trigger.dev report orchestration; however, jobs still rely on a narrow in-process scheduler principal for workflow execution because a formal service-to-service identity contract has not been implemented yet.
-- CopilotKit / AG-UI backend bridge is implemented and authenticated. The remaining ready frontend task is the actual sidebar/chat experience.
+- CopilotKit / AG-UI backend bridge is implemented and authenticated, and the web dashboard now consumes it through same-origin proxy routes plus a right-hand assistant panel.
 - Current CopilotKit bridge depends on upstream packages that still emit peer warnings around `@ag-ui/encoder`, and the repository still carries an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime behavior and tests are green, but this remains dependency-risk follow-up.
 - pgvector-backed RAG is now implemented with `ai_knowledge` storage, semantic retrieval, and a Trigger.dev indexing task. However, production still requires a real embedding provider key, while deterministic local embeddings are intentionally limited to development and test.
 - MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
@@ -166,7 +167,7 @@ Known current blockers:
 
 Blocker resolution order:
 
-1. P4-T5
+1. P4-T6
 2. Contract-first business API surfaces for `users / roles / permissions / menus / ai/knowledge / ai/evals`
 3. Better Auth ↔ RBAC principal bridge hardening
 4. Redis runtime wiring
@@ -198,6 +199,52 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P4-T5 Integrate CopilotKit sidebar and assistant-style chat UX
+- Status: done
+- Changed files:
+  - `apps/api/src/copilotkit/runtime.ts`
+  - `apps/web/package.json`
+  - `apps/web/src/app/(dashboard)/layout.tsx`
+  - `apps/web/src/app/api/ag-ui/runtime/route.ts`
+  - `apps/web/src/app/api/ag-ui/runtime/events/route.ts`
+  - `apps/web/src/app/api/copilotkit/route.ts`
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/src/components/copilot/copilot-panel.tsx`
+  - `apps/web/src/components/shell/dashboard-shell.tsx`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/lib/copilot.ts`
+  - `apps/web/src/lib/copilot.test.ts`
+  - `apps/web/src/lib/proxy-api.ts`
+  - `apps/web/src/lib/server-copilot.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/schemas/copilot.ts`
+  - `packages/ui/src/components/badge.tsx`
+  - `pnpm-lock.yaml`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm install`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm --filter @ai-native-os/api dev`
+  - `pnpm --filter @ai-native-os/web dev`
+  - `curl -sS http://localhost:3001/health`
+  - `curl -sS http://localhost:3000/`
+  - `curl -i -sS -X POST http://localhost:3000/auth/sign-in`
+  - `curl -sS -b /tmp/ai-native-os-web-cookies.txt http://localhost:3000/system/roles`
+  - `curl -sS -b /tmp/ai-native-os-web-cookies.txt http://localhost:3000/api/ag-ui/runtime`
+  - `curl -sS -b /tmp/ai-native-os-web-cookies.txt http://localhost:3000/api/ag-ui/runtime/events`
+- Result:
+  - The Next.js dashboard now embeds an authenticated Copilot sidebar that is bound to the current RBAC-filtered shell state, uses shared Copilot discovery schemas, proxies `/api/copilotkit` and `/api/ag-ui/runtime*` through same-origin App Router handlers, and surfaces a usable assistant-style chat experience without bypassing Better Auth or the existing backend audit boundary. Static checks, build, runtime summary proxying, SSE bootstrap proxying, and authenticated dashboard smoke all pass.
+- Unlocked tasks:
+  - `P4-T6`
+- Notes:
+  - The web proxy layer now forwards the full incoming request header set except transport-specific headers, because Copilot runtime compatibility is more robust when protocol-specific headers are preserved end to end.
+  - `Badge` now renders a semantic `span`, fixing invalid HTML in inline text contexts discovered during smoke verification.
+  - `P4-T3` and `P4-T4` remain blocked by missing contract-first business API surfaces, so Phase 4 as a whole is still not complete even though the assistant layer is now live.
 
 ### P4-T2 Establish shared UI primitives and shadcn-based component baseline
 - Status: done

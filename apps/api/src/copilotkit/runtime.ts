@@ -1,5 +1,10 @@
 import { MastraAgent } from '@ag-ui/mastra'
 import {
+  type CopilotBridgeSummary,
+  copilotBridgeSummarySchema,
+  copilotSessionContextEventSchema,
+} from '@ai-native-os/shared'
+import {
   CopilotRuntime,
   copilotRuntimeNodeHttpEndpoint,
   ExperimentalEmptyAdapter,
@@ -21,17 +26,6 @@ type CopilotRuntimeAgents = NonNullable<
   NonNullable<ConstructorParameters<typeof CopilotRuntime>[0]>['agents']
 >
 
-export interface CopilotBridgeSummary {
-  agentIds: string[]
-  authRequired: boolean
-  defaultAgentId: string
-  endpoint: string
-  protocol: 'ag-ui'
-  resourceId: string
-  runtimePath: string
-  transport: 'streaming-http'
-}
-
 function resolveCopilotResourceId(context: AppContext): string {
   return context.rbacUserId ?? context.userId ?? 'anonymous'
 }
@@ -44,7 +38,7 @@ function resolveCopilotResourceId(context: AppContext): string {
  * - `resourceId` 明确绑定到当前主体，避免跨用户共享 Agent memory 语义
  */
 export function getCopilotBridgeSummary(context: AppContext): CopilotBridgeSummary {
-  return {
+  return copilotBridgeSummarySchema.parse({
     agentIds: Object.keys(mastraAgentRegistry).sort(),
     authRequired: true,
     defaultAgentId: defaultCopilotAgentId,
@@ -53,7 +47,7 @@ export function getCopilotBridgeSummary(context: AppContext): CopilotBridgeSumma
     resourceId: resolveCopilotResourceId(context),
     runtimePath: agUiRuntimePath,
     transport: 'streaming-http',
-  }
+  })
 }
 
 /**
@@ -165,11 +159,14 @@ export async function handleAgUiRuntimeEventsRequest<TEnv extends ApiEnv>(
       const encoder = new TextEncoder()
       const chunks = [
         encodeSseEvent('runtime.ready', summary),
-        encodeSseEvent('session.context', {
-          requestId: appContextOrResponse.requestId,
-          roleCodes: appContextOrResponse.roleCodes,
-          userId: appContextOrResponse.userId,
-        }),
+        encodeSseEvent(
+          'session.context',
+          copilotSessionContextEventSchema.parse({
+            requestId: appContextOrResponse.requestId,
+            roleCodes: appContextOrResponse.roleCodes,
+            userId: appContextOrResponse.userId,
+          }),
+        ),
       ]
 
       for (const chunk of chunks) {

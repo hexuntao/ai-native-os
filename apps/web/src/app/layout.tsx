@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { AppProviders } from '@/components/providers/app-providers'
 import { defaultLocale, getLocaleMessages } from '@/lib/i18n'
 
+import '@copilotkit/react-ui/styles.css'
 import './globals.css'
 
 export const metadata: Metadata = {

@@ -1,4 +1,8 @@
-import { currentPermissionsResponseSchema } from '@ai-native-os/shared'
+import {
+  type CopilotBridgeSummary,
+  copilotBridgeSummarySchema,
+  currentPermissionsResponseSchema,
+} from '@ai-native-os/shared'
 
 import {
   type AbilityPayload,
@@ -123,6 +127,33 @@ export async function fetchCurrentPermissions(
       permissionRuleCount: payload.permissionRules.length,
       roleCodes: payload.roleCodes,
     }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 读取当前主体可见的 Copilot/AG-UI 运行时发现信息。
+ *
+ * 安全约束：
+ * - 仍然复用同一套 cookie 与 origin 头，避免 web 层制造第二套认证语义
+ * - 失败时返回 `null`，由页面层决定是否降级显示助手面板
+ */
+export async function fetchCopilotBridgeSummary(
+  cookieHeader: string | undefined,
+  environment: WebEnvironment,
+): Promise<CopilotBridgeSummary | null> {
+  try {
+    const response = await fetch(
+      `${environment.apiUrl}/api/ag-ui/runtime`,
+      createJsonRequestInit(cookieHeader, environment),
+    )
+
+    if (!response.ok) {
+      return null
+    }
+
+    return copilotBridgeSummarySchema.parse(await response.json())
   } catch {
     return null
   }
