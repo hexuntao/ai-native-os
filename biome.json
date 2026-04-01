@@ -1,4 +1,7 @@
 {
+  "files": {
+    "includes": ["**", "!**/dist", "!**/.next", "!**/drizzle"]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

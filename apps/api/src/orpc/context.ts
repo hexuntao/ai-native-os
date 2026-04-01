@@ -14,7 +14,7 @@ export interface AppContext {
   userId: string | null
 }
 
-export async function createAppContext(c: Context<ApiEnv>): Promise<AppContext> {
+export async function createAppContext<TEnv extends ApiEnv>(c: Context<TEnv>): Promise<AppContext> {
   const requestIdHeader = c.req.header('x-request-id')
   const authSession = c.get('authSession')
 

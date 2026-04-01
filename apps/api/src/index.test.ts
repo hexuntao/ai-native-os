@@ -121,6 +121,42 @@ test('ping endpoint returns the initial oRPC payload', async () => {
   assert.equal(payload.json.service, 'api')
 })
 
+test('Mastra runtime system route boots under the Hono adapter', async () => {
+  const response = await app.request('http://localhost/mastra/system/packages')
+  const payload = (await response.json()) as {
+    cmsEnabled: boolean
+    isDev: boolean
+    packages: Array<{
+      name: string
+      version: string
+    }>
+    storageType?: string
+  }
+
+  assert.equal(response.status, 200)
+  assert.ok(Array.isArray(payload.packages))
+  assert.equal(typeof payload.isDev, 'boolean')
+  assert.equal(typeof payload.cmsEnabled, 'boolean')
+})
+
+test('Mastra OpenAPI route is exposed from the mounted runtime prefix', async () => {
+  const response = await app.request('http://localhost/mastra/openapi.json')
+  const payload = (await response.json()) as {
+    info: {
+      title: string
+      version: string
+    }
+    openapi: string
+    paths: Record<string, unknown>
+  }
+
+  assert.equal(response.status, 200)
+  assert.equal(payload.info.title, 'Mastra API')
+  assert.equal(payload.info.version, '1.0.0')
+  assert.ok(payload.openapi.startsWith('3.'))
+  assert.ok('/system/packages' in payload.paths)
+})
+
 test('protected session endpoint returns 401 without an authenticated session', async () => {
   const response = await app.request('http://localhost/api/v1/system/session')
   const payload = (await response.json()) as {
@@ -306,4 +342,26 @@ test('serialized ability endpoint returns rules that can be deserialized by fron
   assert.ok(payload.json.userId)
   assert.equal(ability.can('read', 'Role'), true)
   assert.equal(ability.can('manage', 'Permission'), false)
+})
+
+test('Mastra runtime summary route exposes the phase-3 scaffold configuration', async () => {
+  const response = await app.request('http://localhost/api/v1/system/mastra-runtime')
+  const payload = (await response.json()) as {
+    json: {
+      agentCount: number
+      defaultModel: string
+      openapiPath: string
+      routePrefix: string
+      toolCount: number
+      workflowCount: number
+    }
+  }
+
+  assert.equal(response.status, 200)
+  assert.equal(payload.json.routePrefix, '/mastra')
+  assert.equal(payload.json.openapiPath, '/openapi.json')
+  assert.equal(payload.json.defaultModel, 'openai/gpt-4.1-mini')
+  assert.equal(payload.json.agentCount, 0)
+  assert.equal(payload.json.toolCount, 0)
+  assert.equal(payload.json.workflowCount, 0)
 })

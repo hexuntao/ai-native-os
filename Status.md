@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 2 completed, P3-T1 ready
+Current Mode: Phase 3 P3-T1 completed, P3-T2 ready
 Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
@@ -24,7 +24,8 @@ Overall Status: `ready_to_execute`
 - Not yet present:
   - CI workflows
   - production deployment files
-  - AI runtime code
+  - initial agent implementations
+  - workflow orchestration runtime
 
 ## 2. Phase Summary
 
@@ -53,8 +54,8 @@ Overall Status: `ready_to_execute`
 | P2-T4 | 2 | Implement CASL ability builder and permission middleware | done | P2-T2, P2-T3 | 403/condition verification |
 | P2-T5 | 2 | Expose permission query endpoints and serialized ability payload | done | P2-T4 | ability fetch and deserialize |
 | P2-T6 | 2 | Build minimal auth shell and permission provider in web app | done | P2-T1, P2-T5 | protected layout smoke |
-| P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | backlog | P2-T4 | Mastra mount smoke |
-| P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | backlog | P2-T4, P3-T1 | tool schema + audit verification |
+| P3-T1 | 3 | Integrate Mastra with Hono and register core runtime | done | P2-T4 | Mastra mount smoke |
+| P3-T2 | 3 | Build core agent tool framework with RBAC and audit enforcement | ready | P2-T4, P3-T1 | tool schema + audit verification |
 | P3-T3 | 3 | Implement initial agents | backlog | P3-T2 | agent generation smoke |
 | P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | backlog | P3-T1, P3-T2 | workflow/task smoke |
 | P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | backlog | P3-T1, P3-T3 | streaming endpoint smoke |
@@ -81,7 +82,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-T1 Integrate Mastra with Hono and register core runtime
+1. P3-T2 Build core agent tool framework with RBAC and audit enforcement
 
 Auto-unlock rules:
 
@@ -95,6 +96,8 @@ Auto-unlock rules:
   - mark P2-T6 as `ready`
 - If P2-T6 -> `done`
   - mark P3-T1 as `ready`
+- If P3-T1 -> `done`
+  - mark P3-T2 as `ready`
 
 ## 5. Phase 1 Execution Checklist
 
@@ -132,10 +135,11 @@ Known current blockers:
 - Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, serialized ability query endpoints, and the minimal web auth shell are implemented.
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
+- Mastra runtime is mounted with an empty registry only; real tools, agents, workflows, MCP wiring, and RAG remain pending Phase 3 tasks.
 
 Blocker resolution order:
 
-1. P3-T1
+1. P3-T2
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 
@@ -498,3 +502,38 @@ Use this section format after every task execution:
   - `P3-T1`
 - Notes:
   - The shell degrades safely to the unauthenticated sign-in surface when the API is unavailable, while the full smoke validation used the standard `http://localhost:3000` app origin because Better Auth trusted origins default to that development URL.
+
+### P3-T1 Integrate Mastra with Hono and register core runtime
+- Status: done
+- Changed files:
+  - `biome.json`
+  - `apps/api/package.json`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/index.test.ts`
+  - `apps/api/src/orpc/context.ts`
+  - `apps/api/src/mastra/env.ts`
+  - `apps/api/src/mastra/index.ts`
+  - `apps/api/src/mastra/registry.ts`
+  - `pnpm-lock.yaml`
+  - `Status.md`
+- Commands:
+  - `pnpm install`
+  - `pnpm biome check --write apps/api/src apps/api/package.json`
+  - `pnpm biome check --write biome.json Status.md`
+  - `pnpm --filter @ai-native-os/api typecheck`
+  - `pnpm --filter @ai-native-os/api test`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os PORT=3001 pnpm --filter @ai-native-os/api dev`
+  - `curl -sS http://localhost:3001/mastra/system/packages`
+  - `curl -sS http://localhost:3001/mastra/openapi.json`
+  - `curl -sS http://localhost:3001/api/v1/system/mastra-runtime`
+  - `pnpm format`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Mastra is mounted into the Hono API under `/mastra`, the adapter OpenAPI route is exposed, and a scheduler-visible runtime summary route is available at `/api/v1/system/mastra-runtime`.
+- Unlocked tasks:
+  - `P3-T2`
+- Notes:
+  - The current Mastra registry is intentionally empty for `P3-T1`; real tools, agents, workflows, and knowledge integrations start in later Phase 3 tasks.
+  - Biome now ignores generated output directories (`dist`, `.next`, `drizzle`) so root QA gates validate source files instead of build artifacts.
