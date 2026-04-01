@@ -46,6 +46,7 @@ function createJsonRequestInit(
   }
 
   return {
+    cache: 'no-store',
     headers,
   }
 }

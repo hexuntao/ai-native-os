@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 completed, Phase 4 P4-T1 ready
+Current Mode: Phase 4 P4-T1 completed, P4-T2 ready
 Current Phase: Phase 4 `Web UI`
 Overall Status: `ready_to_execute`
 
@@ -62,11 +62,11 @@ Overall Status: `ready_to_execute`
 | P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | done | P3-T1, P3-T3 | streaming endpoint smoke |
 | P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | done | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
 | P3-T7 | 3 | Implement MCP server and external MCP client integration | done | P3-T2, P3-T3, P3-T4 | MCP discovery smoke |
-| P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | ready | P2-T6 | authenticated shell smoke |
+| P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | done | P2-T6 | authenticated shell smoke |
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | ready | P1-T2 | package/ui build smoke |
 | P4-T3 | 4 | Implement system management pages | backlog | P4-T1, P4-T2, Phase 2 | CRUD page smoke |
 | P4-T4 | 4 | Implement monitor and AI management pages | backlog | P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
-| P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | backlog | P3-T5, P4-T1 | chat stream smoke |
+| P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | ready | P3-T5, P4-T1 | chat stream smoke |
 | P4-T6 | 4 | Implement generative UI components | backlog | P4-T5 | action render smoke |
 | P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | backlog | Phase 2, Phase 3 | log trace verification |
 | P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | backlog | P1-T5 | telemetry + health smoke |
@@ -83,8 +83,8 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P4-T1 Build Next.js app shell, global providers, and dashboard layout
-2. P4-T2 Establish shared UI primitives and shadcn-based component baseline
+1. P4-T2 Establish shared UI primitives and shadcn-based component baseline
+2. P4-T5 Integrate CopilotKit sidebar and assistant-style chat UX
 
 Auto-unlock rules:
 
@@ -158,19 +158,19 @@ Known current blockers:
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
 - Mastra runtime now has registered read/report/config tools, initial read-only agents, a report workflow, and Trigger.dev report orchestration; however, jobs still rely on a narrow in-process scheduler principal for workflow execution because a formal service-to-service identity contract has not been implemented yet.
-- CopilotKit / AG-UI backend bridge is implemented and authenticated, but the documented frontend Copilot sidebar and assistant chat UX still remain a Phase 4 task because `apps/web` has not yet been migrated to the project’s Next.js baseline.
+- CopilotKit / AG-UI backend bridge is implemented and authenticated. The remaining Phase 4 gap is the actual frontend sidebar/chat experience and shared UI component system, not the framework baseline anymore.
 - Current CopilotKit bridge depends on upstream packages that still emit peer warnings around `@ag-ui/encoder`, and the repository still carries an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime behavior and tests are green, but this remains dependency-risk follow-up.
 - pgvector-backed RAG is now implemented with `ai_knowledge` storage, semantic retrieval, and a Trigger.dev indexing task. However, production still requires a real embedding provider key, while deterministic local embeddings are intentionally limited to development and test.
 - MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
-- The largest documented architecture gap is now the frontend baseline: `apps/web` is still not migrated to the project’s Next.js/Turbopack target, so Phase 4 starts with a structural correction task rather than feature polish.
+- The largest documented architecture gap has shifted from framework baseline to UI depth: `apps/web` is now on Next.js App Router + Turbopack, but `packages/ui` and the contract-first management screens still remain to be implemented.
 
 Blocker resolution order:
 
-1. P4-T1
+1. P4-T2
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
-4. CopilotKit frontend UI migration in Phase 4
+4. P4-T5 CopilotKit frontend UI integration
 
 ## 7. QA Recording Template
 
@@ -199,6 +199,38 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P4-T1 Build Next.js app shell, global providers, and dashboard layout
+- Status: done
+- Changed files:
+  - `biome.json`
+  - `apps/web/package.json`
+  - `apps/web/next.config.ts`
+  - `apps/web/next-env.d.ts`
+  - `apps/web/tsconfig.json`
+  - `apps/web/src/app/*`
+  - `apps/web/src/components/*`
+  - `apps/web/src/lib/*`
+  - `pnpm-lock.yaml`
+- Commands:
+  - `pnpm install`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm --filter @ai-native-os/api dev`
+  - `pnpm --filter @ai-native-os/web dev`
+  - `curl -i -sS http://localhost:3000/`
+  - `curl -i -sS -X POST http://localhost:3000/auth/sign-in`
+  - `curl -i -sS http://localhost:3000/system/roles`
+- Result:
+  - `apps/web` is now a real Next.js App Router application with Turbopack dev mode, server-rendered auth shell loading, global providers, route handlers for Better Auth proxying, and routable dashboard placeholder pages. Root page and authenticated dashboard smoke both pass.
+- Unlocked tasks:
+  - `P4-T5`
+- Notes:
+  - Root Biome config now ignores `next-env.d.ts` because Next rewrites that generated file in a style that conflicts with the repository formatter, which made `pnpm lint` nondeterministic after `next dev/build`.
+  - Browser-level `agent-browser` verification could not run because the CLI is not installed in the current environment, so this task used HTTP smoke plus authenticated route verification instead.
+  - This task intentionally stops at framework baseline, providers, and authenticated layout. Shared component primitives remain `P4-T2`, and full contract-first business pages remain `P4-T3/P4-T4`.
 
 ### P3-T7 Implement MCP server and external MCP client integration
 - Status: done

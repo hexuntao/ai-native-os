@@ -2,16 +2,24 @@
   "name": "@ai-native-os/web",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/server.ts",
+    "build": "next build",
+    "dev": "next dev --turbopack",
     "format": "biome check --write .",
     "lint": "biome check .",
+    "start": "next start",
     "test": "tsx --test $(find src -type f -name '*.test.ts' | sort)",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ai-native-os/shared": "workspace:*"
+    "@ai-native-os/shared": "workspace:*",
+    "@tanstack/react-query": "^5.96.1",
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
   }
 }

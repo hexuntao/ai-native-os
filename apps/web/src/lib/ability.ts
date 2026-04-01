@@ -7,11 +7,17 @@ import {
 } from '@ai-native-os/shared'
 
 export type AbilityPayload = ReturnType<typeof serializedAbilityResponseSchema.parse>
+export type AppRoute =
+  | '/ai/knowledge'
+  | '/reports'
+  | '/system/logs'
+  | '/system/permissions'
+  | '/system/roles'
 
 export interface NavigationItem {
   action: AppActions
   description: string
-  href: string
+  href: AppRoute
   label: string
   subject: AppSubjects
 }
