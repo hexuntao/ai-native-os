@@ -1,7 +1,7 @@
 import { db } from '@ai-native-os/db'
 import { healthResponseSchema } from '@ai-native-os/shared'
 import { serve } from '@hono/node-server'
-import { type HonoBindings, type HonoVariables, MastraServer } from '@mastra/hono'
+import type { HonoBindings, HonoVariables } from '@mastra/hono'
 import { RPCHandler } from '@orpc/server/fetch'
 import { Scalar } from '@scalar/hono-api-reference'
 import { sql } from 'drizzle-orm'
@@ -12,6 +12,8 @@ import { secureHeaders } from 'hono/secure-headers'
 
 import { generateOpenApiDocument } from '@/lib/openapi'
 import { getMastraRuntimeSummary, mastra, mastraEnvironment } from '@/mastra'
+import { readMastraRequestContext } from '@/mastra/request-context'
+import { SecureMastraServer } from '@/mastra/server'
 import { type ApiEnv, authSessionMiddleware, handleAuthRequest } from '@/middleware/auth'
 import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
@@ -70,7 +72,7 @@ app.get('/api/openapi.json', async (c) => {
   return c.json(document)
 })
 
-const mastraServer = new MastraServer({
+const mastraServer = new SecureMastraServer({
   app,
   mastra,
   openapiPath: mastraEnvironment.openapiPath,
@@ -78,6 +80,10 @@ const mastraServer = new MastraServer({
 })
 
 await mastraServer.init()
+
+app.get('/mastra/system/request-context', (c) => {
+  return c.json(readMastraRequestContext(c.get('requestContext')))
+})
 
 app.get(
   '/api/docs',

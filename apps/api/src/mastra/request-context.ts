@@ -48,7 +48,7 @@ export function createMastraRequestContextFromAppContext(
 }
 
 export function readMastraRequestContext(
-  requestContext: RequestContext<MastraToolRequestContextValues> | undefined,
+  requestContext: { all?: unknown } | undefined,
 ): MastraToolRequestContextValues {
   return mastraToolRequestContextSchema.parse(requestContext?.all ?? {})
 }

@@ -121,8 +121,23 @@ test('ping endpoint returns the initial oRPC payload', async () => {
   assert.equal(payload.json.service, 'api')
 })
 
-test('Mastra runtime system route boots under the Hono adapter', async () => {
+test('Mastra runtime routes reject unauthenticated requests', async () => {
   const response = await app.request('http://localhost/mastra/system/packages')
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 401)
+  assert.equal(payload.code, 'UNAUTHORIZED')
+  assert.equal(payload.message, 'Authentication required for Mastra routes')
+})
+
+test('Mastra runtime system route boots under the Hono adapter for authenticated users', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/mastra/system/packages', {
+    headers: authHeaders,
+  })
   const payload = (await response.json()) as {
     cmsEnabled: boolean
     isDev: boolean
@@ -139,8 +154,37 @@ test('Mastra runtime system route boots under the Hono adapter', async () => {
   assert.equal(typeof payload.cmsEnabled, 'boolean')
 })
 
-test('Mastra OpenAPI route is exposed from the mounted runtime prefix', async () => {
-  const response = await app.request('http://localhost/mastra/openapi.json')
+test('Mastra request context bridge injects Better Auth and RBAC data', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/mastra/system/request-context', {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as {
+    authUserId: string
+    permissionRules: Array<{
+      action: string
+      subject: string
+    }>
+    rbacUserId: string | null
+    requestId: string
+    roleCodes: string[]
+    userEmail: string | null
+  }
+
+  assert.equal(response.status, 200)
+  assert.ok(payload.authUserId.length > 0)
+  assert.ok(payload.permissionRules.length > 0)
+  assert.ok(payload.requestId.length > 0)
+  assert.deepEqual(payload.roleCodes, ['viewer'])
+  assert.ok(payload.rbacUserId)
+  assert.ok(payload.userEmail?.includes('@example.com'))
+})
+
+test('Mastra OpenAPI route is exposed from the mounted runtime prefix for authenticated users', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/mastra/openapi.json', {
+    headers: authHeaders,
+  })
   const payload = (await response.json()) as {
     info: {
       title: string
