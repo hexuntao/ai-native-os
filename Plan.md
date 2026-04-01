@@ -297,18 +297,26 @@ Milestone 4.1: Web shell and design system
 
 Milestone 4.2: Core admin modules
 
+- P4-F1 Insert contract-first business API skeleton for system, monitor, and AI modules
+  - Inputs: P2-T5, P3-T6, API conventions doc
+  - Outputs: shared list/query schemas, documented `/api/v1/system/*`, `/api/v1/monitor/*`, and `/api/v1/ai/*` read skeleton endpoints, REST query compatibility layer, contract tests
+  - Validation: OpenAPI emits the documented paths; direct GET requests with query strings succeed under authenticated RBAC smoke
+  - Dependencies: P2-T5, P3-T6
+  - Parallelizable: no
+  - Notes: this is a correction task to unblock `P4-T3` and `P4-T4`; it is not full CRUD/business implementation
+
 - P4-T3 Implement system management pages
-  - Inputs: P2-T5, P4-T1, P4-T2
+  - Inputs: P2-T5, P4-F1, P4-T1, P4-T2
   - Outputs: users, roles, permissions, menus, dicts, config pages
   - Validation: CRUD pages query real API and honor permissions
-  - Dependencies: P4-T1, P4-T2, Phase 2 complete
+  - Dependencies: P4-F1, P4-T1, P4-T2, Phase 2 complete
   - Parallelizable: yes, by module after shared patterns land
 
 - P4-T4 Implement monitor and AI management pages
-  - Inputs: Phase 3 outputs, P4-T1, P4-T2
+  - Inputs: P3-T6, P4-F1, P4-T1, P4-T2
   - Outputs: online users, logs, server, knowledge, evals, audit pages
   - Validation: monitoring and AI admin data render correctly
-  - Dependencies: P4-T1, P4-T2, P3-T6
+  - Dependencies: P4-F1, P4-T1, P4-T2, P3-T6
   - Parallelizable: yes, with P4-T3 where routes do not overlap
 
 Milestone 4.3: AI-native interface layer
@@ -329,6 +337,7 @@ Milestone 4.3: AI-native interface layer
 
 Definition of Done:
 - Dashboard shell, auth guard, and menu permissions work.
+- Contract-first business APIs required by the management surfaces exist and are directly consumable over documented REST paths.
 - Core admin pages use real API data.
 - Copilot panel is embedded and functional.
 - At least one generative UI interaction works end-to-end.

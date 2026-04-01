@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 4 P4-T5 completed, P4-T6 ready
+Current Mode: Phase 4 P4-F1 completed, P4-T3 ready
 Current Phase: Phase 4 `Web UI`
 Overall Status: `ready_to_execute`
 
@@ -25,7 +25,6 @@ Overall Status: `ready_to_execute`
   - CI workflows
   - production deployment files
   - generative UI components
-  - contract-first business API surfaces required by `P4-T3` and `P4-T4`
 
 ## 2. Phase Summary
 
@@ -65,8 +64,9 @@ Overall Status: `ready_to_execute`
 | P3-T7 | 3 | Implement MCP server and external MCP client integration | done | P3-T2, P3-T3, P3-T4 | MCP discovery smoke |
 | P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | done | P2-T6 | authenticated shell smoke |
 | P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | done | P1-T2 | package/ui build smoke |
-| P4-T3 | 4 | Implement system management pages | blocked | P4-T1, P4-T2, Phase 2 | CRUD page smoke |
-| P4-T4 | 4 | Implement monitor and AI management pages | blocked | P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
+| P4-F1 | 4 | Insert contract-first business API skeleton for system, monitor, and AI modules | done | P2-T5, P3-T6 | OpenAPI + REST query smoke |
+| P4-T3 | 4 | Implement system management pages | ready | P4-F1, P4-T1, P4-T2, Phase 2 | CRUD page smoke |
+| P4-T4 | 4 | Implement monitor and AI management pages | ready | P4-F1, P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
 | P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | done | P3-T5, P4-T1 | chat stream smoke |
 | P4-T6 | 4 | Implement generative UI components | ready | P4-T5 | action render smoke |
 | P5-T1 | 5 | Implement operation log and AI audit log pipelines end-to-end | backlog | Phase 2, Phase 3 | log trace verification |
@@ -84,7 +84,9 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P4-T6 Implement generative UI components
+1. P4-T3 Implement system management pages
+2. P4-T4 Implement monitor and AI management pages
+3. P4-T6 Implement generative UI components
 
 Auto-unlock rules:
 
@@ -111,6 +113,9 @@ Auto-unlock rules:
   - mark P3-T7 as `ready`
 - If P3-T5 -> `done`
   - keep P4-T5 blocked until `P4-T1` is also `done`
+- If P4-F1 -> `done`
+  - mark P4-T3 as `ready`
+  - mark P4-T4 as `ready`
 
 Temporary Phase 3 correction rules:
 
@@ -163,14 +168,16 @@ Known current blockers:
 - pgvector-backed RAG is now implemented with `ai_knowledge` storage, semantic retrieval, and a Trigger.dev indexing task. However, production still requires a real embedding provider key, while deterministic local embeddings are intentionally limited to development and test.
 - MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
-- The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, but the contract-first management screens are still blocked by missing business API surfaces.
+- The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the required contract-first business API skeleton now exists, but the actual management pages and write flows are still not implemented.
+- The new `ai/evals` contract-first endpoint is intentionally a stable skeleton backed by runtime summary only. Dedicated eval persistence, scorers, and experiment history remain a Phase 5 observability task.
 
 Blocker resolution order:
 
-1. P4-T6
-2. Contract-first business API surfaces for `users / roles / permissions / menus / ai/knowledge / ai/evals`
-3. Better Auth ↔ RBAC principal bridge hardening
-4. Redis runtime wiring
+1. P4-T3
+2. P4-T4
+3. P4-T6
+4. Better Auth ↔ RBAC principal bridge hardening
+5. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -199,6 +206,40 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P4-F1 Insert contract-first business API skeleton for system, monitor, and AI modules
+- Status: done
+- Changed files:
+  - `apps/api/src/index.ts`
+  - `apps/api/src/routes/ai/audit.ts`
+  - `apps/api/src/routes/ai/evals.ts`
+  - `apps/api/src/routes/ai/knowledge.ts`
+  - `apps/api/src/routes/contract-first.test.ts`
+  - `apps/api/src/routes/index.ts`
+  - `apps/api/src/routes/lib/pagination.ts`
+  - `apps/api/src/routes/monitor/logs.ts`
+  - `apps/api/src/routes/monitor/online.ts`
+  - `apps/api/src/routes/monitor/server.ts`
+  - `apps/api/src/routes/system/menus.ts`
+  - `apps/api/src/routes/system/permissions.ts`
+  - `apps/api/src/routes/system/roles.ts`
+  - `apps/api/src/routes/system/users.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/schemas/business-api.ts`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+- Result:
+  - Added documented contract-first read skeletons for `users / roles / permissions / menus / monitor/logs / monitor/online / monitor/server / ai/knowledge / ai/evals / ai/audit`, kept OpenAPI generation through oRPC metadata, and inserted a Hono REST query compatibility layer so direct GET requests with standard query strings now work under the existing Better Auth and CASL boundary. Static checks, build, OpenAPI coverage, and authenticated contract-route smoke all pass.
+- Unlocked tasks:
+  - `P4-T3`
+  - `P4-T4`
+- Notes:
+  - `ai/evals` is intentionally a contract-stable skeleton and does not yet have dedicated persistence or a dedicated CASL subject.
+  - The compatibility layer was added because the current `@orpc/server/fetch` runtime path does not parse plain REST query strings for these GET procedures in the way the API conventions document requires.
 
 ### P4-T5 Integrate CopilotKit sidebar and assistant-style chat UX
 - Status: done

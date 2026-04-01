@@ -44,3 +44,37 @@ export function requirePermission(
     })
   })
 }
+
+export function requireAnyPermission(
+  requirements: ReadonlyArray<{
+    action: AppActions
+    subject: AppSubjects
+  }>,
+): typeof protectedProcedure {
+  return protectedProcedure.use(({ context, next }) => {
+    const isAllowed = requirements.some((requirement) =>
+      context.ability.can(requirement.action, requirement.subject),
+    )
+
+    if (!isAllowed) {
+      throw new ORPCError('FORBIDDEN', {
+        message: requirements
+          .map((requirement) => `${requirement.action}:${requirement.subject}`)
+          .join(' | '),
+      })
+    }
+
+    const resolvedUserId = context.userId ?? context.session?.user.id
+
+    if (!resolvedUserId) {
+      throw new ORPCError('UNAUTHORIZED')
+    }
+
+    return next({
+      context: {
+        ...context,
+        userId: resolvedUserId,
+      },
+    })
+  })
+}
