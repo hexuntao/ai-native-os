@@ -20,6 +20,7 @@ import {
 } from '@/copilotkit/runtime'
 import { generateOpenApiDocument } from '@/lib/openapi'
 import { getMastraRuntimeSummary, mastra, mastraEnvironment } from '@/mastra'
+import { handleMastraMcpRequest, mastraMcpEndpointPath } from '@/mastra/mcp/server'
 import { readMastraRequestContext } from '@/mastra/request-context'
 import { SecureMastraServer } from '@/mastra/server'
 import { type ApiEnv, authSessionMiddleware, handleAuthRequest } from '@/middleware/auth'
@@ -39,6 +40,16 @@ app.use('*', secureHeaders())
 app.use(
   '*',
   cors({
+    allowHeaders: [
+      'content-type',
+      'last-event-id',
+      'mcp-protocol-version',
+      'mcp-session-id',
+      'x-requested-with',
+      'x-request-id',
+    ],
+    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    exposeHeaders: ['mcp-protocol-version', 'mcp-session-id'],
     origin: process.env.APP_URL ?? 'http://localhost:3000',
     credentials: true,
   }),
@@ -104,10 +115,12 @@ app.get(
 
 app.all('/api/auth/*', async (c) => handleAuthRequest(c.req.raw))
 
+app.use(mastraMcpEndpointPath, authSessionMiddleware)
 app.use(copilotKitEndpointPath, authSessionMiddleware)
 app.use(agUiRuntimePath, authSessionMiddleware)
 app.use(agUiRuntimeEventsPath, authSessionMiddleware)
 
+app.all(mastraMcpEndpointPath, handleMastraMcpRequest)
 app.all(copilotKitEndpointPath, handleCopilotKitRequest)
 app.get(agUiRuntimePath, handleAgUiRuntimeSummaryRequest)
 app.get(agUiRuntimeEventsPath, handleAgUiRuntimeEventsRequest)

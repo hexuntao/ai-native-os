@@ -1,8 +1,8 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 P3-T6 completed, P3-T7 ready
-Current Phase: Phase 3 `AI Core`
+Current Mode: Phase 3 completed, Phase 4 P4-T1 ready
+Current Phase: Phase 4 `Web UI`
 Overall Status: `ready_to_execute`
 
 ## 1. Repository Snapshot
@@ -25,7 +25,6 @@ Overall Status: `ready_to_execute`
   - CI workflows
   - production deployment files
   - CopilotKit frontend sidebar and assistant chat UI
-  - MCP server and external MCP client wiring
 
 ## 2. Phase Summary
 
@@ -33,8 +32,8 @@ Overall Status: `ready_to_execute`
 |---|---|---|---|
 | 1 | Foundation Infrastructure | done | Monorepo, db/shared/api skeleton, local infra available |
 | 2 | Auth + RBAC | done | Better Auth + CASL + seed roles + minimal auth shell |
-| 3 | AI Core | active | Mastra + tools + workflows + MCP + RAG |
-| 4 | Web UI | backlog | Dashboard + system pages + CopilotKit + generative UI |
+| 3 | AI Core | done | Mastra + tools + workflows + MCP + RAG |
+| 4 | Web UI | active | Dashboard + system pages + CopilotKit + generative UI |
 | 5 | Observability | backlog | Audit + telemetry + evals + feedback + prompt governance |
 | 6 | Deployment | backlog | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
 
@@ -62,9 +61,9 @@ Overall Status: `ready_to_execute`
 | P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | done | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
 | P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | done | P3-T1, P3-T3 | streaming endpoint smoke |
 | P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | done | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
-| P3-T7 | 3 | Implement MCP server and external MCP client integration | ready | P3-T2, P3-T3, P3-T4 | MCP discovery smoke |
-| P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | backlog | P2-T6 | authenticated shell smoke |
-| P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | backlog | P1-T2 | package/ui build smoke |
+| P3-T7 | 3 | Implement MCP server and external MCP client integration | done | P3-T2, P3-T3, P3-T4 | MCP discovery smoke |
+| P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | ready | P2-T6 | authenticated shell smoke |
+| P4-T2 | 4 | Establish shared UI primitives and shadcn-based component baseline | ready | P1-T2 | package/ui build smoke |
 | P4-T3 | 4 | Implement system management pages | backlog | P4-T1, P4-T2, Phase 2 | CRUD page smoke |
 | P4-T4 | 4 | Implement monitor and AI management pages | backlog | P4-T1, P4-T2, P3-T6 | monitor and AI page smoke |
 | P4-T5 | 4 | Integrate CopilotKit sidebar and assistant-style chat UX | backlog | P3-T5, P4-T1 | chat stream smoke |
@@ -84,7 +83,8 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-T7 Implement MCP server and external MCP client integration
+1. P4-T1 Build Next.js app shell, global providers, and dashboard layout
+2. P4-T2 Establish shared UI primitives and shadcn-based component baseline
 
 Auto-unlock rules:
 
@@ -161,11 +161,13 @@ Known current blockers:
 - CopilotKit / AG-UI backend bridge is implemented and authenticated, but the documented frontend Copilot sidebar and assistant chat UX still remain a Phase 4 task because `apps/web` has not yet been migrated to the project’s Next.js baseline.
 - Current CopilotKit bridge depends on upstream packages that still emit peer warnings around `@ag-ui/encoder`, and the repository still carries an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime behavior and tests are green, but this remains dependency-risk follow-up.
 - pgvector-backed RAG is now implemented with `ai_knowledge` storage, semantic retrieval, and a Trigger.dev indexing task. However, production still requires a real embedding provider key, while deterministic local embeddings are intentionally limited to development and test.
-- MCP wiring, outbound notifications, and route-level Mastra authorization hardening beyond authenticated access remain pending Phase 3 tasks.
+- MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
+- MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
+- The largest documented architecture gap is now the frontend baseline: `apps/web` is still not migrated to the project’s Next.js/Turbopack target, so Phase 4 starts with a structural correction task rather than feature polish.
 
 Blocker resolution order:
 
-1. P3-T7
+1. P4-T1
 2. Better Auth ↔ RBAC principal bridge hardening
 3. Redis runtime wiring
 4. CopilotKit frontend UI migration in Phase 4
@@ -197,6 +199,28 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P3-T7 Implement MCP server and external MCP client integration
+- Status: done
+- Changed files:
+  - `apps/api/package.json`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/mastra/mcp/server.ts`
+  - `apps/api/src/mastra/mcp/client.ts`
+  - `apps/api/src/mastra/mcp/integration.test.ts`
+- Commands:
+  - `pnpm install`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Authenticated MCP endpoint is available at `/mastra/mcp`, exposes one agent wrapper, one workflow wrapper, one direct tool, plus resources and prompts; external discovery via `@ai-sdk/mcp` passes.
+- Unlocked tasks:
+  - `P4-T1`
+  - `P4-T2`
+- Notes:
+  - The implementation uses `@modelcontextprotocol/sdk` and `@ai-sdk/mcp` as a protocol-compatible bridge because the documented `@mastra/mcp` package is not installed in the repository.
+  - MCP workflow execution now reuses the authenticated caller request context; an intermediate scheduler-principal escalation bug was caught and removed before final verification.
 
 ### P1-T1 Create root monorepo scaffold
 - Status: done
