@@ -411,6 +411,13 @@ Milestone 6.1: Packaging and environment contracts
   - Dependencies: Phase 3 complete
   - Parallelizable: yes
 
+- P6-F1 Align worker deployment runtime and binding contract
+  - Inputs: P6-T1, deployment guide, current `apps/worker` skeleton
+  - Outputs: worker runtime entry, queue/R2 binding contract, worker smoke-test path, non-skeleton package surface
+  - Validation: `@ai-native-os/worker` builds and exposes a deployable runtime contract instead of a skeleton marker
+  - Dependencies: P6-T1
+  - Parallelizable: limited
+
 - P6-T2 Implement Docker packaging and self-hosted runtime topology
   - Inputs: deployment guide, current package layout
   - Outputs: Dockerfiles, compose files, nginx config, entrypoint or migration strategy
@@ -424,7 +431,7 @@ Milestone 6.2: Cloud and CI/CD targets
   - Inputs: web, api, worker, jobs packages
   - Outputs: `vercel.json`, `wrangler.toml`, Trigger config, deploy docs
   - Validation: at least one deployment mode reaches staging successfully
-  - Dependencies: Phase 3 complete, Phase 4 complete
+  - Dependencies: Phase 3 complete, Phase 4 complete, P6-F1
   - Parallelizable: yes, with P6-T2
 
 - P6-T4 Implement GitHub Actions CI/CD workflows

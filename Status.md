@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 5 completed (P5-T5 done), entering Phase 6
+Current Mode: Phase 6 P6-T1 completed, P6-F1 ready
 Current Phase: Phase 6 `Deployment`
 Overall Status: `ready_to_execute`
 
@@ -73,9 +73,10 @@ Overall Status: `ready_to_execute`
 | P5-T3 | 5 | Implement AI feedback capture and human override tracking | done | P3-T4, P4-T5 | feedback persistence smoke |
 | P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | done | P3-T3, P3-T4 | eval run result verification |
 | P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | done | P5-T4 | version activate/rollback verification |
-| P6-T1 | 6 | Finalize environment matrix and secret contract | ready | Phase 3 | env-only boot verification |
+| P6-T1 | 6 | Finalize environment matrix and secret contract | done | Phase 3 | env-only boot verification |
+| P6-F1 | 6 | Align worker deployment runtime and binding contract | ready | P6-T1 | worker contract smoke |
 | P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | ready | Phase 1, Phase 3 | Docker smoke deploy |
-| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | ready | Phase 3, Phase 4 | staging deploy smoke |
+| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | backlog | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
 | P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | backlog | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
 | P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | backlog | P6-T2, P6-T4, P5-T2 | release-readiness review |
 
@@ -83,7 +84,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P6-T1 Finalize environment matrix and secret contract
+1. P6-F1 Align worker deployment runtime and binding contract
 2. P6-T2 Implement Docker packaging and self-hosted runtime topology
 3. P6-T3 Implement Vercel, Cloudflare, and Trigger deployment configs
 
@@ -118,6 +119,10 @@ Auto-unlock rules:
 - If P5-T5 -> `done`
   - mark P6-T1 as `ready`
   - mark P6-T2 as `ready`
+  - keep P6-T3 blocked until `P6-F1` is also `done`
+- If P6-T1 -> `done`
+  - mark P6-F1 as `ready`
+- If P6-F1 -> `done`
   - mark P6-T3 as `ready`
 
 Temporary Phase 3 correction rules:
@@ -173,6 +178,7 @@ Known current blockers:
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
 - The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
 - `ai/evals` and prompt-governance are now both backed by persisted runtime evidence (`ai_eval_runs` / `ai_eval_run_items` / `ai_prompt_versions`), including activation gate enforcement and rollback lineage.
+- `apps/worker` still exposes only a phase-1 skeleton marker; Phase 6 now treats worker deployment alignment as an explicit corrective task before Cloudflare deploy config work can be considered complete.
 - Mastra eval datasets currently use a dedicated in-process runtime store and are rehydrated by suite initialization when needed; persisted experiment truth for governance and release decisions lives in Postgres.
 - Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
 - API telemetry bootstrap, request-id propagation, and shared health snapshots are now implemented. `/health` and `/api/v1/monitor/server` report database, redis, and telemetry states from the same helper; telemetry backends stay `unknown` until `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` are configured explicitly.
@@ -180,7 +186,7 @@ Known current blockers:
 
 Blocker resolution order:
 
-1. P6-T1 Environment matrix and secret contract
+1. P6-F1 Worker deployment alignment
 2. P6-T2 Docker packaging and runtime topology
 3. Better Auth ↔ RBAC principal bridge hardening
 4. Redis runtime wiring
@@ -212,6 +218,28 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P6-T1 Finalize environment matrix and secret contract
+- Status: done
+- Changed files:
+  - `.env.example`
+  - `Plan.md`
+  - `Status.md`
+  - `apps/api/src/lib/deployment-contract.test.ts`
+  - `docs/deployment-guide.md`
+  - `docs/environment-matrix.md`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Finalized the current repository-backed environment contract by shrinking `.env.example` to real runtime inputs, adding a dedicated environment matrix that separates current runtime variables from deploy-only credentials and Cloudflare bindings, and wiring automated tests so the repository fails if runtime code starts reading undocumented environment variables. The deployment guide now explicitly points to the matrix as the source of truth for current support boundaries instead of implying that target-state serverless settings are already wired.
+- Unlocked tasks:
+  - `P6-F1`
+- Notes:
+  - `P6-F1` is now a formal corrective task because `apps/worker` is still a skeleton and would otherwise make `P6-T3` dishonest.
+  - Mode A serverless remains target-state only until worker runtime and Cloudflare deploy config are actually implemented.
 
 ### P5-T5 Implement prompt versioning and release gates for AI changes
 - Status: done
