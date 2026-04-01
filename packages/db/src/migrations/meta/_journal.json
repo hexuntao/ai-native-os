@@ -43,6 +43,13 @@
       "when": 1775054335155,
       "tag": "0005_wakeful_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775055848973,
+      "tag": "0006_clean_calypso",
+      "breakpoints": true
     }
   ]
 }

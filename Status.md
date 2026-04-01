@@ -1,8 +1,8 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 5 P5-T4 completed, P5-T5 ready
-Current Phase: Phase 5 `Observability`
+Current Mode: Phase 5 completed (P5-T5 done), entering Phase 6
+Current Phase: Phase 6 `Deployment`
 Overall Status: `ready_to_execute`
 
 ## 1. Repository Snapshot
@@ -33,8 +33,8 @@ Overall Status: `ready_to_execute`
 | 2 | Auth + RBAC | done | Better Auth + CASL + seed roles + minimal auth shell |
 | 3 | AI Core | done | Mastra + tools + workflows + MCP + RAG |
 | 4 | Web UI | done | Dashboard + system pages + CopilotKit + generative UI |
-| 5 | Observability | in_progress | Audit + telemetry + evals + feedback + prompt governance |
-| 6 | Deployment | backlog | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
+| 5 | Observability | done | Audit + telemetry + evals + feedback + prompt governance |
+| 6 | Deployment | in_progress | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
 
 ## 3. Task Ledger
 
@@ -72,10 +72,10 @@ Overall Status: `ready_to_execute`
 | P5-T2 | 5 | Add Sentry, OpenTelemetry, request IDs, and health checks | done | P1-T5 | telemetry + health smoke |
 | P5-T3 | 5 | Implement AI feedback capture and human override tracking | done | P3-T4, P4-T5 | feedback persistence smoke |
 | P5-T4 | 5 | Implement Mastra Evals datasets, scorers, and runners | done | P3-T3, P3-T4 | eval run result verification |
-| P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | ready | P5-T4 | version activate/rollback verification |
-| P6-T1 | 6 | Finalize environment matrix and secret contract | backlog | Phase 3 | env-only boot verification |
-| P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | backlog | Phase 1, Phase 3 | Docker smoke deploy |
-| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | backlog | Phase 3, Phase 4 | staging deploy smoke |
+| P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | done | P5-T4 | version activate/rollback verification |
+| P6-T1 | 6 | Finalize environment matrix and secret contract | ready | Phase 3 | env-only boot verification |
+| P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | ready | Phase 1, Phase 3 | Docker smoke deploy |
+| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | ready | Phase 3, Phase 4 | staging deploy smoke |
 | P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | backlog | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
 | P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | backlog | P6-T2, P6-T4, P5-T2 | release-readiness review |
 
@@ -83,7 +83,9 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P5-T5 Implement prompt versioning and release gates for AI changes
+1. P6-T1 Finalize environment matrix and secret contract
+2. P6-T2 Implement Docker packaging and self-hosted runtime topology
+3. P6-T3 Implement Vercel, Cloudflare, and Trigger deployment configs
 
 Auto-unlock rules:
 
@@ -113,6 +115,10 @@ Auto-unlock rules:
 - If P4-F1 -> `done`
   - mark P4-T3 as `ready`
   - mark P4-T4 as `ready`
+- If P5-T5 -> `done`
+  - mark P6-T1 as `ready`
+  - mark P6-T2 as `ready`
+  - mark P6-T3 as `ready`
 
 Temporary Phase 3 correction rules:
 
@@ -166,7 +172,7 @@ Known current blockers:
 - MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
 - The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
-- `ai/evals` is now backed by real Mastra eval suites, deterministic scorers, and persisted run history in `ai_eval_runs`/`ai_eval_run_items`. Current remaining gap is prompt-governance wiring (`P5-T5`) rather than eval runtime availability.
+- `ai/evals` and prompt-governance are now both backed by persisted runtime evidence (`ai_eval_runs` / `ai_eval_run_items` / `ai_prompt_versions`), including activation gate enforcement and rollback lineage.
 - Mastra eval datasets currently use a dedicated in-process runtime store and are rehydrated by suite initialization when needed; persisted experiment truth for governance and release decisions lives in Postgres.
 - Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
 - API telemetry bootstrap, request-id propagation, and shared health snapshots are now implemented. `/health` and `/api/v1/monitor/server` report database, redis, and telemetry states from the same helper; telemetry backends stay `unknown` until `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` are configured explicitly.
@@ -174,9 +180,10 @@ Known current blockers:
 
 Blocker resolution order:
 
-1. P5-T5
-2. Better Auth ↔ RBAC principal bridge hardening
-3. Redis runtime wiring
+1. P6-T1 Environment matrix and secret contract
+2. P6-T2 Docker packaging and runtime topology
+3. Better Auth ↔ RBAC principal bridge hardening
+4. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -205,6 +212,43 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P5-T5 Implement prompt versioning and release gates for AI changes
+- Status: done
+- Changed files:
+  - `apps/api/src/index.ts`
+  - `apps/api/src/routes/ai/prompts.ts`
+  - `apps/api/src/routes/contract-first.test.ts`
+  - `apps/api/src/routes/index.ts`
+  - `packages/db/src/ai/prompt-versions.ts`
+  - `packages/db/src/ai/prompt-versions.test.ts`
+  - `packages/db/src/index.ts`
+  - `packages/db/src/migrations/0006_clean_calypso.sql`
+  - `packages/db/src/migrations/meta/0006_snapshot.json`
+  - `packages/db/src/migrations/meta/_journal.json`
+  - `packages/db/src/schema/ai-prompt-versions.ts`
+  - `packages/db/src/schema/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/schemas/ai-prompts.ts`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:generate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:migrate`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_native_os pnpm --filter @ai-native-os/db db:seed`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+- Result:
+  - Added end-to-end prompt-governance infrastructure: shared prompt schemas, `ai_prompt_versions` persistence model and migration, release-gate evaluation service (requires completed eval evidence + threshold checks), and API routes for list/create/attach-evidence/activate/rollback under `/api/v1/ai/prompts*`. Contract-first compatibility routes and tests now verify that activation fails without eval evidence and succeeds after evidence attachment.
+- Unlocked tasks:
+  - `P6-T1`
+  - `P6-T2`
+  - `P6-T3`
+- Notes:
+  - Prompt release gates currently reuse existing `manage:AiKnowledge` authority because RBAC subjects do not yet define a dedicated `AiPrompt` resource.
+  - Release evidence is bound to persisted eval runs, so governance decisions are now database-verifiable instead of runtime-memory-only.
 
 ### P5-T4 Implement Mastra Evals datasets, scorers, and runners
 - Status: done

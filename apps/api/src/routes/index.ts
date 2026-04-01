@@ -2,6 +2,13 @@ import { aiAuditListProcedure } from './ai/audit'
 import { aiEvalsListProcedure } from './ai/evals'
 import { aiFeedbackCreateProcedure, aiFeedbackListProcedure } from './ai/feedback'
 import { aiKnowledgeListProcedure } from './ai/knowledge'
+import {
+  aiPromptsActivateProcedure,
+  aiPromptsAttachEvidenceProcedure,
+  aiPromptsCreateProcedure,
+  aiPromptsListProcedure,
+  aiPromptsRollbackProcedure,
+} from './ai/prompts'
 import { monitorLogsListProcedure } from './monitor/logs'
 import { monitorOnlineListProcedure } from './monitor/online'
 import { monitorServerSummaryProcedure } from './monitor/server'
@@ -25,6 +32,13 @@ export const appRouter = {
       list: aiFeedbackListProcedure,
     },
     knowledge: aiKnowledgeListProcedure,
+    prompts: {
+      activate: aiPromptsActivateProcedure,
+      'attach-evidence': aiPromptsAttachEvidenceProcedure,
+      create: aiPromptsCreateProcedure,
+      list: aiPromptsListProcedure,
+      rollback: aiPromptsRollbackProcedure,
+    },
   },
   monitor: {
     logs: monitorLogsListProcedure,

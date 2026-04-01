@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 
-import { db, roles, userRoles, users } from '@ai-native-os/db'
+import { db, listAiEvalRunsByEvalKey, roles, userRoles, users } from '@ai-native-os/db'
 import { eq } from 'drizzle-orm'
 
 import { app } from '@/index'
@@ -115,6 +115,7 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
   assert.ok('/api/v1/ai/knowledge' in payload.paths)
   assert.ok('/api/v1/ai/evals' in payload.paths)
   assert.ok('/api/v1/ai/audit' in payload.paths)
+  assert.ok('/api/v1/ai/prompts' in payload.paths)
 })
 
 test('viewer can consume the contract-first system and monitor read skeleton routes', async () => {
@@ -224,20 +225,24 @@ test('AI contract routes expose knowledge, evals, and audit logs for administrat
     requestId: `contract-evals-${randomUUID()}`,
     triggerSource: 'test',
   })
-  const [knowledgeResponse, evalsResponse, auditResponse, feedbackResponse] = await Promise.all([
-    app.request('http://localhost/api/v1/ai/knowledge?page=1&pageSize=5', {
-      headers: authHeaders,
-    }),
-    app.request('http://localhost/api/v1/ai/evals?page=1&pageSize=5', {
-      headers: authHeaders,
-    }),
-    app.request('http://localhost/api/v1/ai/audit?page=1&pageSize=5', {
-      headers: authHeaders,
-    }),
-    app.request('http://localhost/api/v1/ai/feedback?page=1&pageSize=5', {
-      headers: authHeaders,
-    }),
-  ])
+  const [knowledgeResponse, evalsResponse, auditResponse, feedbackResponse, promptsResponse] =
+    await Promise.all([
+      app.request('http://localhost/api/v1/ai/knowledge?page=1&pageSize=5', {
+        headers: authHeaders,
+      }),
+      app.request('http://localhost/api/v1/ai/evals?page=1&pageSize=5', {
+        headers: authHeaders,
+      }),
+      app.request('http://localhost/api/v1/ai/audit?page=1&pageSize=5', {
+        headers: authHeaders,
+      }),
+      app.request('http://localhost/api/v1/ai/feedback?page=1&pageSize=5', {
+        headers: authHeaders,
+      }),
+      app.request('http://localhost/api/v1/ai/prompts?page=1&pageSize=5', {
+        headers: authHeaders,
+      }),
+    ])
 
   const knowledgePayload = (await knowledgeResponse.json()) as {
     json: {
@@ -275,11 +280,27 @@ test('AI contract routes expose knowledge, evals, and audit logs for administrat
       }
     }
   }
+  const promptsPayload = (await promptsResponse.json()) as {
+    json: {
+      data: Array<{
+        id: string
+        isActive: boolean
+        promptKey: string
+        releaseReady: boolean
+      }>
+      summary: {
+        activeCount: number
+        draftCount: number
+        releaseReadyCount: number
+      }
+    }
+  }
 
   assert.equal(knowledgeResponse.status, 200)
   assert.equal(evalsResponse.status, 200)
   assert.equal(auditResponse.status, 200)
   assert.equal(feedbackResponse.status, 200)
+  assert.equal(promptsResponse.status, 200)
   assert.ok(knowledgePayload.json.pagination.total >= 0)
   assert.equal(evalsPayload.json.summary.configured, true)
   assert.ok(evalsPayload.json.summary.totalExperiments >= 1)
@@ -305,6 +326,126 @@ test('AI contract routes expose knowledge, evals, and audit logs for administrat
   assert.ok(Array.isArray(feedbackPayload.json.data))
   assert.ok(feedbackPayload.json.summary.accepted >= 0)
   assert.ok(feedbackPayload.json.summary.humanOverrideCount >= 0)
+  assert.ok(Array.isArray(promptsPayload.json.data))
+  assert.ok(promptsPayload.json.summary.activeCount >= 0)
+  assert.ok(promptsPayload.json.summary.draftCount >= 0)
+  assert.ok(promptsPayload.json.summary.releaseReadyCount >= 0)
+})
+
+test('prompt governance activation requires eval evidence before release', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const promptKey = `admin-copilot-${randomUUID().slice(0, 8)}`
+  const createResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: 'contract-first prompt governance smoke',
+      promptKey,
+      promptText: '你是后台管理 Copilot，优先遵循 RBAC 与审计边界。',
+      releasePolicy: {
+        minAverageScore: 0.5,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      id: string
+      promptKey: string
+      releaseReady: boolean
+      status: string
+      version: number
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.promptKey, promptKey)
+  assert.equal(createPayload.json.status, 'draft')
+  assert.equal(createPayload.json.releaseReady, false)
+  assert.equal(createPayload.json.version, 1)
+
+  const blockedActivateResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: createPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const blockedActivatePayload = (await blockedActivateResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(blockedActivateResponse.status, 400)
+  assert.equal(blockedActivatePayload.code, 'BAD_REQUEST')
+  assert.match(blockedActivatePayload.message, /missing eval evidence/)
+
+  await runMastraEvalSuite({
+    actorAuthUserId: 'system:prompt-governance-test',
+    actorRbacUserId: null,
+    evalId: 'report-schedule',
+    requestId: `prompt-gov-${randomUUID()}`,
+    triggerSource: 'test',
+  })
+  const latestEvalRuns = await listAiEvalRunsByEvalKey('report-schedule')
+  const latestEvalRun = latestEvalRuns[0]
+
+  assert.ok(latestEvalRun, 'Expected a persisted eval run for report-schedule')
+
+  const attachResponse = await app.request('http://localhost/api/v1/ai/prompts/attach-evidence', {
+    body: JSON.stringify({
+      evalRunId: latestEvalRun.id,
+      promptVersionId: createPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const attachPayload = (await attachResponse.json()) as {
+    json: {
+      evalEvidence: {
+        evalRunId: string
+      } | null
+      id: string
+      releaseReady: boolean
+    }
+  }
+
+  assert.equal(attachResponse.status, 200)
+  assert.equal(attachPayload.json.id, createPayload.json.id)
+  assert.equal(attachPayload.json.evalEvidence?.evalRunId, latestEvalRun.id)
+  assert.equal(attachPayload.json.releaseReady, true)
+
+  const activateResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: createPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const activatePayload = (await activateResponse.json()) as {
+    json: {
+      id: string
+      isActive: boolean
+      status: string
+    }
+  }
+
+  assert.equal(activateResponse.status, 200)
+  assert.equal(activatePayload.json.id, createPayload.json.id)
+  assert.equal(activatePayload.json.status, 'active')
+  assert.equal(activatePayload.json.isActive, true)
 })
 
 test('super admin can read the contract-first permission list route', async () => {

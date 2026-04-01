@@ -1,11 +1,14 @@
 import {
   type AppActions,
   type AppSubjects,
+  activatePromptVersionInputSchema,
   aiAuditListResponseSchema,
   aiEvalListResponseSchema,
   aiFeedbackEntrySchema,
   aiFeedbackListResponseSchema,
+  attachPromptEvalEvidenceInputSchema,
   createAiFeedbackInputSchema,
+  createPromptVersionInputSchema,
   currentPermissionsResponseSchema,
   healthResponseSchema,
   knowledgeListResponseSchema,
@@ -23,7 +26,11 @@ import {
   onlineUserListResponseSchema,
   operationLogListResponseSchema,
   permissionListResponseSchema,
+  promptVersionEntrySchema,
+  promptVersionListInputSchema,
+  promptVersionListResponseSchema,
   roleListResponseSchema,
+  rollbackPromptVersionInputSchema,
   serializedAbilityResponseSchema,
   userListResponseSchema,
 } from '@ai-native-os/shared'
@@ -61,6 +68,13 @@ import { listAiAuditLogs } from '@/routes/ai/audit'
 import { listAiEvals } from '@/routes/ai/evals'
 import { createFeedback, listFeedback } from '@/routes/ai/feedback'
 import { listKnowledge } from '@/routes/ai/knowledge'
+import {
+  activatePromptVersionEntry,
+  attachPromptVersionEvalEvidence,
+  createPromptVersionEntry,
+  listPromptVersionEntries,
+  rollbackPromptVersionEntry,
+} from '@/routes/ai/prompts'
 import { listMonitorLogs } from '@/routes/monitor/logs'
 import { listOnlineUsers } from '@/routes/monitor/online'
 import { listMenus } from '@/routes/system/menus'
@@ -93,6 +107,10 @@ const contractFirstReadRequirements = {
   ],
   aiKnowledge: [
     { action: 'read', subject: 'AiKnowledge' },
+    { action: 'manage', subject: 'AiKnowledge' },
+  ],
+  aiPrompts: [
+    { action: 'read', subject: 'AiAuditLog' },
     { action: 'manage', subject: 'AiKnowledge' },
   ],
   menus: [
@@ -503,6 +521,76 @@ app.post('/api/v1/ai/feedback', (c) =>
     contractFirstReadRequirements.aiFeedback,
     async (input, context) =>
       createFeedback(input, {
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.get('/api/v1/ai/prompts', (c) =>
+  handleContractFirstGet(
+    c,
+    promptVersionListInputSchema,
+    promptVersionListResponseSchema,
+    contractFirstReadRequirements.aiPrompts,
+    listPromptVersionEntries,
+  ),
+)
+
+app.post('/api/v1/ai/prompts', (c) =>
+  handleContractFirstPost(
+    c,
+    createPromptVersionInputSchema,
+    promptVersionEntrySchema,
+    contractFirstReadRequirements.aiPrompts,
+    async (input, context) =>
+      createPromptVersionEntry(input, {
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.post('/api/v1/ai/prompts/attach-evidence', (c) =>
+  handleContractFirstPost(
+    c,
+    attachPromptEvalEvidenceInputSchema,
+    promptVersionEntrySchema,
+    contractFirstReadRequirements.aiPrompts,
+    async (input, context) =>
+      attachPromptVersionEvalEvidence(input, {
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.post('/api/v1/ai/prompts/activate', (c) =>
+  handleContractFirstPost(
+    c,
+    activatePromptVersionInputSchema,
+    promptVersionEntrySchema,
+    contractFirstReadRequirements.aiPrompts,
+    async (input, context) =>
+      activatePromptVersionEntry(input, {
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.post('/api/v1/ai/prompts/rollback', (c) =>
+  handleContractFirstPost(
+    c,
+    rollbackPromptVersionInputSchema,
+    promptVersionEntrySchema,
+    contractFirstReadRequirements.aiPrompts,
+    async (input, context) =>
+      rollbackPromptVersionEntry(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
         actorRbacUserId: context.rbacUserId,
         requestId: context.requestId,
