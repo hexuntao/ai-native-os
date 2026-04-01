@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-01
-Current Mode: Phase 3 P3-T4 completed, P3-T5 ready
+Current Mode: Phase 3 P3-T5 completed, P3-T6 ready
 Current Phase: Phase 3 `AI Core`
 Overall Status: `ready_to_execute`
 
@@ -24,7 +24,7 @@ Overall Status: `ready_to_execute`
 - Not yet present:
   - CI workflows
   - production deployment files
-  - CopilotKit / AG-UI backend bridge
+  - CopilotKit frontend sidebar and assistant chat UI
   - pgvector-backed RAG runtime
   - MCP server and external MCP client wiring
 
@@ -61,7 +61,7 @@ Overall Status: `ready_to_execute`
 | P3-F2 | 3 | Remove empty-runtime assumptions and align runtime metadata | done | P3-F1 | runtime summary + test cleanup |
 | P3-T3 | 3 | Implement initial agents | done | P3-T2, P3-F1, P3-F2 | agent generation smoke |
 | P3-T4 | 3 | Implement AI workflows and Trigger.dev task orchestration | done | P3-T1, P3-T2, P3-F1, P3-F2 | workflow/task smoke |
-| P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | ready | P3-T1, P3-T3 | streaming endpoint smoke |
+| P3-T5 | 3 | Implement CopilotKit and AG-UI backend bridge | done | P3-T1, P3-T3 | streaming endpoint smoke |
 | P3-T6 | 3 | Implement pgvector-backed RAG indexing and retrieval | ready | P1-T3, P3-T1, P3-F2 | index + semantic query smoke |
 | P3-T7 | 3 | Implement MCP server and external MCP client integration | ready | P3-T2, P3-T3, P3-T4 | MCP discovery smoke |
 | P4-T1 | 4 | Build Next.js app shell, global providers, and dashboard layout | backlog | P2-T6 | authenticated shell smoke |
@@ -85,9 +85,8 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-01:
 
-1. P3-T5 Implement CopilotKit and AG-UI backend bridge
-2. P3-T6 Implement pgvector-backed RAG indexing and retrieval
-3. P3-T7 Implement MCP server and external MCP client integration
+1. P3-T6 Implement pgvector-backed RAG indexing and retrieval
+2. P3-T7 Implement MCP server and external MCP client integration
 
 Auto-unlock rules:
 
@@ -112,6 +111,8 @@ Auto-unlock rules:
   - mark P3-T6 as `ready`
 - If P3-T4 -> `done`
   - mark P3-T7 as `ready`
+- If P3-T5 -> `done`
+  - keep P4-T5 blocked until `P4-T1` is also `done`
 
 Temporary Phase 3 correction rules:
 
@@ -159,15 +160,17 @@ Known current blockers:
 - Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
 - The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
 - Mastra runtime now has registered read/report/config tools, initial read-only agents, a report workflow, and Trigger.dev report orchestration; however, jobs still rely on a narrow in-process scheduler principal for workflow execution because a formal service-to-service identity contract has not been implemented yet.
-- MCP wiring, outbound notifications, CopilotKit/AG-UI streaming, route-level Mastra authorization hardening beyond authenticated access, and pgvector-backed RAG remain pending Phase 3 tasks.
+- CopilotKit / AG-UI backend bridge is implemented and authenticated, but the documented frontend Copilot sidebar and assistant chat UX still remain a Phase 4 task because `apps/web` has not yet been migrated to the project’s Next.js baseline.
+- Current CopilotKit bridge depends on upstream packages that still emit peer warnings around `@ag-ui/encoder`, and the repository still carries an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime behavior and tests are green, but this remains dependency-risk follow-up.
+- MCP wiring, outbound notifications, route-level Mastra authorization hardening beyond authenticated access, and pgvector-backed RAG remain pending Phase 3 tasks.
 
 Blocker resolution order:
 
-1. P3-T5
-2. P3-T6
-3. P3-T7
-4. Better Auth ↔ RBAC principal bridge hardening
-5. Redis runtime wiring
+1. P3-T6
+2. P3-T7
+3. Better Auth ↔ RBAC principal bridge hardening
+4. Redis runtime wiring
+5. CopilotKit frontend UI migration in Phase 4
 
 ## 7. QA Recording Template
 
@@ -715,3 +718,26 @@ Use this section format after every task execution:
 - Notes:
   - Because the project still lacks a formal service-to-service identity model, the jobs runtime uses an in-process least-privilege scheduler principal that grants only `export:Report`; it does not open a new external HTTP bypass for `/mastra/*`.
   - This task intentionally stays read-only and does not introduce approval flows, notifications, or write-capable workflows before the route-level authorization and service-identity story are fully hardened.
+
+### P3-T5 Implement CopilotKit and AG-UI backend bridge
+- Status: done
+- Changed files:
+  - `apps/api/package.json`
+  - `apps/api/src/copilotkit/runtime.ts`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/index.test.ts`
+  - `pnpm-lock.yaml`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write apps/api/src/copilotkit/runtime.ts apps/api/src/index.ts apps/api/src/index.test.ts`
+  - `pnpm install`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Added an authenticated CopilotKit backend bridge at `/api/copilotkit` plus AG-UI discovery and event routes under `/api/ag-ui/runtime*`. The bridge now builds a per-request Copilot runtime from the live Mastra registry, reuses the same Better Auth and RBAC request context as the rest of the API, rejects unauthenticated access with `401`, and exposes authenticated runtime summary and SSE bootstrap events for the currently registered read-only agents.
+- Unlocked tasks:
+  - none
+- Notes:
+  - This task intentionally implements only the backend bridge. The documented Copilot sidebar and assistant chat UI remain a Phase 4 frontend task because `apps/web` is still not on the project’s Next.js baseline.
+  - Upstream `@copilotkit/runtime` and AG-UI packages still emit peer warnings around `@ag-ui/encoder`, and the repository retains an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime and tests are green, but dependency harmonization remains follow-up work.

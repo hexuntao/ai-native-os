@@ -1,0 +1,191 @@
+import { MastraAgent } from '@ag-ui/mastra'
+import {
+  CopilotRuntime,
+  copilotRuntimeNodeHttpEndpoint,
+  ExperimentalEmptyAdapter,
+} from '@copilotkit/runtime'
+import type { RequestContext } from '@mastra/core/request-context'
+import type { Context } from 'hono'
+import { mastra } from '@/mastra'
+import { mastraAgentRegistry } from '@/mastra/agents'
+import { createMastraRequestContextFromAppContext } from '@/mastra/request-context'
+import type { ApiEnv } from '@/middleware/auth'
+import { type AppContext, createAppContext } from '@/orpc/context'
+
+export const copilotKitEndpointPath = '/api/copilotkit'
+export const agUiRuntimePath = '/api/ag-ui/runtime'
+export const agUiRuntimeEventsPath = '/api/ag-ui/runtime/events'
+export const defaultCopilotAgentId = 'admin-copilot'
+
+type CopilotRuntimeAgents = NonNullable<
+  NonNullable<ConstructorParameters<typeof CopilotRuntime>[0]>['agents']
+>
+
+export interface CopilotBridgeSummary {
+  agentIds: string[]
+  authRequired: boolean
+  defaultAgentId: string
+  endpoint: string
+  protocol: 'ag-ui'
+  resourceId: string
+  runtimePath: string
+  transport: 'streaming-http'
+}
+
+function resolveCopilotResourceId(context: AppContext): string {
+  return context.rbacUserId ?? context.userId ?? 'anonymous'
+}
+
+/**
+ * 生成当前登录主体的 Copilot/AG-UI 桥接摘要。
+ *
+ * 职责边界：
+ * - 只暴露后端桥接所需的发现信息，不承载实际聊天内容
+ * - `resourceId` 明确绑定到当前主体，避免跨用户共享 Agent memory 语义
+ */
+export function getCopilotBridgeSummary(context: AppContext): CopilotBridgeSummary {
+  return {
+    agentIds: Object.keys(mastraAgentRegistry).sort(),
+    authRequired: true,
+    defaultAgentId: defaultCopilotAgentId,
+    endpoint: copilotKitEndpointPath,
+    protocol: 'ag-ui',
+    resourceId: resolveCopilotResourceId(context),
+    runtimePath: agUiRuntimePath,
+    transport: 'streaming-http',
+  }
+}
+
+/**
+ * 要求 Copilot bridge 请求已经具备认证上下文。
+ *
+ * 这里显式复用应用级 AppContext，保证 Copilot 通道不会绕过 Better Auth 与 RBAC 装配逻辑。
+ */
+export async function requireAuthenticatedAppContext<TEnv extends ApiEnv>(
+  c: Context<TEnv>,
+): Promise<AppContext | Response> {
+  const appContext = await createAppContext(c)
+
+  if (!appContext.session || !appContext.userId) {
+    return c.json(
+      {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required for Copilot bridge routes',
+      },
+      401,
+    )
+  }
+
+  return appContext
+}
+
+/**
+ * 按当前登录主体动态创建 Copilot runtime。
+ *
+ * 关键约束：
+ * - 运行时必须按请求动态构建，不能使用固定 `resourceId`
+ * - 仅暴露当前已注册的只读 Agent，避免在桥接层提前扩大写风险
+ */
+export function createCopilotRuntimeForAppContext(context: AppContext): CopilotRuntime {
+  const requestContext = createMastraRequestContextFromAppContext(context) as RequestContext
+  const resourceId = resolveCopilotResourceId(context)
+  const agents = MastraAgent.getLocalAgents({
+    mastra,
+    requestContext,
+    resourceId,
+  }) as unknown as Awaited<CopilotRuntimeAgents>
+
+  return new CopilotRuntime({
+    agents,
+  })
+}
+
+/**
+ * 处理 CopilotKit 兼容的后端桥接请求。
+ *
+ * 当前阶段只落后端入口，不在这里耦合任何前端 UI 组件。
+ */
+export async function handleCopilotKitRequest<TEnv extends ApiEnv>(
+  c: Context<TEnv>,
+): Promise<Response> {
+  const appContextOrResponse = await requireAuthenticatedAppContext(c)
+
+  if (appContextOrResponse instanceof Response) {
+    return appContextOrResponse
+  }
+
+  const runtime = createCopilotRuntimeForAppContext(appContextOrResponse)
+  const endpoint = copilotRuntimeNodeHttpEndpoint({
+    endpoint: copilotKitEndpointPath,
+    runtime,
+    serviceAdapter: new ExperimentalEmptyAdapter(),
+  })
+
+  return endpoint(c.req.raw) as Promise<Response>
+}
+
+/**
+ * 暴露 AG-UI bridge 发现信息，供后续前端集成与 smoke test 使用。
+ */
+export async function handleAgUiRuntimeSummaryRequest<TEnv extends ApiEnv>(
+  c: Context<TEnv>,
+): Promise<Response> {
+  const appContextOrResponse = await requireAuthenticatedAppContext(c)
+
+  if (appContextOrResponse instanceof Response) {
+    return appContextOrResponse
+  }
+
+  return c.json(getCopilotBridgeSummary(appContextOrResponse))
+}
+
+function encodeSseEvent(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+}
+
+/**
+ * 暴露最小 SSE 事件流，验证 AG-UI 桥接路径的流式能力与认证上下文注入。
+ *
+ * 说明：
+ * - 这是桥接诊断流，不替代 CopilotKit 的完整对话协议
+ * - 主要用于后端 smoke test 和前端运行时发现
+ */
+export async function handleAgUiRuntimeEventsRequest<TEnv extends ApiEnv>(
+  c: Context<TEnv>,
+): Promise<Response> {
+  const appContextOrResponse = await requireAuthenticatedAppContext(c)
+
+  if (appContextOrResponse instanceof Response) {
+    return appContextOrResponse
+  }
+
+  const summary = getCopilotBridgeSummary(appContextOrResponse)
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder()
+      const chunks = [
+        encodeSseEvent('runtime.ready', summary),
+        encodeSseEvent('session.context', {
+          requestId: appContextOrResponse.requestId,
+          roleCodes: appContextOrResponse.roleCodes,
+          userId: appContextOrResponse.userId,
+        }),
+      ]
+
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk))
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(body, {
+    headers: {
+      'cache-control': 'no-cache',
+      'content-type': 'text/event-stream; charset=utf-8',
+      connection: 'keep-alive',
+    },
+    status: 200,
+  })
+}

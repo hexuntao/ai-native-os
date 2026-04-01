@@ -10,6 +10,14 @@ import { cors } from 'hono/cors'
 import { requestId } from 'hono/request-id'
 import { secureHeaders } from 'hono/secure-headers'
 
+import {
+  agUiRuntimeEventsPath,
+  agUiRuntimePath,
+  copilotKitEndpointPath,
+  handleAgUiRuntimeEventsRequest,
+  handleAgUiRuntimeSummaryRequest,
+  handleCopilotKitRequest,
+} from '@/copilotkit/runtime'
 import { generateOpenApiDocument } from '@/lib/openapi'
 import { getMastraRuntimeSummary, mastra, mastraEnvironment } from '@/mastra'
 import { readMastraRequestContext } from '@/mastra/request-context'
@@ -95,6 +103,14 @@ app.get(
 )
 
 app.all('/api/auth/*', async (c) => handleAuthRequest(c.req.raw))
+
+app.use(copilotKitEndpointPath, authSessionMiddleware)
+app.use(agUiRuntimePath, authSessionMiddleware)
+app.use(agUiRuntimeEventsPath, authSessionMiddleware)
+
+app.all(copilotKitEndpointPath, handleCopilotKitRequest)
+app.get(agUiRuntimePath, handleAgUiRuntimeSummaryRequest)
+app.get(agUiRuntimeEventsPath, handleAgUiRuntimeEventsRequest)
 
 app.get('/api/v1/system/mastra-runtime', (c) => {
   return c.json({

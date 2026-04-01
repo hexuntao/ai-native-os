@@ -6,6 +6,11 @@ import { db, roles, userRoles, users, writeAiAuditLog } from '@ai-native-os/db'
 import { deserializeAbility } from '@ai-native-os/shared'
 import { eq } from 'drizzle-orm'
 
+import {
+  agUiRuntimeEventsPath,
+  agUiRuntimePath,
+  copilotKitEndpointPath,
+} from './copilotkit/runtime'
 import { app } from './index'
 
 function convertSetCookieToCookie(headers: Headers): Headers {
@@ -131,6 +136,32 @@ test('Mastra runtime routes reject unauthenticated requests', async () => {
   assert.equal(response.status, 401)
   assert.equal(payload.code, 'UNAUTHORIZED')
   assert.equal(payload.message, 'Authentication required for Mastra routes')
+})
+
+test('Copilot bridge summary route rejects unauthenticated requests', async () => {
+  const response = await app.request(`http://localhost${agUiRuntimePath}`)
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 401)
+  assert.equal(payload.code, 'UNAUTHORIZED')
+  assert.equal(payload.message, 'Authentication required for Copilot bridge routes')
+})
+
+test('CopilotKit bridge route rejects unauthenticated requests', async () => {
+  const response = await app.request(`http://localhost${copilotKitEndpointPath}`, {
+    method: 'POST',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 401)
+  assert.equal(payload.code, 'UNAUTHORIZED')
+  assert.equal(payload.message, 'Authentication required for Copilot bridge routes')
 })
 
 test('Mastra runtime system route boots under the Hono adapter for authenticated users', async () => {
@@ -522,4 +553,55 @@ test('Mastra workflow routes expose the registered report workflow for authentic
 
   assert.equal(response.status, 200)
   assert.ok(JSON.stringify(payload).includes('report-schedule'))
+})
+
+test('Copilot bridge summary route exposes authenticated AG-UI runtime metadata', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request(`http://localhost${agUiRuntimePath}`, {
+    headers: authHeaders,
+  })
+  const payload = (await response.json()) as {
+    agentIds: string[]
+    authRequired: boolean
+    defaultAgentId: string
+    endpoint: string
+    protocol: 'ag-ui'
+    resourceId: string
+    runtimePath: string
+    transport: 'streaming-http'
+  }
+
+  assert.equal(response.status, 200)
+  assert.equal(payload.authRequired, true)
+  assert.equal(payload.protocol, 'ag-ui')
+  assert.equal(payload.transport, 'streaming-http')
+  assert.equal(payload.endpoint, copilotKitEndpointPath)
+  assert.equal(payload.runtimePath, agUiRuntimePath)
+  assert.equal(payload.defaultAgentId, 'admin-copilot')
+  assert.deepEqual(payload.agentIds, ['admin-copilot', 'audit-analyst'])
+  assert.ok(payload.resourceId.length > 0)
+})
+
+test('AG-UI runtime events endpoint emits authenticated SSE bootstrap events', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request(`http://localhost${agUiRuntimeEventsPath}`, {
+    headers: authHeaders,
+  })
+  const body = await response.text()
+
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('content-type'), 'text/event-stream; charset=utf-8')
+  assert.ok(body.includes('event: runtime.ready'))
+  assert.ok(body.includes('event: session.context'))
+  assert.ok(body.includes('admin-copilot'))
+})
+
+test('CopilotKit bridge route is mounted and rejects unsupported authenticated GET requests', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request(`http://localhost${copilotKitEndpointPath}`, {
+    headers: authHeaders,
+    method: 'GET',
+  })
+
+  assert.equal(response.status, 404)
 })
