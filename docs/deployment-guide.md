@@ -301,6 +301,8 @@ GitHub Environments 约定：
 - GitHub Actions 当前只负责“校验、迁移、发布、烟雾验证”
 - Vercel / Cloudflare / Trigger 的运行时 secrets 仍需预先配置在各自平台，workflow 不会在发版时替你写入平台 secret store
 - 因为 `apps/web` 是 monorepo 子目录，Vercel 构建必须继续走 repo root-aware 命令，不能退回子目录裸执行
+
+发布加固、备份验证、回滚流程、烟雾检查脚本，统一见 [docs/release-playbook.md](/Users/tao/work/ai/ai-native-os/docs/release-playbook.md)。
 - `docker/nginx.conf`
 - `.dockerignore`
 

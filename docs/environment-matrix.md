@@ -2,7 +2,7 @@
 
 Last Updated: 2026-04-02
 Owner: Scheduler Thread
-Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4`
+Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4` + `P6-T5`
 
 ## 1. 当前支持边界
 
@@ -21,6 +21,10 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4`
   - `apps/api/wrangler.toml`
   - `apps/worker/wrangler.toml`
   - `apps/jobs/trigger.config.ts` + package deploy scripts
+- 当前仓库已经落地的 release hardening 入口：
+  - `pnpm release:smoke`
+  - `pnpm release:backup:verify`
+  - `docs/release-playbook.md`
 - 当前仓库尚未完成的部署面对齐：
   - Cloudflare API / Worker 当前只有 `wrangler deploy --dry-run` 级验证，未完成真实远端 staging 发布
   - Trigger.dev 当前缺少 CLI 登录态，`deploy --dry-run` 仍会阻塞在交互登录
@@ -35,7 +39,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4`
 | `NODE_ENV` | `web`, `api`, `auth`, `db` | all runtimes | no | 控制生产约束与默认值 |
 | `APP_URL` | `web`, `api`, `auth` | all runtimes | no | 浏览器入口地址；Vercel preview 未显式配置时会回退到 `https://${VERCEL_URL}` |
 | `API_URL` | `web`, `api`, `auth` | all runtimes | no | API 基础地址；Vercel preview 未显式配置时会临时回退到当前部署域名，但完整数据面仍建议显式提供 |
-| `PORT` | `api`, `jobs` | Node runtime | no | `api` 默认 `3001`，`jobs` 自托管健康服务默认 `3040` |
+| `PORT` | `api`, `jobs` | Node runtime | no | `api` 默认 `3001`，`jobs` 自托管健康服务默认 `3040`；在当前 Docker 拓扑里该端口仅对 compose 内部网络开放 |
 | `DATABASE_URL` | `db`, `api`, `jobs` | all non-test server runtimes | yes | PostgreSQL 连接串 |
 | `REDIS_URL` | `api` | Redis URL 可用时 | yes | 健康检查与后续 Redis 连接入口 |
 | `REDIS_HOST` | `api` | 不使用 `REDIS_URL` 时 | no | 与 `REDIS_PORT`/`REDIS_PASSWORD` 组合使用 |
@@ -128,6 +132,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4`
 - `migrate` 服务通过 `ops` profile 暴露，推荐在首次启动或 schema 变更后执行：
   - `docker compose -f docker/docker-compose.prod.yml --profile ops run --rm migrate`
 - `nginx` 只把后端拥有的 `/api/v1/*`、`/api/auth/*`、`/api/docs`、`/api/openapi.json`、`/health`、`/mastra/*` 转发给 API，其余流量仍交给 `web`，避免吞掉 Next 同源 route handlers
+- `jobs` 的 `3040` 端口默认不发布到宿主机；Phase 6 发布演练应通过 `docker compose exec -T jobs ... fetch('http://127.0.0.1:3040/health')` 做内部健康验证
 
 ## 9. 平台部署阻塞项
 

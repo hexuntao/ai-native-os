@@ -24,3 +24,4 @@ pnpm-debug.log*
 tsconfig.tsbuildinfo
 .vercel
 .env*.local
+backups

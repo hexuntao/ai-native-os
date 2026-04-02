@@ -1,9 +1,9 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-02
-Current Mode: Phase 6 P6-T4 done, P6-T5 ready
+Current Mode: Phase 6 complete
 Current Phase: Phase 6 `Deployment`
-Overall Status: `ready_for_p6_t5`
+Overall Status: `phase_6_complete`
 
 ## 1. Repository Snapshot
 
@@ -37,7 +37,7 @@ Overall Status: `ready_for_p6_t5`
 | 3 | AI Core | done | Mastra + tools + workflows + MCP + RAG |
 | 4 | Web UI | done | Dashboard + system pages + CopilotKit + generative UI |
 | 5 | Observability | done | Audit + telemetry + evals + feedback + prompt governance |
-| 6 | Deployment | in_progress | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
+| 6 | Deployment | done | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
 
 ## 3. Task Ledger
 
@@ -81,13 +81,13 @@ Overall Status: `ready_for_p6_t5`
 | P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | done | Phase 1, Phase 3 | Docker smoke deploy |
 | P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | done | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
 | P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | done | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
-| P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | ready | P6-T2, P6-T4, P5-T2 | release-readiness review |
+| P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | done | P6-T2, P6-T4, P5-T2 | release-readiness review |
 
 ## 4. Current Ready Queue
 
 Priority order as of 2026-04-02:
 
-1. P6-T5 Complete security, backup, rollback, and smoke-check playbooks
+- No remaining ready tasks. Phase 1 - Phase 6 are complete.
 
 Auto-unlock rules:
 
@@ -170,32 +170,23 @@ Phase 1 QA executed:
 
 ## 6. Blockers
 
-Known current blockers:
+Active phase blockers:
 
-- Better Auth route exposure, RBAC seed data, permission loading, CASL enforcement, serialized ability query endpoints, and the minimal web auth shell are implemented.
-- Better Auth user identity and app-level RBAC users are still bridged through seeded application users only; authenticated principal to RBAC principal mapping remains post-Phase-2 hardening.
-- The API health route currently reports Redis as `unknown`; Redis runtime wiring is a Phase 3+ follow-up.
-- Mastra runtime now has registered read/report/config tools, initial read-only agents, a report workflow, and Trigger.dev report orchestration; however, jobs still rely on a narrow in-process scheduler principal for workflow execution because a formal service-to-service identity contract has not been implemented yet.
-- CopilotKit / AG-UI backend bridge is implemented and authenticated, and the web dashboard now consumes it through same-origin proxy routes plus a right-hand assistant panel.
-- Current CopilotKit bridge depends on upstream packages that still emit peer warnings around `@ag-ui/encoder`, and the repository still carries an existing Zod 3/4 peer mismatch warning through the AI SDK stack. Runtime behavior and tests are green, but this remains dependency-risk follow-up.
-- pgvector-backed RAG is now implemented with `ai_knowledge` storage, semantic retrieval, and a Trigger.dev indexing task. However, production still requires a real embedding provider key, while deterministic local embeddings are intentionally limited to development and test.
-- MCP server and external MCP client integration are now implemented at `/mastra/mcp`, using an SDK-compatible transport layer because `@mastra/mcp` is not currently installed in the repository.
-- MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
-- The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
-- `ai/evals` and prompt-governance are now both backed by persisted runtime evidence (`ai_eval_runs` / `ai_eval_run_items` / `ai_prompt_versions`), including activation gate enforcement and rollback lineage.
-- `apps/worker` now exposes a deployable runtime contract with queue/R2 smoke coverage, and repository-side Cloudflare / Trigger deployment descriptors are complete. Remaining gaps are external platform credentials, environment provisioning, and release hardening playbooks.
-- GitHub Actions workflows are now implemented for `P6-T4`: the repository includes a reusable quality gate plus environment-scoped staging / production deploy wrappers, with Vercel as the required primary automated path and Cloudflare / Trigger gated behind explicit deploy inputs.
-- GitHub Actions deploy workflows intentionally do not mutate Vercel / Cloudflare / Trigger runtime secret stores. Platform-side runtime variables and secrets still need to be managed in each target environment.
-- Mastra eval datasets currently use a dedicated in-process runtime store and are rehydrated by suite initialization when needed; persisted experiment truth for governance and release decisions lives in Postgres.
-- Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
-- API telemetry bootstrap, request-id propagation, and shared health snapshots are now implemented. `/health` and `/api/v1/monitor/server` report database, redis, and telemetry states from the same helper; telemetry backends stay `unknown` until `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` are configured explicitly.
-- AI feedback capture and human override tracking are now implemented across the database, API, and web audit surface. Operator actions persist into `ai_feedback`, flip the linked `ai_audit_logs.human_override` flag when needed, and write matching `operation_logs` entries so the HITL path itself is auditable.
+- None. Phase 1 - Phase 6 are complete and the current task DAG has no remaining ready tasks.
 
-Blocker resolution order:
+Residual follow-up risks:
 
-1. P6-T5 Security, backup, rollback, and smoke-check playbooks
-2. Better Auth ↔ RBAC principal bridge hardening
-3. Redis runtime wiring
+- Better Auth principal and app-level RBAC user still map through email / seeded app users; this should be hardened to a stable primary-key bridge in a later hardening pass.
+- GitHub Actions, Vercel, Cloudflare, and Trigger deploy paths are repository-ready, but platform-side secrets, authenticated sessions, and environment provisioning remain external operational responsibilities.
+- The current Docker topology keeps `jobs` health internal to compose; release drills now validate it through `docker compose exec`, but there is still no public jobs endpoint by design.
+- Telemetry backends remain `unknown` until real `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` values are configured.
+- Production AI features still require real upstream credentials such as `OPENAI_API_KEY`, and Copilot/AI dependencies continue to carry upstream peer-warning risk.
+
+Follow-up priority after Phase 6:
+
+1. Better Auth ↔ RBAC principal bridge hardening
+2. Telemetry and external platform secret provisioning
+3. AI/runtime dependency harmonization
 
 ## 7. QA Recording Template
 
@@ -224,6 +215,47 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P6-T5 Complete security, backup, rollback, and smoke-check playbooks
+- Status: done
+- Changed files:
+  - `.gitignore`
+  - `package.json`
+  - `apps/api/src/lib/release-playbook-contract.test.ts`
+  - `apps/api/src/lib/release/backup-verify.cli.ts`
+  - `apps/api/src/lib/release/backup-verify.test.ts`
+  - `apps/api/src/lib/release/backup-verify.ts`
+  - `apps/api/src/lib/release/smoke-check.cli.ts`
+  - `apps/api/src/lib/release/smoke-check.test.ts`
+  - `apps/api/src/lib/release/smoke-check.ts`
+  - `docs/deployment-guide.md`
+  - `docs/environment-matrix.md`
+  - `docs/release-playbook.md`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write apps/api/src/lib/release/smoke-check.ts apps/api/src/lib/release/smoke-check.test.ts apps/api/src/lib/release-playbook-contract.test.ts`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm infra:up`
+  - `pnpm db:migrate`
+  - `docker exec ai-native-os-postgres pg_dump -U postgres -d ai_native_os -Fc > backups/ai-native-os-smoke.dump`
+  - `shasum -a 256 backups/ai-native-os-smoke.dump > backups/ai-native-os-smoke.dump.sha256`
+  - `BACKUP_FILE=./backups/ai-native-os-smoke.dump CHECKSUM_FILE=./backups/ai-native-os-smoke.dump.sha256 BACKUP_MAX_AGE_HOURS=24 pnpm release:backup:verify`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml --profile ops run --rm migrate`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml up --build -d`
+  - `APP_URL=http://localhost:8080 API_URL=http://localhost:8080 pnpm release:smoke`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml exec -T jobs node -e "fetch('http://127.0.0.1:3040/health')..."`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml down -v`
+- Result:
+  - Added repository-backed release hardening assets: a smoke checker and backup verifier CLI, contract tests, and a full release playbook covering security preflight, backup validation, rollback rules, and release drill records. The smoke checker now reports probe-specific failure context instead of surfacing raw `fetch failed`, and the self-hosted playbook has been corrected to validate `jobs` through a compose-internal probe rather than by incorrectly assuming `localhost:3040` is exposed.
+  - Real release rehearsal passed on the current Docker topology: backup artifact verification succeeded, `pnpm release:smoke` passed against the nginx entrypoint at `http://localhost:8080`, and the internal `jobs` health probe returned `@ai-native-os/jobs` from inside the container network.
+- Unlocked tasks:
+  - none
+- Notes:
+  - This task intentionally keeps `jobs` off the public host network in self-hosted mode; release readiness now documents and verifies the safer internal health check path instead of widening exposure for convenience.
+  - Final QA passed after replaying the standard local test prerequisites in the documented order: `pnpm infra:up` -> wait for PostgreSQL healthy -> `pnpm db:migrate` -> `pnpm test`.
 
 ### P6-F1 Align worker deployment runtime and binding contract
 - Status: done
