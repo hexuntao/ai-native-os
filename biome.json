@@ -1,6 +1,6 @@
 {
   "files": {
-    "includes": ["**", "!**/dist", "!**/.next", "!**/drizzle", "!**/next-env.d.ts"]
+    "includes": ["**", "!**/dist", "!**/.next", "!**/.vercel", "!**/drizzle", "!**/next-env.d.ts"]
   },
   "formatter": {
     "enabled": true,

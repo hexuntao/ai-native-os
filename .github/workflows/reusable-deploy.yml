@@ -1,0 +1,273 @@
+# 统一部署工作流：staging / production 只提供环境与开关，真正的部署顺序集中在这里维护。
+name: reusable-deploy
+
+on:
+  workflow_call:
+    inputs:
+      api_deploy_script:
+        required: true
+        type: string
+      deploy_cloudflare:
+        required: true
+        type: boolean
+      deploy_trigger:
+        required: true
+        type: boolean
+      environment_name:
+        required: true
+        type: string
+      run_migrations:
+        required: true
+        type: boolean
+      trigger_deploy_script:
+        required: true
+        type: string
+      vercel_build_script:
+        required: true
+        type: string
+      vercel_deploy_script:
+        required: true
+        type: string
+      vercel_environment:
+        required: true
+        type: string
+      worker_deploy_script:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment_name }}
+  cancel-in-progress: false
+
+jobs:
+  quality-gate:
+    uses: ./.github/workflows/reusable-quality-gate.yml
+
+  preflight:
+    name: preflight
+    runs-on: ubuntu-latest
+    needs: quality-gate
+    environment: ${{ inputs.environment_name }}
+    steps:
+      - name: Validate deploy credentials and environment contract
+        shell: bash
+        env:
+          API_URL: ${{ vars.API_URL }}
+          APP_URL: ${{ vars.APP_URL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEPLOY_CLOUDFLARE: ${{ inputs.deploy_cloudflare }}
+          DEPLOY_TRIGGER: ${{ inputs.deploy_trigger }}
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          TRIGGER_PROJECT_REF: ${{ vars.TRIGGER_PROJECT_REF }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+
+          # 校验 GitHub environment 中是否已经配置了当前发布链路所需的最小变量。
+          require_key() {
+            local key="$1"
+            local value="${!key:-}"
+
+            if [[ -z "$value" ]]; then
+              missing+=("$key")
+            fi
+          }
+
+          require_key "APP_URL"
+          require_key "VERCEL_TOKEN"
+          require_key "VERCEL_ORG_ID"
+          require_key "VERCEL_PROJECT_ID"
+
+          if [[ "$RUN_MIGRATIONS" == "true" || "$DEPLOY_CLOUDFLARE" == "true" || "$DEPLOY_TRIGGER" == "true" ]]; then
+            require_key "DATABASE_URL"
+          fi
+
+          if [[ "$DEPLOY_CLOUDFLARE" == "true" ]]; then
+            require_key "API_URL"
+            require_key "CLOUDFLARE_ACCOUNT_ID"
+            require_key "CLOUDFLARE_API_TOKEN"
+          fi
+
+          if [[ "$DEPLOY_TRIGGER" == "true" ]]; then
+            require_key "TRIGGER_ACCESS_TOKEN"
+            require_key "TRIGGER_PROJECT_REF"
+          fi
+
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing deploy inputs:\n'
+            printf ' - %s\n' "${missing[@]}"
+            exit 1
+          fi
+
+  migrate:
+    name: migrate
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: ${{ inputs.run_migrations || inputs.deploy_cloudflare || inputs.deploy_trigger }}
+    timeout-minutes: 20
+    environment: ${{ inputs.environment_name }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NODE_ENV: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run staging or production migrations
+        run: pnpm db:migrate
+
+  deploy-web:
+    name: deploy-web
+    runs-on: ubuntu-latest
+    needs:
+      - preflight
+      - migrate
+    if: ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }}
+    timeout-minutes: 30
+    environment: ${{ inputs.environment_name }}
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pull Vercel environment
+        run: >-
+          pnpm exec vercel pull
+          --yes
+          --environment=${{ inputs.vercel_environment }}
+          --cwd ./apps/web
+          --token="$VERCEL_TOKEN"
+
+      - name: Build web for Vercel
+        run: >-
+          pnpm --filter @ai-native-os/web
+          ${{ inputs.vercel_build_script }}
+          --
+          --token="$VERCEL_TOKEN"
+
+      - name: Deploy web to Vercel
+        run: >-
+          pnpm --filter @ai-native-os/web
+          ${{ inputs.vercel_deploy_script }}
+          --
+          --token="$VERCEL_TOKEN"
+          --yes
+
+      - name: Smoke check web health
+        run: curl --fail --silent --show-error --location "${APP_URL%/}/healthz"
+
+  deploy-cloudflare:
+    name: deploy-cloudflare
+    runs-on: ubuntu-latest
+    needs:
+      - preflight
+      - migrate
+    if: ${{ inputs.deploy_cloudflare && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped') }}
+    timeout-minutes: 30
+    environment: ${{ inputs.environment_name }}
+    env:
+      API_URL: ${{ vars.API_URL }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy API to Cloudflare
+        run: pnpm --filter @ai-native-os/api ${{ inputs.api_deploy_script }}
+
+      - name: Deploy worker to Cloudflare
+        run: pnpm --filter @ai-native-os/worker ${{ inputs.worker_deploy_script }}
+
+      - name: Smoke check API health
+        run: curl --fail --silent --show-error --location "${API_URL%/}/health"
+
+  deploy-trigger:
+    name: deploy-trigger
+    runs-on: ubuntu-latest
+    needs:
+      - preflight
+      - migrate
+    if: ${{ inputs.deploy_trigger && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped') }}
+    timeout-minutes: 30
+    environment: ${{ inputs.environment_name }}
+    env:
+      TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+      TRIGGER_API_URL: ${{ vars.TRIGGER_API_URL }}
+      TRIGGER_PROJECT_REF: ${{ vars.TRIGGER_PROJECT_REF }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy Trigger.dev jobs
+        run: pnpm --filter @ai-native-os/jobs ${{ inputs.trigger_deploy_script }}

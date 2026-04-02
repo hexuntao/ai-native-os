@@ -1,0 +1,40 @@
+# production 发布入口：依赖 GitHub environment 的审批与密钥治理，不允许绕过 preflight 直接发版。
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_cloudflare:
+        description: 是否同时发布 API / Worker 到 Cloudflare
+        required: true
+        type: boolean
+        default: false
+      deploy_trigger:
+        description: 是否同时发布 Trigger.dev jobs
+        required: true
+        type: boolean
+        default: false
+      run_migrations:
+        description: 是否在 production 数据库上执行迁移
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/reusable-deploy.yml
+    with:
+      api_deploy_script: deploy:cloudflare:prod
+      deploy_cloudflare: ${{ inputs.deploy_cloudflare }}
+      deploy_trigger: ${{ inputs.deploy_trigger }}
+      environment_name: production
+      run_migrations: ${{ inputs.run_migrations }}
+      trigger_deploy_script: deploy:trigger:prod
+      vercel_build_script: build:vercel:prod
+      vercel_deploy_script: deploy:vercel:prod
+      vercel_environment: production
+      worker_deploy_script: deploy:cloudflare:prod
+    secrets: inherit

@@ -36,6 +36,7 @@ const runtimeEnvironmentKeys = [
 const deployContractKeys = [
   'CLOUDFLARE_ACCOUNT_ID',
   'CLOUDFLARE_API_TOKEN',
+  'TRIGGER_ACCESS_TOKEN',
   'VERCEL_TOKEN',
   'VERCEL_ORG_ID',
   'VERCEL_PROJECT_ID',

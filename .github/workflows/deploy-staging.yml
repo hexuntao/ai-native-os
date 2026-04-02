@@ -1,0 +1,40 @@
+# staging 发布入口：默认只发布已经验证过的 Vercel 路径，Cloudflare / Trigger 必须显式开启。
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_cloudflare:
+        description: 是否同时发布 API / Worker 到 Cloudflare
+        required: true
+        type: boolean
+        default: false
+      deploy_trigger:
+        description: 是否同时发布 Trigger.dev jobs
+        required: true
+        type: boolean
+        default: false
+      run_migrations:
+        description: 是否在 staging 数据库上执行迁移
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/reusable-deploy.yml
+    with:
+      api_deploy_script: deploy:cloudflare:staging
+      deploy_cloudflare: ${{ inputs.deploy_cloudflare }}
+      deploy_trigger: ${{ inputs.deploy_trigger }}
+      environment_name: staging
+      run_migrations: ${{ inputs.run_migrations }}
+      trigger_deploy_script: deploy:trigger:staging
+      vercel_build_script: build:vercel
+      vercel_deploy_script: deploy:vercel:preview
+      vercel_environment: preview
+      worker_deploy_script: deploy:cloudflare:staging
+    secrets: inherit

@@ -1,9 +1,9 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-02
-Current Mode: Phase 6 P6-T3 in progress, remote staging blocked by platform linkage
+Current Mode: Phase 6 P6-T4 done, P6-T5 ready
 Current Phase: Phase 6 `Deployment`
-Overall Status: `blocked_on_platform_linkage`
+Overall Status: `ready_for_p6_t5`
 
 ## 1. Repository Snapshot
 
@@ -17,6 +17,7 @@ Overall Status: `blocked_on_platform_linkage`
   - `Plan.md`
   - `Implement.md`
   - `Status.md`
+  - `.github/workflows/*`
   - root workspace manifests
   - `apps/*`
   - `packages/*`
@@ -24,7 +25,6 @@ Overall Status: `blocked_on_platform_linkage`
   - `docker/docker-compose.prod.yml`
   - `docker/nginx.conf`
 - Not yet present:
-  - CI workflows
   - linked Vercel project metadata
   - authenticated Cloudflare / Trigger deploy sessions
 
@@ -79,15 +79,15 @@ Overall Status: `blocked_on_platform_linkage`
 | P6-T1 | 6 | Finalize environment matrix and secret contract | done | Phase 3 | env-only boot verification |
 | P6-F1 | 6 | Align worker deployment runtime and binding contract | done | P6-T1 | worker contract smoke |
 | P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | done | Phase 1, Phase 3 | Docker smoke deploy |
-| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | in_progress | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
-| P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | backlog | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
-| P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | backlog | P6-T2, P6-T4, P5-T2 | release-readiness review |
+| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | done | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
+| P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | done | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
+| P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | ready | P6-T2, P6-T4, P5-T2 | release-readiness review |
 
 ## 4. Current Ready Queue
 
 Priority order as of 2026-04-02:
 
-1. P6-T3 Resolve platform linkage blockers and complete staging deploy smoke
+1. P6-T5 Complete security, backup, rollback, and smoke-check playbooks
 
 Auto-unlock rules:
 
@@ -123,12 +123,12 @@ Auto-unlock rules:
   - keep P6-T3 blocked until `P6-F1` is also `done`
 - If P6-F1 -> `done`
   - mark P6-T3 as `ready`
-- If P6-T3 -> `in_progress`
-  - keep Phase 6 focused on platform linkage until staging smoke is complete
 - If P6-T2 -> `done`
   - keep P6-T4 blocked until `P6-T3` is also `done`
 - If P6-T3 -> `done`
-  - keep P6-T4 blocked until `P6-T2` is also `done`
+  - mark P6-T4 as `ready` because `P6-T2` is already `done`
+- If P6-T4 -> `done`
+  - mark P6-T5 as `ready`
 
 Temporary Phase 3 correction rules:
 
@@ -183,7 +183,9 @@ Known current blockers:
 - MCP-discovered agent wrappers are now available, but actual `ask_admin_copilot` execution still depends on the same Mastra model provider credentials as the rest of the agent runtime.
 - The largest documented architecture gap has shifted from framework baseline to application surface completeness: `apps/web` now has a shared UI system on top of Next.js App Router + Turbopack, and the core read-oriented management pages now exist, but write flows, bulk actions, and approval-safe mutations are still not implemented.
 - `ai/evals` and prompt-governance are now both backed by persisted runtime evidence (`ai_eval_runs` / `ai_eval_run_items` / `ai_prompt_versions`), including activation gate enforcement and rollback lineage.
-- `apps/worker` now exposes a deployable runtime contract with queue/R2 smoke coverage, but Cloudflare platform config and staging deploy remain pending in `P6-T3`.
+- `apps/worker` now exposes a deployable runtime contract with queue/R2 smoke coverage, and repository-side Cloudflare / Trigger deployment descriptors are complete. Remaining gaps are external platform credentials, environment provisioning, and release hardening playbooks.
+- GitHub Actions workflows are now implemented for `P6-T4`: the repository includes a reusable quality gate plus environment-scoped staging / production deploy wrappers, with Vercel as the required primary automated path and Cloudflare / Trigger gated behind explicit deploy inputs.
+- GitHub Actions deploy workflows intentionally do not mutate Vercel / Cloudflare / Trigger runtime secret stores. Platform-side runtime variables and secrets still need to be managed in each target environment.
 - Mastra eval datasets currently use a dedicated in-process runtime store and are rehydrated by suite initialization when needed; persisted experiment truth for governance and release decisions lives in Postgres.
 - Operation log persistence is now wired into the current real write paths for authentication and knowledge indexing, while AI tool and workflow execution continues to emit dedicated AI audit logs. The current implementation is intentionally best-effort for operation log writes so observability failures do not block auth or indexing.
 - API telemetry bootstrap, request-id propagation, and shared health snapshots are now implemented. `/health` and `/api/v1/monitor/server` report database, redis, and telemetry states from the same helper; telemetry backends stay `unknown` until `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` are configured explicitly.
@@ -191,10 +193,9 @@ Known current blockers:
 
 Blocker resolution order:
 
-1. P6-T2 Docker packaging and runtime topology
-2. P6-T3 Platform deployment config and staging alignment
-3. Better Auth ↔ RBAC principal bridge hardening
-4. Redis runtime wiring
+1. P6-T5 Security, backup, rollback, and smoke-check playbooks
+2. Better Auth ↔ RBAC principal bridge hardening
+3. Redis runtime wiring
 
 ## 7. QA Recording Template
 
@@ -255,18 +256,23 @@ Use this section format after every task execution:
   - `P6-T3` still owns `wrangler` config, platform bindings declaration, and any real staging deployment smoke.
 
 ### P6-T3 Implement Vercel, Cloudflare, and Trigger deployment configs
-- Status: in_progress
+- Status: done
 - Changed files:
+  - `.gitignore`
   - `.env.example`
   - `apps/api/package.json`
   - `apps/api/src/index.ts`
   - `apps/api/wrangler.toml`
   - `apps/jobs/package.json`
   - `apps/jobs/trigger.config.ts`
+  - `apps/web/next.config.ts`
   - `apps/web/package.json`
+  - `apps/web/src/lib/env.test.ts`
+  - `apps/web/src/lib/env.ts`
   - `apps/web/vercel.json`
   - `apps/worker/package.json`
   - `apps/worker/wrangler.toml`
+  - `biome.json`
   - `docs/deployment-guide.md`
   - `docs/environment-matrix.md`
   - `Status.md`
@@ -280,18 +286,58 @@ Use this section format after every task execution:
   - `pnpm --filter @ai-native-os/worker deploy:cloudflare:staging:dry-run`
   - `pnpm --filter @ai-native-os/api deploy:cloudflare:staging:dry-run`
   - `TRIGGER_PROJECT_REF=proj_replace_me pnpm --filter @ai-native-os/jobs deploy:trigger:staging:dry-run`
-  - `cd apps/web && vercel build`
+  - `vercel project add ai-native-os-web-staging --scope hexuntaos-projects-6cd76264`
+  - `vercel link --yes --project ai-native-os-web-staging --scope hexuntaos-projects-6cd76264`
+  - `vercel pull --yes --environment=preview --cwd ./apps/web`
+  - `vercel build --scope hexuntaos-projects-6cd76264 -A apps/web/vercel.json`
+  - `vercel deploy --prebuilt --scope hexuntaos-projects-6cd76264 -A apps/web/vercel.json`
+  - `curl https://ai-native-os-web-staging.vercel.app/healthz`
+  - `curl https://ai-native-os-web-staging.vercel.app/`
+  - `curl -X POST https://ai-native-os-web-staging.vercel.app/auth/sign-in`
+  - `vercel project remove ai-native-os --scope hexuntaos-projects-6cd76264`
 - Result:
   - Added repository-backed Vercel / Cloudflare / Trigger deployment descriptors and package scripts. Cloudflare `api` and `worker` both pass `wrangler deploy --dry-run --env staging`, proving the current codebase can at least bundle and resolve bindings for Workers deployment. `apps/api` also now exports the Hono app as a Worker entrypoint while retaining the Node bootstrap path used in Docker.
   - Repaired the local QA gate drift discovered during `P6-T3`: `@ai-native-os/api` tests now re-apply RBAC seed data before execution, so a fresh PostgreSQL volume no longer causes contract-first/API permission tests to fail merely because seeded roles were missing.
-- Blockers:
-  - Trigger.dev dry-run still requires interactive login before it will validate the deployment.
-  - Vercel local build still requires `vercel pull --yes` / `vercel link` because the repository has no `.vercel/project.json`.
-  - Cloudflare local dry-run passed, but a real remote staging deploy still requires valid Cloudflare authentication and environment-specific URL vars/secrets.
+  - Completed a real Vercel staging/preview deployment for `apps/web` after correcting project settings to monorepo form (`framework=nextjs`, `rootDirectory=apps/web`, `sourceFilesOutsideRootDirectory=true`, `autoExposeSystemEnvs=true`). The deployed shell passed live smoke checks at `https://ai-native-os-web-staging.vercel.app`, including `/healthz`, the landing page HTML, and a non-500 sign-in POST path.
+- Unlocked tasks:
+  - `P6-T4`
 - Notes:
-  - `P6-T3` must not be marked `done` until at least one platform path completes a real staging smoke.
   - Local QA is green again under the documented dev infra baseline: `pnpm infra:up`, `pnpm db:migrate`, `pnpm lint`, `pnpm typecheck`, and `pnpm test` all pass.
-  - `P6-T4` remains blocked behind `P6-T3 done`.
+  - Cloudflare real remote deploy and Trigger.dev authenticated deploy are still pending follow-up, but they no longer block `P6-T3` because the task validation only requires at least one real staging path.
+  - An accidental temporary Vercel project named `ai-native-os` was created during root-link experiments and removed in the same task to avoid leaving unrelated platform state behind.
+
+### P6-T4 Implement GitHub Actions CI/CD workflows
+- Status: done
+- Changed files:
+  - `.github/workflows/ci.yml`
+  - `.github/workflows/deploy-production.yml`
+  - `.github/workflows/deploy-staging.yml`
+  - `.github/workflows/reusable-deploy.yml`
+  - `.github/workflows/reusable-quality-gate.yml`
+  - `apps/api/src/lib/deployment-contract.test.ts`
+  - `apps/api/src/lib/github-actions-contract.test.ts`
+  - `apps/web/package.json`
+  - `docs/deployment-guide.md`
+  - `docs/environment-matrix.md`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write .github/workflows/*.yml apps/api/src/lib/github-actions-contract.test.ts apps/api/src/lib/deployment-contract.test.ts apps/web/package.json docs/deployment-guide.md docs/environment-matrix.md Status.md`
+  - `GOBIN=$(pwd)/.tmp-bin go install github.com/rhysd/actionlint/cmd/actionlint@latest && ./.tmp-bin/actionlint`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm --filter @ai-native-os/api deploy:cloudflare:staging:dry-run`
+  - `pnpm --filter @ai-native-os/worker deploy:cloudflare:staging:dry-run`
+  - `pnpm --filter @ai-native-os/web build:vercel:prod`
+- Result:
+  - Added a reusable GitHub Actions quality gate and deploy pipeline set. PR / main CI now converges on one shared validation chain (`db:migrate` -> `lint` -> `typecheck` -> `test` -> `build` + Cloudflare dry-run checks). Staging / production deploy entrypoints are now modeled as environment-scoped wrappers over a single reusable deploy workflow, with Vercel web deploy as the mandatory automated path and Cloudflare / Trigger deploys guarded behind explicit inputs plus deploy-secret preflight checks.
+  - Added repository-level regression coverage for the workflow contract and extended the deployment contract documentation to include the non-interactive `TRIGGER_ACCESS_TOKEN` requirement.
+- Unlocked tasks:
+  - `P6-T5`
+- Notes:
+  - The GitHub Actions workflows assume GitHub Environments provide `vars/secrets`, but they do not provision platform runtime secrets into Vercel / Cloudflare / Trigger on your behalf.
+  - External authenticated publish sessions for Cloudflare / Trigger are still environment-level prerequisites, not repository-code gaps.
 
 ### P6-T2 Implement Docker packaging and self-hosted runtime topology
 - Status: done

@@ -2,7 +2,7 @@
 
 Last Updated: 2026-04-02
 Owner: Scheduler Thread
-Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3`
+Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4`
 
 ## 1. 当前支持边界
 
@@ -23,8 +23,8 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3`
   - `apps/jobs/trigger.config.ts` + package deploy scripts
 - 当前仓库尚未完成的部署面对齐：
   - Cloudflare API / Worker 当前只有 `wrangler deploy --dry-run` 级验证，未完成真实远端 staging 发布
-  - Vercel 当前缺少 `.vercel/project.json` 链接信息，`vercel build` 无法在本地完成 project-aware 验证
   - Trigger.dev 当前缺少 CLI 登录态，`deploy --dry-run` 仍会阻塞在交互登录
+  - Vercel 的本地 `.vercel/project.json` 仍是 gitignored 本地态，不属于仓库交付物
 
 ## 2. 当前运行时环境变量
 
@@ -33,8 +33,8 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3`
 | Key | Consumers | Required When | Secret | Notes |
 |---|---|---|---|---|
 | `NODE_ENV` | `web`, `api`, `auth`, `db` | all runtimes | no | 控制生产约束与默认值 |
-| `APP_URL` | `web`, `api`, `auth` | all runtimes | no | 浏览器入口地址 |
-| `API_URL` | `web`, `api`, `auth` | all runtimes | no | API 基础地址 |
+| `APP_URL` | `web`, `api`, `auth` | all runtimes | no | 浏览器入口地址；Vercel preview 未显式配置时会回退到 `https://${VERCEL_URL}` |
+| `API_URL` | `web`, `api`, `auth` | all runtimes | no | API 基础地址；Vercel preview 未显式配置时会临时回退到当前部署域名，但完整数据面仍建议显式提供 |
 | `PORT` | `api`, `jobs` | Node runtime | no | `api` 默认 `3001`，`jobs` 自托管健康服务默认 `3040` |
 | `DATABASE_URL` | `db`, `api`, `jobs` | all non-test server runtimes | yes | PostgreSQL 连接串 |
 | `REDIS_URL` | `api` | Redis URL 可用时 | yes | 健康检查与后续 Redis 连接入口 |
@@ -68,6 +68,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3`
 |---|---|---|---|---|
 | `CLOUDFLARE_ACCOUNT_ID` | `apps/api`, `apps/worker` deploy | no | target-state | Cloudflare 账号 ID |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare deploy | yes | target-state | Wrangler / GitHub Actions 使用 |
+| `TRIGGER_ACCESS_TOKEN` | `apps/jobs` deploy | yes | target-state | Trigger.dev CLI 在 GitHub Actions / 非交互环境中的访问令牌 |
 | `VERCEL_TOKEN` | `apps/web` deploy | yes | target-state | Vercel deploy token |
 | `VERCEL_ORG_ID` | `apps/web` deploy | no | target-state | Vercel 组织 ID |
 | `VERCEL_PROJECT_ID` | `apps/web` deploy | no | target-state | Vercel 项目 ID |
@@ -87,7 +88,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3`
 
 | Mode | Current Status | Why |
 |---|---|---|
-| `Mode A: 全 Serverless` | config-ready | file-based deploy configs 已落地并通过 Cloudflare dry-run；真实 staging 仍受平台登录 / 项目绑定阻塞 |
+| `Mode A: 全 Serverless` | partial | `apps/web` 已完成真实 Vercel staging/preview 发布；Cloudflare / Trigger 仍停留在 dry-run 或登录阻塞 |
 | `Mode B: 混合` | validated | 仓库已提供并验证 `docker-compose.prod.yml`、三份 Dockerfile 与 nginx 精确路由 |
 | `Mode C: 全自托管` | partial | Docker topology 已落地，但仍需要 `P6-T5` 的 rollback / playbook 才能闭环 |
 
@@ -134,8 +135,15 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3`
   - 本地 `wrangler deploy --dry-run` 已通过，说明 `apps/api` 与 `apps/worker` 当前至少具备可打包的 Workers 入口
   - 真实 deploy 仍需要有效的 `wrangler login` 会话或 `CLOUDFLARE_API_TOKEN`
 - Vercel:
-  - `apps/web/vercel.json` 已落地
-  - 本地 `vercel build` 仍要求先执行 `vercel pull --yes` 或 `vercel link`，因为仓库里没有 `.vercel/project.json`
+  - `apps/web/vercel.json` 与 root-aware package scripts 已落地
+  - `apps/web` 已完成一次真实 Vercel 发布与域名烟雾验证
+  - 要复现这条链路，必须使用 monorepo 形态的项目设置：`framework=nextjs`、`rootDirectory=apps/web`、`sourceFilesOutsideRootDirectory=true`
+  - `.vercel/project.json` 仍是 gitignored 本地态，因此仓库本身不会携带账号级项目链接信息
+- GitHub Actions:
+  - `P6-T4` 已落地 `CI + reusable quality gate + reusable deploy + staging/prod wrappers`
+  - 发布 workflow 依赖 GitHub environment-scoped `vars/secrets`
+  - workflow 默认只强制保证已验证的 Vercel Web 主链路，Cloudflare / Trigger 通过显式开关启用
 - Trigger.dev:
   - `trigger.config.ts` 现在显式要求 `TRIGGER_PROJECT_REF`
-  - CLI 即使 `--dry-run` 也会先要求登录，因此真实 deploy smoke 依赖 Trigger.dev 登录态或预置 profile
+  - CLI 即使 `--dry-run` 也会先要求登录，因此本地 smoke 依赖 Trigger.dev 登录态
+  - GitHub Actions 中则应改用 `TRIGGER_ACCESS_TOKEN` 进行非交互部署

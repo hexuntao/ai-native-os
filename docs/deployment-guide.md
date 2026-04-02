@@ -124,19 +124,27 @@ CLOUDFLARE_API_TOKEN=xxx
 - `src/app/api/**/*` 的函数超时上限设为 `60s`
 
 Vercel 配置要点：
-- 必须把 Project Root Directory 设为 `apps/web`
-- 首次接入前先执行 `vercel pull --yes` 或 `vercel link`
-- `APP_URL`、`API_URL`、`BETTER_AUTH_URL`、`BETTER_AUTH_SECRET` 需要在 Vercel Dashboard 中按 preview / production 分环境配置
-- 当前仓库未提交 `.vercel/project.json`，因此本地 `vercel build` 在未 link 前会失败，这是预期 blocker，不是代码错误
+- 必须把 `Framework Preset` 设为 `Next.js`
+- 必须把 `Project Root Directory` 设为 `apps/web`
+- 必须开启 `sourceFilesOutsideRootDirectory = true`
+- 建议开启 `Automatically expose System Environment Variables`
+- 首次接入前先执行 `vercel link` 与 `vercel pull --yes`
+- `APP_URL`、`API_URL`、`BETTER_AUTH_URL`、`BETTER_AUTH_SECRET` 仍应在 Vercel Dashboard 中按 preview / production 分环境配置
+- `apps/web` 当前已经验证过真实 Vercel 发布，但要注意：`build/deploy` 必须从 repo root 视角执行，不能继续在 `apps/web` 子目录裸跑 `vercel build`
+- 当前仓库未提交 `.vercel/project.json`，因此项目链接信息仍是本地态，不属于仓库交付物
 
 推荐命令：
 
 ```bash
-cd apps/web
-vercel pull --yes --environment=preview
-vercel build
-vercel deploy --prebuilt
+vercel link --yes --project <your-web-project>
+vercel pull --yes --environment=preview --cwd ./apps/web
+pnpm --filter @ai-native-os/web build:vercel
+pnpm --filter @ai-native-os/web deploy:vercel:preview
 ```
+
+补充说明：
+- `apps/web/src/lib/env.ts` 现在会在 Vercel 运行时优先回退到 `https://${VERCEL_URL}`，避免 preview shell 继续错误指向 `localhost`
+- 这只解决 preview shell 的部署正确性；要获得完整登录与数据面，仍需要显式配置真实 `API_URL`
 
 ### 3.3 Cloudflare Workers 部署（API）
 
@@ -224,6 +232,7 @@ TRIGGER_PROJECT_REF=proj_xxx pnpm dlx trigger.dev@latest deploy . --config trigg
 - Trigger.dev CLI 即使 `--dry-run` 也会先检查登录态
 - 当前仓库已补充 package scripts，但本地验证仍会阻塞在 Trigger 登录
 - `TRIGGER_PROJECT_REF` 现在是显式前置条件，不能再继续沿用错误的项目名字符串
+- 在 GitHub Actions 等非交互环境里，需要额外提供 `TRIGGER_ACCESS_TOKEN`
 
 ---
 
@@ -250,6 +259,48 @@ TRIGGER_PROJECT_REF=proj_xxx pnpm dlx trigger.dev@latest deploy . --config trigg
 - `docker/Dockerfile.web`
 - `docker/Dockerfile.api`
 - `docker/Dockerfile.jobs`
+
+---
+
+## 五、GitHub Actions CI/CD
+
+当前仓库在 `P6-T4` 已补齐 GitHub Actions 交付物：
+
+- `.github/workflows/reusable-quality-gate.yml`
+- `.github/workflows/ci.yml`
+- `.github/workflows/reusable-deploy.yml`
+- `.github/workflows/deploy-staging.yml`
+- `.github/workflows/deploy-production.yml`
+
+设计约束：
+
+- `CI` 统一复用 `reusable-quality-gate.yml`
+- 质量门固定顺序为：`pnpm install` -> `pnpm db:migrate` -> `pnpm lint` -> `pnpm typecheck` -> `pnpm test` -> `pnpm build`
+- `api/worker` 的 Cloudflare staging dry-run 也进入 CI，防止部署描述符漂移
+- `staging / production` 发布 workflow 默认只保证 Vercel Web 主链路可自动化
+- Cloudflare / Trigger 部署通过 `workflow_dispatch` 布尔开关显式开启，不再伪装成“无条件可发”
+- 若需要执行数据库迁移，workflow 会在 deploy 前先跑 `pnpm db:migrate`
+
+GitHub Environments 约定：
+
+- `staging` / `production` 使用 environment-scoped secrets 与 vars
+- 必填 secrets：
+  - `VERCEL_TOKEN`
+  - `VERCEL_ORG_ID`
+  - `VERCEL_PROJECT_ID`
+  - `DATABASE_URL`（仅当执行迁移或后端发布时）
+  - `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN`（仅当开启 Cloudflare 发布时）
+  - `TRIGGER_ACCESS_TOKEN`（仅当开启 Trigger.dev 发布时）
+- 必填 vars：
+  - `APP_URL`
+  - `API_URL`（仅当开启 Cloudflare 发布时）
+  - `TRIGGER_PROJECT_REF`（仅当开启 Trigger.dev 发布时）
+
+重要说明：
+
+- GitHub Actions 当前只负责“校验、迁移、发布、烟雾验证”
+- Vercel / Cloudflare / Trigger 的运行时 secrets 仍需预先配置在各自平台，workflow 不会在发版时替你写入平台 secret store
+- 因为 `apps/web` 是 monorepo 子目录，Vercel 构建必须继续走 repo root-aware 命令，不能退回子目录裸执行
 - `docker/nginx.conf`
 - `.dockerignore`
 

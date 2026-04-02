@@ -1,0 +1,19 @@
+# 仓库级 CI：所有 PR 与主干提交都必须通过同一套质量门，避免“本地绿、CI 红”。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    uses: ./.github/workflows/reusable-quality-gate.yml
