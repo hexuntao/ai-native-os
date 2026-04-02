@@ -1,0 +1,61 @@
+# Cloudflare Worker 部署合同。
+#
+# 说明：
+# - staging 与 prod 使用独立队列 / bucket 名称，避免调度与回执互相污染
+# - 这里只声明代码已经消费的 bindings，不预埋未接线的额外平台能力
+
+name = "ai-native-os-worker"
+main = "src/index.ts"
+compatibility_date = "2026-04-02"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+NODE_ENV = "production"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "ai-native-os"
+
+[[queues.producers]]
+binding = "NOTIFICATION_QUEUE"
+queue = "ai-native-os-notifications"
+
+[[queues.producers]]
+binding = "CACHE_INVALIDATION_QUEUE"
+queue = "ai-native-os-cache-invalidation"
+
+[[queues.consumers]]
+queue = "ai-native-os-notifications"
+max_batch_size = 10
+
+[[queues.consumers]]
+queue = "ai-native-os-cache-invalidation"
+max_batch_size = 50
+
+[env.staging]
+name = "ai-native-os-worker-staging"
+workers_dev = true
+
+[env.staging.vars]
+NODE_ENV = "production"
+
+[[env.staging.r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "ai-native-os-staging"
+
+[[env.staging.queues.producers]]
+binding = "NOTIFICATION_QUEUE"
+queue = "ai-native-os-staging-notifications"
+
+[[env.staging.queues.producers]]
+binding = "CACHE_INVALIDATION_QUEUE"
+queue = "ai-native-os-staging-cache-invalidation"
+
+[[env.staging.queues.consumers]]
+queue = "ai-native-os-staging-notifications"
+max_batch_size = 10
+
+[[env.staging.queues.consumers]]
+queue = "ai-native-os-staging-cache-invalidation"
+max_batch_size = 50

@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "deploy:cloudflare:prod": "pnpm dlx wrangler@latest deploy --config wrangler.toml",
+    "deploy:cloudflare:prod:dry-run": "pnpm dlx wrangler@latest deploy --config wrangler.toml --dry-run",
+    "deploy:cloudflare:staging": "pnpm dlx wrangler@latest deploy --config wrangler.toml --env staging",
+    "deploy:cloudflare:staging:dry-run": "pnpm dlx wrangler@latest deploy --config wrangler.toml --env staging --dry-run",
     "dev": "tsx watch src/index.ts",
     "format": "biome check --write .",
     "lint": "biome check .",

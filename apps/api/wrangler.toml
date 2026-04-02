@@ -1,0 +1,33 @@
+# Cloudflare API 部署合同。
+#
+# 说明：
+# - 只固化仓库拥有的稳定运行时参数
+# - 真实域名相关的 APP_URL / API_URL / BETTER_AUTH_URL 应在 Cloudflare Dashboard 或 wrangler vars/secrets 中按环境填写
+
+name = "ai-native-os-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-02"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+NODE_ENV = "production"
+MASTRA_DEFAULT_MODEL = "openai/gpt-4.1-mini"
+MASTRA_OPENAPI_PATH = "/openapi.json"
+MASTRA_ROUTE_PREFIX = "/mastra"
+MASTRA_RAG_EMBEDDING_MODEL = "text-embedding-3-small"
+OTEL_SERVICE_NAME = "ai-native-os-api"
+TELEMETRY_TRACES_SAMPLE_RATE = "1"
+
+[env.staging]
+name = "ai-native-os-api-staging"
+workers_dev = true
+
+[env.staging.vars]
+NODE_ENV = "production"
+MASTRA_DEFAULT_MODEL = "openai/gpt-4.1-mini"
+MASTRA_OPENAPI_PATH = "/openapi.json"
+MASTRA_ROUTE_PREFIX = "/mastra"
+MASTRA_RAG_EMBEDDING_MODEL = "text-embedding-3-small"
+OTEL_SERVICE_NAME = "ai-native-os-api-staging"
+TELEMETRY_TRACES_SAMPLE_RATE = "1"

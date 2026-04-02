@@ -6,6 +6,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
+    "deploy:trigger:prod": "pnpm dlx trigger.dev@latest deploy . --config trigger.config.ts --env prod",
+    "deploy:trigger:prod:dry-run": "pnpm dlx trigger.dev@latest deploy . --config trigger.config.ts --env prod --dry-run",
+    "deploy:trigger:staging": "pnpm dlx trigger.dev@latest deploy . --config trigger.config.ts --env staging",
+    "deploy:trigger:staging:dry-run": "pnpm dlx trigger.dev@latest deploy . --config trigger.config.ts --env staging --dry-run",
     "format": "biome check --write .",
     "lint": "biome check .",
     "start": "tsx src/server.ts",

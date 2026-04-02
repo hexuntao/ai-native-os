@@ -5,6 +5,9 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev --turbopack",
+    "deploy:vercel:preview": "vercel deploy",
+    "deploy:vercel:prod": "vercel deploy --prod",
+    "build:vercel": "vercel build",
     "format": "biome check --write .",
     "lint": "biome check .",
     "start": "next start",

@@ -1,9 +1,9 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-02
-Current Mode: Phase 6 P6-T2 completed, P6-T3 ready
+Current Mode: Phase 6 P6-T3 in progress, remote staging blocked by platform linkage
 Current Phase: Phase 6 `Deployment`
-Overall Status: `ready_to_execute`
+Overall Status: `blocked_on_platform_linkage`
 
 ## 1. Repository Snapshot
 
@@ -25,7 +25,8 @@ Overall Status: `ready_to_execute`
   - `docker/nginx.conf`
 - Not yet present:
   - CI workflows
-  - Cloudflare / Vercel deployment files
+  - linked Vercel project metadata
+  - authenticated Cloudflare / Trigger deploy sessions
 
 ## 2. Phase Summary
 
@@ -78,7 +79,7 @@ Overall Status: `ready_to_execute`
 | P6-T1 | 6 | Finalize environment matrix and secret contract | done | Phase 3 | env-only boot verification |
 | P6-F1 | 6 | Align worker deployment runtime and binding contract | done | P6-T1 | worker contract smoke |
 | P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | done | Phase 1, Phase 3 | Docker smoke deploy |
-| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | ready | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
+| P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | in_progress | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
 | P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | backlog | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
 | P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | backlog | P6-T2, P6-T4, P5-T2 | release-readiness review |
 
@@ -86,7 +87,7 @@ Overall Status: `ready_to_execute`
 
 Priority order as of 2026-04-02:
 
-1. P6-T3 Implement Vercel, Cloudflare, and Trigger deployment configs
+1. P6-T3 Resolve platform linkage blockers and complete staging deploy smoke
 
 Auto-unlock rules:
 
@@ -122,6 +123,8 @@ Auto-unlock rules:
   - keep P6-T3 blocked until `P6-F1` is also `done`
 - If P6-F1 -> `done`
   - mark P6-T3 as `ready`
+- If P6-T3 -> `in_progress`
+  - keep Phase 6 focused on platform linkage until staging smoke is complete
 - If P6-T2 -> `done`
   - keep P6-T4 blocked until `P6-T3` is also `done`
 - If P6-T3 -> `done`
@@ -250,6 +253,45 @@ Use this section format after every task execution:
   - `P6-T3`
 - Notes:
   - `P6-T3` still owns `wrangler` config, platform bindings declaration, and any real staging deployment smoke.
+
+### P6-T3 Implement Vercel, Cloudflare, and Trigger deployment configs
+- Status: in_progress
+- Changed files:
+  - `.env.example`
+  - `apps/api/package.json`
+  - `apps/api/src/index.ts`
+  - `apps/api/wrangler.toml`
+  - `apps/jobs/package.json`
+  - `apps/jobs/trigger.config.ts`
+  - `apps/web/package.json`
+  - `apps/web/vercel.json`
+  - `apps/worker/package.json`
+  - `apps/worker/wrangler.toml`
+  - `docs/deployment-guide.md`
+  - `docs/environment-matrix.md`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm infra:up`
+  - `pnpm db:migrate`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm --filter @ai-native-os/worker deploy:cloudflare:staging:dry-run`
+  - `pnpm --filter @ai-native-os/api deploy:cloudflare:staging:dry-run`
+  - `TRIGGER_PROJECT_REF=proj_replace_me pnpm --filter @ai-native-os/jobs deploy:trigger:staging:dry-run`
+  - `cd apps/web && vercel build`
+- Result:
+  - Added repository-backed Vercel / Cloudflare / Trigger deployment descriptors and package scripts. Cloudflare `api` and `worker` both pass `wrangler deploy --dry-run --env staging`, proving the current codebase can at least bundle and resolve bindings for Workers deployment. `apps/api` also now exports the Hono app as a Worker entrypoint while retaining the Node bootstrap path used in Docker.
+  - Repaired the local QA gate drift discovered during `P6-T3`: `@ai-native-os/api` tests now re-apply RBAC seed data before execution, so a fresh PostgreSQL volume no longer causes contract-first/API permission tests to fail merely because seeded roles were missing.
+- Blockers:
+  - Trigger.dev dry-run still requires interactive login before it will validate the deployment.
+  - Vercel local build still requires `vercel pull --yes` / `vercel link` because the repository has no `.vercel/project.json`.
+  - Cloudflare local dry-run passed, but a real remote staging deploy still requires valid Cloudflare authentication and environment-specific URL vars/secrets.
+- Notes:
+  - `P6-T3` must not be marked `done` until at least one platform path completes a real staging smoke.
+  - Local QA is green again under the documented dev infra baseline: `pnpm infra:up`, `pnpm db:migrate`, `pnpm lint`, `pnpm typecheck`, and `pnpm test` all pass.
+  - `P6-T4` remains blocked behind `P6-T3 done`.
 
 ### P6-T2 Implement Docker packaging and self-hosted runtime topology
 - Status: done

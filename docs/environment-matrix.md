@@ -2,7 +2,7 @@
 
 Last Updated: 2026-04-02
 Owner: Scheduler Thread
-Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2`
+Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3`
 
 ## 1. 当前支持边界
 
@@ -16,9 +16,15 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2`
   - `docker/docker-compose.prod.yml` 提供 `nginx + web + api + jobs + postgres + redis`
   - `docker/Dockerfile.web` / `docker/Dockerfile.api` / `docker/Dockerfile.jobs` 已提供镜像入口
   - `apps/jobs` 现在额外暴露只读 `/health`，`apps/web` 额外暴露只读 `/healthz`
+- 当前仓库已经落地的平台部署描述符：
+  - `apps/web/vercel.json`
+  - `apps/api/wrangler.toml`
+  - `apps/worker/wrangler.toml`
+  - `apps/jobs/trigger.config.ts` + package deploy scripts
 - 当前仓库尚未完成的部署面对齐：
-  - `apps/worker` 已完成 runtime / binding contract 对齐，但 `wrangler` 与 staging deploy 仍待 `P6-T3`
-  - `Mode A: 全 Serverless` 仍是目标态，不是当前已验证交付态
+  - Cloudflare API / Worker 当前只有 `wrangler deploy --dry-run` 级验证，未完成真实远端 staging 发布
+  - Vercel 当前缺少 `.vercel/project.json` 链接信息，`vercel build` 无法在本地完成 project-aware 验证
+  - Trigger.dev 当前缺少 CLI 登录态，`deploy --dry-run` 仍会阻塞在交互登录
 
 ## 2. 当前运行时环境变量
 
@@ -65,6 +71,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2`
 | `VERCEL_TOKEN` | `apps/web` deploy | yes | target-state | Vercel deploy token |
 | `VERCEL_ORG_ID` | `apps/web` deploy | no | target-state | Vercel 组织 ID |
 | `VERCEL_PROJECT_ID` | `apps/web` deploy | no | target-state | Vercel 项目 ID |
+| `TRIGGER_PROJECT_REF` | `apps/jobs` deploy | no | target-state | Trigger.dev dashboard 中的 `proj_*` 项目引用 |
 
 ## 4. Worker 与 Cloudflare 绑定合同
 
@@ -80,7 +87,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2`
 
 | Mode | Current Status | Why |
 |---|---|---|
-| `Mode A: 全 Serverless` | partial | worker runtime 合同已对齐，但 API/worker 的 `wrangler` 配置与 staging deploy 仍未完成 |
+| `Mode A: 全 Serverless` | config-ready | file-based deploy configs 已落地并通过 Cloudflare dry-run；真实 staging 仍受平台登录 / 项目绑定阻塞 |
 | `Mode B: 混合` | validated | 仓库已提供并验证 `docker-compose.prod.yml`、三份 Dockerfile 与 nginx 精确路由 |
 | `Mode C: 全自托管` | partial | Docker topology 已落地，但仍需要 `P6-T5` 的 rollback / playbook 才能闭环 |
 
@@ -120,3 +127,15 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2`
 - `migrate` 服务通过 `ops` profile 暴露，推荐在首次启动或 schema 变更后执行：
   - `docker compose -f docker/docker-compose.prod.yml --profile ops run --rm migrate`
 - `nginx` 只把后端拥有的 `/api/v1/*`、`/api/auth/*`、`/api/docs`、`/api/openapi.json`、`/health`、`/mastra/*` 转发给 API，其余流量仍交给 `web`，避免吞掉 Next 同源 route handlers
+
+## 9. 平台部署阻塞项
+
+- Cloudflare:
+  - 本地 `wrangler deploy --dry-run` 已通过，说明 `apps/api` 与 `apps/worker` 当前至少具备可打包的 Workers 入口
+  - 真实 deploy 仍需要有效的 `wrangler login` 会话或 `CLOUDFLARE_API_TOKEN`
+- Vercel:
+  - `apps/web/vercel.json` 已落地
+  - 本地 `vercel build` 仍要求先执行 `vercel pull --yes` 或 `vercel link`，因为仓库里没有 `.vercel/project.json`
+- Trigger.dev:
+  - `trigger.config.ts` 现在显式要求 `TRIGGER_PROJECT_REF`
+  - CLI 即使 `--dry-run` 也会先要求登录，因此真实 deploy smoke 依赖 Trigger.dev 登录态或预置 profile

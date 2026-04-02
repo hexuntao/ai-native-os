@@ -34,7 +34,6 @@ import {
   serializedAbilityResponseSchema,
   userListResponseSchema,
 } from '@ai-native-os/shared'
-import { serve } from '@hono/node-server'
 import type { HonoBindings, HonoVariables } from '@mastra/hono'
 import { ORPCError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
@@ -656,7 +655,18 @@ app.all('/api/v1/*', async (c) => {
   return result.response
 })
 
+/**
+ * Cloudflare Worker 运行时默认导出。
+ *
+ * 说明：
+ * - P6-T3 需要让同一份 Hono app 同时支持 Node 自托管与 Cloudflare Workers dry-run
+ * - Node 专属启动逻辑仍保留在 `import.meta.main` 分支中，不污染 Edge 入口
+ */
+export default app
+
 if (import.meta.main) {
+  // 仅在 Node 直接启动时按需加载 node-server，避免 Cloudflare 打包时引入无关运行时代码。
+  const { serve } = await import('@hono/node-server')
   const port = Number.parseInt(process.env.PORT ?? '3001', 10)
   serve(
     {

@@ -118,31 +118,25 @@ CLOUDFLARE_API_TOKEN=xxx
 
 ### 3.2 Vercel 部署（前端 + AI 流式端点）
 
-```json
-// apps/web/vercel.json
-{
-  "framework": "nextjs",
-  "buildCommand": "pnpm turbo build --filter=web",
-  "outputDirectory": "apps/web/.next",
-  "installCommand": "pnpm install",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@api-url",
-    "NEXT_PUBLIC_APP_URL": "@app-url"
-  },
-  "functions": {
-    "app/api/**/*": {
-      "maxDuration": 60
-    }
-  }
-}
-```
+当前仓库已经落地 [apps/web/vercel.json](/Users/tao/work/ai/ai-native-os/apps/web/vercel.json)，只保留 Next.js 真实需要的最小配置：
+
+- `framework = nextjs`
+- `src/app/api/**/*` 的函数超时上限设为 `60s`
 
 Vercel 配置要点：
-- 项目根目录设为 Monorepo 根目录
-- Build Command: `cd ../.. && pnpm turbo build --filter=web`
-- Output Directory: `apps/web/.next`
-- Root Directory: `apps/web`
-- 环境变量在 Vercel Dashboard 中配置
+- 必须把 Project Root Directory 设为 `apps/web`
+- 首次接入前先执行 `vercel pull --yes` 或 `vercel link`
+- `APP_URL`、`API_URL`、`BETTER_AUTH_URL`、`BETTER_AUTH_SECRET` 需要在 Vercel Dashboard 中按 preview / production 分环境配置
+- 当前仓库未提交 `.vercel/project.json`，因此本地 `vercel build` 在未 link 前会失败，这是预期 blocker，不是代码错误
+
+推荐命令：
+
+```bash
+cd apps/web
+vercel pull --yes --environment=preview
+vercel build
+vercel deploy --prebuilt
+```
 
 ### 3.3 Cloudflare Workers 部署（API）
 
@@ -150,40 +144,25 @@ Vercel 配置要点：
 # apps/api/wrangler.toml
 name = "ai-native-os-api"
 main = "src/index.ts"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-04-02"
 compatibility_flags = ["nodejs_compat"]
-
-[vars]
-ENVIRONMENT = "production"
-
-# 绑定
-[[r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "ai-native-os"
-
-[[queues.producers]]
-queue = "notifications"
-binding = "NOTIFICATION_QUEUE"
-
-[[queues.consumers]]
-queue = "notifications"
-max_batch_size = 10
-max_batch_timeout = 30
-
-# 秘密（通过 wrangler secret put 设置）
-# DATABASE_URL, UPSTASH_REDIS_REST_URL, etc.
+workers_dev = true
 ```
 
 ```bash
-# 部署命令
-cd apps/api
-pnpm wrangler deploy
+# 本地 dry-run
+pnpm --filter @ai-native-os/api deploy:cloudflare:staging:dry-run
 
-# 设置 secrets
-pnpm wrangler secret put DATABASE_URL
-pnpm wrangler secret put OPENAI_API_KEY
-# ... 其他 secrets
+# 真实部署前需要：
+# 1. wrangler login 或 CLOUDFLARE_API_TOKEN
+# 2. 配置 APP_URL / API_URL / BETTER_AUTH_URL 这些与真实域名相关的 vars
+# 3. 配置 DATABASE_URL / BETTER_AUTH_SECRET / OPENAI_API_KEY 等 secrets
 ```
+
+说明：
+- 这份配置已经通过本地 `wrangler deploy --dry-run --env staging` 打包验证
+- `apps/api` 当前通过同一份 `src/index.ts` 同时支持 Node 自托管和 Cloudflare Worker 入口
+- 与真实域名绑定的 URL 变量没有硬编码进 `wrangler.toml`，避免把账号特定的 `workers.dev` / Vercel 域名写死进仓库
 
 ### 3.4 Cloudflare Workers 部署（Worker）
 
@@ -191,19 +170,22 @@ pnpm wrangler secret put OPENAI_API_KEY
 # apps/worker/wrangler.toml
 name = "ai-native-os-worker"
 main = "src/index.ts"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-04-02"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+```
 
-[[r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "ai-native-os"
+当前仓库版本还额外落了：
+- staging / prod 双环境命名
+- `R2_BUCKET`
+- `NOTIFICATION_QUEUE`
+- `CACHE_INVALIDATION_QUEUE`
+- queue producer / consumer 双向声明
 
-[[queues.consumers]]
-queue = "notifications"
-max_batch_size = 10
+推荐验证命令：
 
-[[queues.consumers]]
-queue = "cache-invalidation"
-max_batch_size = 50
+```bash
+pnpm --filter @ai-native-os/worker deploy:cloudflare:staging:dry-run
 ```
 
 ### 3.5 Trigger.dev Cloud 配置
@@ -213,8 +195,10 @@ max_batch_size = 50
 import { defineConfig } from '@trigger.dev/sdk/v3'
 
 export default defineConfig({
-  project: 'ai-native-os',
+  project: process.env.TRIGGER_PROJECT_REF ?? 'proj_replace_me',
   runtime: 'node',
+  machine: 'small-1x',
+  maxDuration: 3600,
   logLevel: 'info',
   retries: {
     enabledInDev: true,
@@ -225,15 +209,21 @@ export default defineConfig({
       factor: 2,
     },
   },
+  compatibilityFlags: ['run_engine_v2'],
   dirs: ['src/trigger'],
 })
 ```
 
 ```bash
-# 部署 Trigger.dev 任务
+# dry-run（需要先登录 Trigger.dev）
 cd apps/jobs
-pnpm dlx trigger.dev@latest deploy
+TRIGGER_PROJECT_REF=proj_xxx pnpm dlx trigger.dev@latest deploy . --config trigger.config.ts --env staging --dry-run
 ```
+
+说明：
+- Trigger.dev CLI 即使 `--dry-run` 也会先检查登录态
+- 当前仓库已补充 package scripts，但本地验证仍会阻塞在 Trigger 登录
+- `TRIGGER_PROJECT_REF` 现在是显式前置条件，不能再继续沿用错误的项目名字符串
 
 ---
 
