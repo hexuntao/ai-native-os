@@ -25,6 +25,11 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4` + `P6-T5`
   - `pnpm release:smoke`
   - `pnpm release:backup:verify`
   - `docs/release-playbook.md`
+- 当前仓库已经落地的 API 安全基线：
+  - `secureHeaders`
+  - `cors`
+  - `requestId`
+  - production 默认启用的进程内 Hono rate limiting
 - 当前仓库尚未完成的部署面对齐：
   - Cloudflare API / Worker 当前只有 `wrangler deploy --dry-run` 级验证，未完成真实远端 staging 发布
   - Trigger.dev 当前缺少 CLI 登录态，`deploy --dry-run` 仍会阻塞在交互登录
@@ -94,7 +99,12 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4` + `P6-T5`
 |---|---|---|
 | `Mode A: 全 Serverless` | partial | `apps/web` 已完成真实 Vercel staging/preview 发布；Cloudflare / Trigger 仍停留在 dry-run 或登录阻塞 |
 | `Mode B: 混合` | validated | 仓库已提供并验证 `docker-compose.prod.yml`、三份 Dockerfile 与 nginx 精确路由 |
-| `Mode C: 全自托管` | partial | Docker topology 已落地，但仍需要 `P6-T5` 的 rollback / playbook 才能闭环 |
+| `Mode C: 全自托管` | validated | Docker topology、rollback / smoke playbook、backup verify、jobs 内部健康探针都已完成仓库内验证 |
+
+说明：
+
+- `Phase 6` 的仓库级完成含义是：至少一个部署模式已完成可验证闭环，且其余目标模式的描述符、CI/CD、回滚与发布合同已经入库。
+- 这不等价于每个外部平台账号都已完成真实远端发布；Cloudflare / Trigger 的真实远端 deploy 仍受平台登录态与 secrets 约束。
 
 ## 6. 目前不应视为必填的目标态变量
 

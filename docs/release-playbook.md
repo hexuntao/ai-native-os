@@ -76,13 +76,15 @@ BACKUP_FILE=./backups/ai-native-os.dump pnpm release:backup:verify
 ### 3.3 当前仓库已具备、但仍应复核的控制项
 
 - [ ] API 已启用 `secureHeaders`
+- [ ] API 已启用基础 rate limiting
 - [ ] Auth / RBAC / audit log 主链路未被绕过
 - [ ] Web 和 API 均有只读健康检查端点
 - [ ] CI/CD 已强制迁移、lint、typecheck、test、build 顺序
 
 说明：
 
-- 当前仓库**尚未**实现通用 rate limiting，因此不能把“已启用限流”写成放行事实
+- 当前仓库现在已实现 production 默认启用的进程内 rate limiting，用于补齐基础安全阈值
+- 当前限流实现仍是单进程 / 单实例 best-effort 方案；若后续需要跨实例共享额度，应在专门任务中升级为共享存储型限流
 - 当前仓库**尚未**内建平台 secret 自动同步，因此平台 secret 仍是外部运维责任
 
 ---

@@ -450,10 +450,34 @@ Milestone 6.3: Release hardening
   - Dependencies: P6-T2, P6-T4, P5-T2
   - Parallelizable: limited
 
+Milestone 6.4: Audit corrections
+
+- P6-C1 Align deployment status contract and implement API rate limiting
+  - Inputs: P6-T5 outputs, architecture security baseline, audit findings
+  - Outputs: Phase 6 status/document wording aligned to validated deployment modes, API rate limiting middleware, rate limiting tests, updated release/security docs
+  - Validation: `Status.md` / `docs/environment-matrix.md` no longer conflict, API returns `429` after configured threshold in targeted tests, `pnpm lint`, `pnpm typecheck`, `pnpm test` pass
+  - Dependencies: P6-T5
+  - Parallelizable: no
+
+- P6-C2 Fill remaining contract-first API skeleton gaps
+  - Inputs: API conventions, current `appRouter`, audit findings
+  - Outputs: missing `system/dicts`, `system/config`, `tools/gen`, `tools/jobs` skeleton routes with OpenAPI surface and tests
+  - Validation: OpenAPI contract and route smoke cover the missing documented surfaces
+  - Dependencies: P6-C1
+  - Parallelizable: no
+
+- P6-C3 Reconcile AI runtime coverage with design docs
+  - Inputs: AI agent design, architecture doc, current runtime registry, audit findings
+  - Outputs: either expanded safe runtime coverage or explicit documented down-scope aligned to current minimal-safe agent/workflow set
+  - Validation: runtime summary, docs, and registry inventory no longer conflict
+  - Dependencies: P6-C1
+  - Parallelizable: limited
+
 Definition of Done:
 - At least one deployment mode reaches a usable environment.
 - CI/CD enforces lint, typecheck, test, and migration discipline.
 - Secrets, backups, rollback, and smoke procedures are documented and verified.
+- Any post-audit corrective tasks that block status/document consistency or security baseline claims are closed before declaring the phase fully complete.
 
 ## 6. Cross-Phase Dependency Graph
 

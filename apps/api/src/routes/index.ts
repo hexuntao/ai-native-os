@@ -14,6 +14,8 @@ import { monitorOnlineListProcedure } from './monitor/online'
 import { monitorServerSummaryProcedure } from './monitor/server'
 import { aiAuditLogsProcedure } from './system/ai-audit-logs'
 import { aiToolCatalogProcedure } from './system/ai-tool-catalog'
+import { configListProcedure } from './system/config'
+import { dictsListProcedure } from './system/dicts'
 import { menusListProcedure } from './system/menus'
 import { permissionAdminCheckProcedure } from './system/permission-admin-check'
 import { permissionsListProcedure } from './system/permissions'
@@ -22,6 +24,8 @@ import { rbacSummaryProcedure } from './system/rbac-summary'
 import { rolesListProcedure } from './system/roles'
 import { sessionProcedure } from './system/session'
 import { usersListProcedure } from './system/users'
+import { toolGenListProcedure } from './tools/gen'
+import { toolJobsListProcedure } from './tools/jobs'
 
 export const appRouter = {
   ai: {
@@ -54,6 +58,8 @@ export const appRouter = {
         catalog: aiToolCatalogProcedure,
       },
     },
+    config: configListProcedure,
+    dicts: dictsListProcedure,
     menus: menusListProcedure,
     'permission-admin-check': permissionAdminCheckProcedure,
     ping: pingProcedure,
@@ -62,6 +68,10 @@ export const appRouter = {
     roles: rolesListProcedure,
     session: sessionProcedure,
     users: usersListProcedure,
+  },
+  tools: {
+    gen: toolGenListProcedure,
+    jobs: toolJobsListProcedure,
   },
 }
 

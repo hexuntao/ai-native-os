@@ -19,6 +19,7 @@
   "dependencies": {
     "@ai-native-os/api": "workspace:*",
     "@ai-native-os/db": "workspace:*",
+    "@ai-native-os/shared": "workspace:*",
     "@trigger.dev/sdk": "^4.4.3"
   }
 }

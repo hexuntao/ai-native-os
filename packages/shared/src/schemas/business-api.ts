@@ -102,6 +102,62 @@ export const menuListItemSchema = z.object({
 
 export const menuListResponseSchema = paginatedResponseSchema(menuListItemSchema)
 
+// 系统字典 contract-first skeleton。
+export const dictEntrySchema = z.object({
+  label: z.string(),
+  sortOrder: z.number().int().min(0),
+  value: z.string(),
+})
+
+export const listDictsInputSchema = baseSearchSchema
+  .extend({
+    source: z.enum(['runtime', 'seed']).optional(),
+    status: booleanQuerySchema.optional(),
+  })
+  .default({
+    page: 1,
+    pageSize: 10,
+  })
+
+export const dictListItemSchema = z.object({
+  code: z.string(),
+  createdAt: z.string(),
+  description: z.string().nullable(),
+  entries: z.array(dictEntrySchema),
+  entryCount: z.number().int().min(0),
+  id: z.string(),
+  name: z.string(),
+  source: z.enum(['runtime', 'seed']),
+  status: z.boolean(),
+  updatedAt: z.string(),
+})
+
+export const dictListResponseSchema = paginatedResponseSchema(dictListItemSchema)
+
+// 系统配置 contract-first skeleton。
+export const configScopeSchema = z.enum(['ai', 'application', 'deploy', 'security'])
+
+export const listConfigsInputSchema = baseSearchSchema
+  .extend({
+    scope: configScopeSchema.optional(),
+  })
+  .default({
+    page: 1,
+    pageSize: 10,
+  })
+
+export const configListItemSchema = z.object({
+  description: z.string(),
+  key: z.string(),
+  mutable: z.boolean(),
+  scope: configScopeSchema,
+  source: z.enum(['env', 'runtime', 'static']),
+  updatedAt: z.string(),
+  value: z.string(),
+})
+
+export const configListResponseSchema = paginatedResponseSchema(configListItemSchema)
+
 export const listOperationLogsInputSchema = baseSearchSchema.extend({
   module: z.string().trim().min(1).max(100).optional(),
   status: z.enum(['error', 'success']).optional(),
@@ -217,6 +273,67 @@ export const aiEvalListResponseSchema = paginatedResponseSchema(aiEvalListItemSc
   }),
 })
 
+// 工具发现 contract-first skeleton。
+export const toolGenKindSchema = z.enum(['agent', 'copilot', 'prompt'])
+export const toolGenStatusSchema = z.enum(['available', 'planned'])
+
+export const listToolGenInputSchema = baseSearchSchema
+  .extend({
+    kind: toolGenKindSchema.optional(),
+    status: toolGenStatusSchema.optional(),
+  })
+  .default({
+    page: 1,
+    pageSize: 10,
+  })
+
+export const toolGenListItemSchema = z.object({
+  backing: z.enum(['copilotkit', 'mastra-agent', 'prompt-governance']),
+  description: z.string(),
+  id: z.string(),
+  kind: toolGenKindSchema,
+  name: z.string(),
+  routePath: z.string().nullable(),
+  status: toolGenStatusSchema,
+})
+
+export const toolGenListResponseSchema = paginatedResponseSchema(toolGenListItemSchema).extend({
+  summary: z.object({
+    availableCount: z.number().int().min(0),
+    plannedCount: z.number().int().min(0),
+  }),
+})
+
+export const toolJobModeSchema = z.enum(['manual', 'scheduled'])
+
+export const listToolJobsInputSchema = baseSearchSchema
+  .extend({
+    mode: toolJobModeSchema.optional(),
+  })
+  .default({
+    page: 1,
+    pageSize: 10,
+  })
+
+export const toolJobListItemSchema = z.object({
+  description: z.string(),
+  id: z.string(),
+  mode: toolJobModeSchema,
+  name: z.string(),
+  schedule: z.string().nullable(),
+  status: z.enum(['registered', 'scheduled']),
+  triggerConfigPath: z.string(),
+  workflowId: z.string().nullable(),
+})
+
+export const toolJobsListResponseSchema = paginatedResponseSchema(toolJobListItemSchema).extend({
+  summary: z.object({
+    registeredCount: z.number().int().min(0),
+    scheduledCount: z.number().int().min(0),
+    workflowLinkedCount: z.number().int().min(0),
+  }),
+})
+
 export type ListUsersInput = z.infer<typeof listUsersInputSchema>
 export type UserListResponse = z.infer<typeof userListResponseSchema>
 export type ListRolesInput = z.infer<typeof listRolesInputSchema>
@@ -225,6 +342,10 @@ export type ListPermissionsInput = z.infer<typeof listPermissionsInputSchema>
 export type PermissionListResponse = z.infer<typeof permissionListResponseSchema>
 export type ListMenusInput = z.infer<typeof listMenusInputSchema>
 export type MenuListResponse = z.infer<typeof menuListResponseSchema>
+export type ListDictsInput = z.infer<typeof listDictsInputSchema>
+export type DictListResponse = z.infer<typeof dictListResponseSchema>
+export type ListConfigsInput = z.infer<typeof listConfigsInputSchema>
+export type ConfigListResponse = z.infer<typeof configListResponseSchema>
 export type ListOperationLogsInput = z.infer<typeof listOperationLogsInputSchema>
 export type OperationLogListResponse = z.infer<typeof operationLogListResponseSchema>
 export type ListOnlineUsersInput = z.infer<typeof listOnlineUsersInputSchema>
@@ -238,3 +359,7 @@ export type ListAiFeedbackInput = z.infer<typeof listAiFeedbackInputSchema>
 export type AiFeedbackListResponse = z.infer<typeof aiFeedbackListResponseSchema>
 export type ListAiEvalsInput = z.infer<typeof listAiEvalsInputSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
+export type ListToolGenInput = z.infer<typeof listToolGenInputSchema>
+export type ToolGenListResponse = z.infer<typeof toolGenListResponseSchema>
+export type ListToolJobsInput = z.infer<typeof listToolJobsInputSchema>
+export type ToolJobsListResponse = z.infer<typeof toolJobsListResponseSchema>

@@ -61,6 +61,10 @@ import { handleMastraMcpRequest, mastraMcpEndpointPath } from '@/mastra/mcp/serv
 import { readMastraRequestContext } from '@/mastra/request-context'
 import { SecureMastraServer } from '@/mastra/server'
 import { type ApiEnv, authSessionMiddleware, handleAuditedAuthRequest } from '@/middleware/auth'
+import {
+  createApiRateLimitMiddleware,
+  resolveApiRateLimitEnvironment,
+} from '@/middleware/rate-limit'
 import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
 import { listAiAuditLogs } from '@/routes/ai/audit'
@@ -90,6 +94,7 @@ interface AppEnv extends ApiEnv {
 
 export const app = new Hono<AppEnv>()
 initializeTelemetry()
+const apiRateLimitEnvironment = resolveApiRateLimitEnvironment()
 
 const contractFirstReadRequirements = {
   aiAudit: [
@@ -358,6 +363,7 @@ app.use('*', async (c, next) => {
     `[${c.get('requestId')}] ${c.req.method} ${c.req.path} ${c.res.status} ${durationMs}ms`,
   )
 })
+app.use('*', createApiRateLimitMiddleware(apiRateLimitEnvironment))
 
 app.get('/health', async (c) => {
   const response = healthResponseSchema.parse(await getApiHealthSnapshot())

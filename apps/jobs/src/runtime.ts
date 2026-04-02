@@ -1,3 +1,5 @@
+import { scheduledTriggerJobIds, triggerJobIds } from '@ai-native-os/shared'
+
 /**
  * Trigger.dev jobs runtime 摘要。
  *
@@ -7,8 +9,8 @@
  */
 export const jobsRuntime = {
   name: '@ai-native-os/jobs',
-  scheduledTaskIds: ['report-schedule-trigger', 'ai-eval-runner'],
+  scheduledTaskIds: [...scheduledTriggerJobIds],
   status: 'workflow-orchestration-ready',
-  taskIds: ['rag-indexing', 'report-schedule-trigger', 'ai-eval-runner'],
+  taskIds: [...triggerJobIds],
   triggerConfigPath: 'apps/jobs/trigger.config.ts',
 } as const

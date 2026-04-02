@@ -1,9 +1,9 @@
 # AI Native OS Scheduler Status
 
 Last Updated: 2026-04-02
-Current Mode: Phase 6 complete
+Current Mode: Phase 6 corrective queue active
 Current Phase: Phase 6 `Deployment`
-Overall Status: `phase_6_complete`
+Overall Status: `phase_6_corrections_open`
 
 ## 1. Repository Snapshot
 
@@ -37,7 +37,7 @@ Overall Status: `phase_6_complete`
 | 3 | AI Core | done | Mastra + tools + workflows + MCP + RAG |
 | 4 | Web UI | done | Dashboard + system pages + CopilotKit + generative UI |
 | 5 | Observability | done | Audit + telemetry + evals + feedback + prompt governance |
-| 6 | Deployment | done | Docker/Cloudflare/Vercel/CI-CD + rollback readiness |
+| 6 | Deployment | in_progress | At least one deployment mode validated + CI/CD + rollback readiness + critical audit corrections closed |
 
 ## 3. Task Ledger
 
@@ -82,12 +82,15 @@ Overall Status: `phase_6_complete`
 | P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | done | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
 | P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | done | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
 | P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | done | P6-T2, P6-T4, P5-T2 | release-readiness review |
+| P6-C1 | 6 | Align deployment status contract and implement API rate limiting | done | P6-T5 | docs consistency + `429` middleware verification |
+| P6-C2 | 6 | Fill remaining contract-first API skeleton gaps | done | P6-C1 | OpenAPI + route smoke |
+| P6-C3 | 6 | Reconcile AI runtime coverage with design docs | ready | P6-C1 | runtime matrix review |
 
 ## 4. Current Ready Queue
 
 Priority order as of 2026-04-02:
 
-- No remaining ready tasks. Phase 1 - Phase 6 are complete.
+1. P6-C3 Reconcile AI runtime coverage with design docs
 
 Auto-unlock rules:
 
@@ -129,6 +132,9 @@ Auto-unlock rules:
   - mark P6-T4 as `ready` because `P6-T2` is already `done`
 - If P6-T4 -> `done`
   - mark P6-T5 as `ready`
+- If P6-C1 -> `done`
+  - mark P6-C2 as `ready`
+  - mark P6-C3 as `ready`
 
 Temporary Phase 3 correction rules:
 
@@ -172,7 +178,7 @@ Phase 1 QA executed:
 
 Active phase blockers:
 
-- None. Phase 1 - Phase 6 are complete and the current task DAG has no remaining ready tasks.
+- `P6-C3` is open because the current minimal-safe Agent / Workflow registry still does not fully align with `docs/ai-agent-design.md`.
 
 Residual follow-up risks:
 
@@ -184,9 +190,9 @@ Residual follow-up risks:
 
 Follow-up priority after Phase 6:
 
-1. Better Auth ↔ RBAC principal bridge hardening
-2. Telemetry and external platform secret provisioning
-3. AI/runtime dependency harmonization
+1. P6-C3 AI runtime documentation reconciliation
+2. Better Auth ↔ RBAC principal bridge hardening
+3. Telemetry and external platform secret provisioning
 
 ## 7. QA Recording Template
 
@@ -215,6 +221,62 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### P6-C2 Fill remaining contract-first API skeleton gaps
+- Status: done
+- Changed files:
+  - `Status.md`
+  - `apps/api/src/routes/contract-first.test.ts`
+  - `apps/api/src/routes/index.ts`
+  - `apps/api/src/routes/system/config.ts`
+  - `apps/api/src/routes/system/dicts.ts`
+  - `apps/api/src/routes/tools/gen.ts`
+  - `apps/api/src/routes/tools/jobs.ts`
+  - `apps/jobs/package.json`
+  - `apps/jobs/src/runtime.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/runtime/jobs.ts`
+  - `packages/shared/src/schemas/business-api.ts`
+  - `pnpm-lock.yaml`
+- Commands:
+  - `pnpm biome check --write apps/api/src/routes/system/dicts.ts apps/api/src/routes/system/config.ts apps/api/src/routes/tools/gen.ts apps/api/src/routes/tools/jobs.ts apps/api/src/routes/index.ts apps/api/src/routes/contract-first.test.ts apps/jobs/src/runtime.ts apps/jobs/package.json packages/shared/src/schemas/business-api.ts packages/shared/src/runtime/jobs.ts packages/shared/src/index.ts Status.md`
+  - `pnpm install`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Added the missing contract-first skeleton routes required by `docs/api-conventions.md`: `system/dicts`, `system/config`, `tools/gen`, and `tools/jobs`.
+  - Extended the shared business API schema package with the corresponding input/output contracts, plus a shared Trigger.dev job catalog reused by both `api` and `jobs` to avoid a package dependency cycle.
+  - Added contract tests proving the new paths appear in OpenAPI and are consumable through authenticated smoke requests for `viewer` and `super_admin`.
+- Unlocked tasks:
+  - `P6-C3`
+- Notes:
+  - The new list endpoints defensively normalize missing raw HTTP input through schema defaults plus handler-level parsing because direct smoke requests do not always arrive with an oRPC input envelope.
+
+### P6-C1 Align deployment status contract and implement API rate limiting
+- Status: done
+- Changed files:
+  - `Plan.md`
+  - `Status.md`
+  - `apps/api/src/index.ts`
+  - `apps/api/src/middleware/rate-limit.test.ts`
+  - `apps/api/src/middleware/rate-limit.ts`
+  - `docs/environment-matrix.md`
+  - `docs/release-playbook.md`
+- Commands:
+  - `pnpm biome check --write apps/api/src/index.ts apps/api/src/middleware/rate-limit.ts apps/api/src/middleware/rate-limit.test.ts Plan.md Status.md docs/environment-matrix.md docs/release-playbook.md`
+  - `pnpm db:migrate`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Corrected the Phase 6 status contract by aligning the deployment matrix with the actual validated topology: `Mode C` is now documented as validated, and the matrix explicitly distinguishes repository-level completion from platform-account-level remote deploy verification.
+  - Added a production-default Hono rate limiting middleware with stricter auth-path buckets, health-probe exemptions, and dedicated unit tests proving `429` behavior. The release playbook now treats rate limiting as a real implemented control rather than a missing baseline.
+- Unlocked tasks:
+  - `P6-C2`
+  - `P6-C3`
+- Notes:
+  - The current limiter is an in-process best-effort implementation. It closes the missing baseline from `docs/architecture.md`, but cross-instance shared quotas remain a future hardening concern if the deployment topology scales horizontally.
 
 ### P6-T5 Complete security, backup, rollback, and smoke-check playbooks
 - Status: done

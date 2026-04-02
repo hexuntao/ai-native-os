@@ -109,6 +109,8 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
   assert.ok('/api/v1/system/roles' in payload.paths)
   assert.ok('/api/v1/system/permissions' in payload.paths)
   assert.ok('/api/v1/system/menus' in payload.paths)
+  assert.ok('/api/v1/system/dicts' in payload.paths)
+  assert.ok('/api/v1/system/config' in payload.paths)
   assert.ok('/api/v1/monitor/logs' in payload.paths)
   assert.ok('/api/v1/monitor/online' in payload.paths)
   assert.ok('/api/v1/monitor/server' in payload.paths)
@@ -116,6 +118,8 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
   assert.ok('/api/v1/ai/evals' in payload.paths)
   assert.ok('/api/v1/ai/audit' in payload.paths)
   assert.ok('/api/v1/ai/prompts' in payload.paths)
+  assert.ok('/api/v1/tools/gen' in payload.paths)
+  assert.ok('/api/v1/tools/jobs' in payload.paths)
 })
 
 test('viewer can consume the contract-first system and monitor read skeleton routes', async () => {
@@ -123,6 +127,7 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   const [
     usersResponse,
     rolesResponse,
+    dictsResponse,
     menusResponse,
     logsResponse,
     onlineResponse,
@@ -132,6 +137,9 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
       headers: authHeaders,
     }),
     app.request('http://localhost/api/v1/system/roles?page=1&pageSize=5', {
+      headers: authHeaders,
+    }),
+    app.request('http://localhost/api/v1/system/dicts?page=1&pageSize=10', {
       headers: authHeaders,
     }),
     app.request('http://localhost/api/v1/system/menus?page=1&pageSize=10', {
@@ -157,6 +165,12 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   const rolesPayload = (await rolesResponse.json()) as {
     json: {
       data: Array<{ code: string }>
+      pagination: { total: number }
+    }
+  }
+  const dictsPayload = (await dictsResponse.json()) as {
+    json: {
+      data: Array<{ code: string; entryCount: number }>
       pagination: { total: number }
     }
   }
@@ -191,12 +205,19 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
 
   assert.equal(usersResponse.status, 200)
   assert.equal(rolesResponse.status, 200)
+  assert.equal(dictsResponse.status, 200)
   assert.equal(menusResponse.status, 200)
   assert.equal(logsResponse.status, 200)
   assert.equal(onlineResponse.status, 200)
   assert.equal(serverResponse.status, 200)
   assert.ok(usersPayload.json.pagination.total >= 1)
   assert.ok(rolesPayload.json.data.some((role) => role.code === 'viewer'))
+  assert.ok(dictsPayload.json.pagination.total >= 1)
+  assert.ok(
+    dictsPayload.json.data.some(
+      (dictionary) => dictionary.code === 'role_codes' && dictionary.entryCount >= 1,
+    ),
+  )
   assert.ok(menusPayload.json.data.some((menu) => menu.path === '/system/roles'))
   assert.ok(Array.isArray(logsPayload.json.data))
   assert.ok(
@@ -214,6 +235,79 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   assert.ok(['ok', 'error', 'unknown'].includes(serverPayload.json.health.telemetry.openTelemetry))
   assert.ok(['ok', 'error', 'unknown'].includes(serverPayload.json.health.telemetry.sentry))
   assert.ok(serverPayload.json.runtime.toolCount >= 1)
+})
+
+test('super_admin can consume the contract-first config and tools skeleton routes', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const [configResponse, genResponse, jobsResponse] = await Promise.all([
+    app.request('http://localhost/api/v1/system/config?page=1&pageSize=10', {
+      headers: authHeaders,
+    }),
+    app.request('http://localhost/api/v1/tools/gen?page=1&pageSize=10', {
+      headers: authHeaders,
+    }),
+    app.request('http://localhost/api/v1/tools/jobs?page=1&pageSize=10', {
+      headers: authHeaders,
+    }),
+  ])
+
+  const configPayload = (await configResponse.json()) as {
+    json: {
+      data: Array<{ key: string; scope: string; value: string }>
+      pagination: { total: number }
+    }
+  }
+  const genPayload = (await genResponse.json()) as {
+    json: {
+      data: Array<{ id: string; routePath: string | null; status: string }>
+      summary: {
+        availableCount: number
+        plannedCount: number
+      }
+    }
+  }
+  const jobsPayload = (await jobsResponse.json()) as {
+    json: {
+      data: Array<{ id: string; mode: string; workflowId: string | null }>
+      summary: {
+        registeredCount: number
+        scheduledCount: number
+        workflowLinkedCount: number
+      }
+    }
+  }
+
+  assert.equal(configResponse.status, 200)
+  assert.equal(genResponse.status, 200)
+  assert.equal(jobsResponse.status, 200)
+  assert.ok(configPayload.json.pagination.total >= 1)
+  assert.ok(
+    configPayload.json.data.some(
+      (item) =>
+        item.key === 'security.rate_limit' && item.scope === 'security' && item.value.length > 0,
+    ),
+  )
+  assert.ok(
+    genPayload.json.data.some(
+      (item) =>
+        item.id === 'admin-copilot' &&
+        item.status === 'available' &&
+        item.routePath === '/mastra/agents/admin-copilot',
+    ),
+  )
+  assert.ok(genPayload.json.summary.availableCount >= 1)
+  assert.equal(genPayload.json.summary.plannedCount, 0)
+  assert.ok(
+    jobsPayload.json.data.some(
+      (item) =>
+        item.id === 'report-schedule-trigger' &&
+        item.mode === 'scheduled' &&
+        item.workflowId === 'report-schedule',
+    ),
+  )
+  assert.ok(jobsPayload.json.summary.registeredCount >= 3)
+  assert.ok(jobsPayload.json.summary.scheduledCount >= 2)
+  assert.ok(jobsPayload.json.summary.workflowLinkedCount >= 1)
 })
 
 test('AI contract routes expose knowledge, evals, and audit logs for administrators', async () => {
