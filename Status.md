@@ -1,7 +1,7 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-01
-Current Mode: Phase 6 P6-F1 completed, P6-T2 ready
+Last Updated: 2026-04-02
+Current Mode: Phase 6 P6-T2 completed, P6-T3 ready
 Current Phase: Phase 6 `Deployment`
 Overall Status: `ready_to_execute`
 
@@ -21,9 +21,11 @@ Overall Status: `ready_to_execute`
   - `apps/*`
   - `packages/*`
   - `docker/docker-compose.yml`
+  - `docker/docker-compose.prod.yml`
+  - `docker/nginx.conf`
 - Not yet present:
   - CI workflows
-  - production deployment files
+  - Cloudflare / Vercel deployment files
 
 ## 2. Phase Summary
 
@@ -75,17 +77,16 @@ Overall Status: `ready_to_execute`
 | P5-T5 | 5 | Implement prompt versioning and release gates for AI changes | done | P5-T4 | version activate/rollback verification |
 | P6-T1 | 6 | Finalize environment matrix and secret contract | done | Phase 3 | env-only boot verification |
 | P6-F1 | 6 | Align worker deployment runtime and binding contract | done | P6-T1 | worker contract smoke |
-| P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | ready | Phase 1, Phase 3 | Docker smoke deploy |
+| P6-T2 | 6 | Implement Docker packaging and self-hosted runtime topology | done | Phase 1, Phase 3 | Docker smoke deploy |
 | P6-T3 | 6 | Implement Vercel, Cloudflare, and Trigger deployment configs | ready | Phase 3, Phase 4, P6-F1 | staging deploy smoke |
 | P6-T4 | 6 | Implement GitHub Actions CI/CD workflows | backlog | P6-T1, P6-T2, P6-T3 | CI and deploy workflow verification |
 | P6-T5 | 6 | Complete security, backup, rollback, and smoke-check playbooks | backlog | P6-T2, P6-T4, P5-T2 | release-readiness review |
 
 ## 4. Current Ready Queue
 
-Priority order as of 2026-04-01:
+Priority order as of 2026-04-02:
 
-1. P6-T2 Implement Docker packaging and self-hosted runtime topology
-2. P6-T3 Implement Vercel, Cloudflare, and Trigger deployment configs
+1. P6-T3 Implement Vercel, Cloudflare, and Trigger deployment configs
 
 Auto-unlock rules:
 
@@ -249,6 +250,45 @@ Use this section format after every task execution:
   - `P6-T3`
 - Notes:
   - `P6-T3` still owns `wrangler` config, platform bindings declaration, and any real staging deployment smoke.
+
+### P6-T2 Implement Docker packaging and self-hosted runtime topology
+- Status: done
+- Changed files:
+  - `.dockerignore`
+  - `apps/api/package.json`
+  - `apps/jobs/package.json`
+  - `apps/jobs/src/index.ts`
+  - `apps/jobs/src/runtime.ts`
+  - `apps/jobs/src/server.test.ts`
+  - `apps/jobs/src/server.ts`
+  - `apps/web/src/app/healthz/route.test.ts`
+  - `apps/web/src/app/healthz/route.ts`
+  - `docker/Dockerfile.api`
+  - `docker/Dockerfile.jobs`
+  - `docker/Dockerfile.web`
+  - `docker/docker-compose.prod.yml`
+  - `docker/nginx.conf`
+  - `docs/deployment-guide.md`
+  - `docs/environment-matrix.md`
+  - `Status.md`
+- Commands:
+  - `pnpm biome check --write <changed-files>`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml config`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml --profile ops run --rm migrate`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml up --build -d`
+  - `curl http://localhost:8080/health`
+  - `curl http://localhost:8080/healthz`
+  - `BETTER_AUTH_SECRET=<smoke-secret> docker compose -f docker/docker-compose.prod.yml down -v`
+- Result:
+  - Added a repository-backed self-hosted runtime topology: `web`, `api`, and `jobs` now have explicit container entrypoints, `jobs` exposes a minimal `/health` runtime instead of remaining an unverifiable Trigger-only shell, `web` exposes `/healthz` for stable readiness probes, and the repository now contains Dockerfiles, a production compose topology, and nginx routing that preserves Next.js-owned same-origin `/api/*` handlers while forwarding the real backend contract surface to Hono.
+- Unlocked tasks:
+  - `P6-T4` remains blocked until `P6-T3` is also `done`
+- Notes:
+  - `docker/docker-compose.prod.yml` intentionally requires `BETTER_AUTH_SECRET`; this task did not weaken production auth defaults to make smoke tests easier.
+  - `P6-T3` still owns Vercel / Cloudflare / Trigger platform deployment descriptors and staging publish validation.
 
 ### P6-T1 Finalize environment matrix and secret contract
 - Status: done

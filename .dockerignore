@@ -1,0 +1,26 @@
+# 依赖与构建产物由容器内重新安装/构建，避免把宿主机状态带进镜像。
+node_modules
+.pnpm-store
+.turbo
+
+# 版本控制与本地 IDE 文件不进入镜像上下文。
+.git
+.DS_Store
+.idea
+.vscode
+
+# 本地产物与测试输出不进入镜像上下文。
+coverage
+dist
+tmp
+*.log
+
+# Next.js 与其他运行时缓存由容器内重新生成。
+apps/web/.next
+apps/*/dist
+packages/*/dist
+
+# 本地环境文件不直接打包进镜像，部署时由 compose / 平台注入。
+.env
+.env.*
+!.env.example

@@ -1,8 +1,8 @@
 # 环境矩阵与密钥契约
 
-Last Updated: 2026-04-01
+Last Updated: 2026-04-02
 Owner: Scheduler Thread
-Scope: Phase 6 `P6-T1` + `P6-F1`
+Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2`
 
 ## 1. 当前支持边界
 
@@ -12,6 +12,10 @@ Scope: Phase 6 `P6-T1` + `P6-F1`
   - `apps/jobs` on Node.js / Trigger.dev
   - `apps/worker` on Cloudflare-compatible runtime contract
   - `packages/auth` / `packages/db` 本地与服务端运行
+- 当前仓库已经落地的自托管拓扑：
+  - `docker/docker-compose.prod.yml` 提供 `nginx + web + api + jobs + postgres + redis`
+  - `docker/Dockerfile.web` / `docker/Dockerfile.api` / `docker/Dockerfile.jobs` 已提供镜像入口
+  - `apps/jobs` 现在额外暴露只读 `/health`，`apps/web` 额外暴露只读 `/healthz`
 - 当前仓库尚未完成的部署面对齐：
   - `apps/worker` 已完成 runtime / binding contract 对齐，但 `wrangler` 与 staging deploy 仍待 `P6-T3`
   - `Mode A: 全 Serverless` 仍是目标态，不是当前已验证交付态
@@ -25,7 +29,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1`
 | `NODE_ENV` | `web`, `api`, `auth`, `db` | all runtimes | no | 控制生产约束与默认值 |
 | `APP_URL` | `web`, `api`, `auth` | all runtimes | no | 浏览器入口地址 |
 | `API_URL` | `web`, `api`, `auth` | all runtimes | no | API 基础地址 |
-| `PORT` | `api` | Node API runtime | no | API 监听端口 |
+| `PORT` | `api`, `jobs` | Node runtime | no | `api` 默认 `3001`，`jobs` 自托管健康服务默认 `3040` |
 | `DATABASE_URL` | `db`, `api`, `jobs` | all non-test server runtimes | yes | PostgreSQL 连接串 |
 | `REDIS_URL` | `api` | Redis URL 可用时 | yes | 健康检查与后续 Redis 连接入口 |
 | `REDIS_HOST` | `api` | 不使用 `REDIS_URL` 时 | no | 与 `REDIS_PORT`/`REDIS_PASSWORD` 组合使用 |
@@ -77,8 +81,8 @@ Scope: Phase 6 `P6-T1` + `P6-F1`
 | Mode | Current Status | Why |
 |---|---|---|
 | `Mode A: 全 Serverless` | partial | worker runtime 合同已对齐，但 API/worker 的 `wrangler` 配置与 staging deploy 仍未完成 |
-| `Mode B: 混合` | next-up | 最贴近当前仓库实际形态：`web`、`api`、`jobs` 都已有 Node runtime |
-| `Mode C: 全自托管` | partial | 需要 `P6-T2` Docker topology 与 `P6-T5` rollback/playbook 才能闭环 |
+| `Mode B: 混合` | validated | 仓库已提供并验证 `docker-compose.prod.yml`、三份 Dockerfile 与 nginx 精确路由 |
+| `Mode C: 全自托管` | partial | Docker topology 已落地，但仍需要 `P6-T5` 的 rollback / playbook 才能闭环 |
 
 ## 6. 目前不应视为必填的目标态变量
 
@@ -106,3 +110,13 @@ Scope: Phase 6 `P6-T1` + `P6-F1`
   - `notifications` / `cache-invalidation` 两类队列消息会写入 `R2_BUCKET` 回执
 - 下一步：
   - `P6-T3` 负责把这些代码级合同映射到 `wrangler`、Cloudflare bindings 与 staging deploy
+
+## 8. Docker 自托管说明
+
+- `docker/docker-compose.prod.yml` 当前使用两层 URL 合同：
+  - `web` 容器内的 `API_URL` 指向 `http://api:3001`，用于 Next route handler 向后端转发
+  - `api` / `jobs` 容器内的 `API_URL` 指向公开入口 `${PUBLIC_API_URL}`，用于文档和运行时元信息
+- `BETTER_AUTH_SECRET` 在 compose 中被显式要求提供，不允许继续依赖开发默认 secret
+- `migrate` 服务通过 `ops` profile 暴露，推荐在首次启动或 schema 变更后执行：
+  - `docker compose -f docker/docker-compose.prod.yml --profile ops run --rm migrate`
+- `nginx` 只把后端拥有的 `/api/v1/*`、`/api/auth/*`、`/api/docs`、`/api/openapi.json`、`/health`、`/mastra/*` 转发给 API，其余流量仍交给 `web`，避免吞掉 Next 同源 route handlers

@@ -241,221 +241,80 @@ pnpm dlx trigger.dev@latest deploy
 
 ### 4.1 架构图
 
+当前仓库在 `P6-T2` 真正跑通的是一套 VPS 自托管参考拓扑；真正的 Vercel/Cloudflare 平台发布描述符仍属于 `P6-T3`。
+
 ```
-用户 → Vercel CDN → Next.js (Vercel)
-                  → VPS (Docker)
-                      ├── Hono API Container
-                      ├── Trigger.dev Worker Container
-                      ├── PostgreSQL Container
-                      └── Redis Container
-                  → Cloudflare R2 (文件存储)
-```
-
-### 4.2 Docker Compose（生产）
-
-```yaml
-# docker/docker-compose.prod.yml
-version: '3.8'
-
-services:
-  # ===== API 服务 =====
-  api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.api
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres:5432/ai_native_admin
-      - REDIS_URL=redis://redis:6379
-    env_file:
-      - ../.env.production
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-
-  # ===== Trigger.dev Worker =====
-  jobs:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.jobs
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres:5432/ai_native_admin
-      - REDIS_URL=redis://redis:6379
-    env_file:
-      - ../.env.production
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G         # AI 任务需要更多内存
-          cpus: '2.0'
-
-  # ===== PostgreSQL =====
-  postgres:
-    image: pgvector/pgvector:pg17
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: ai_native_admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # ===== Redis =====
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # ===== Nginx 反向代理 =====
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-    depends_on:
-      - api
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
+用户 → Nginx (Docker / VPS)
+     → Next.js Web Container
+     → Hono API Container
+     → Jobs Runtime Container
+     → PostgreSQL Container
+     → Redis Container
 ```
 
-### 4.3 Dockerfile（API）
+### 4.2 当前仓库已落地的自托管文件
 
-```dockerfile
-# docker/Dockerfile.api
-FROM node:22-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+当前仓库已经有一套真实可运行的自托管 Docker 交付物，而不是只有文档样例：
 
-# 安装依赖
-FROM base AS deps
-WORKDIR /app
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/api/package.json ./apps/api/
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/db/package.json ./packages/db/
-COPY packages/auth/package.json ./packages/auth/
-RUN pnpm install --frozen-lockfile --prod
+- `docker/docker-compose.prod.yml`
+- `docker/Dockerfile.web`
+- `docker/Dockerfile.api`
+- `docker/Dockerfile.jobs`
+- `docker/nginx.conf`
+- `.dockerignore`
 
-# 构建
-FROM base AS builder
-WORKDIR /app
-COPY . .
-COPY --from=deps /app/node_modules ./node_modules
-RUN pnpm turbo build --filter=api
+这套拓扑的真实结构是：
 
-# 运行
-FROM node:22-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
+```text
+nginx
+  -> web:3000     # Next.js App Router 与同源 /api/* route handlers
+  -> api:3001     # /api/v1/*、/api/auth/*、/api/docs、/api/openapi.json、/health、/mastra/*
 
-COPY --from=builder /app/apps/api/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
+web
+  -> api:3001     # 容器内 API_URL 走内网，供 route handler 转发
 
-EXPOSE 3001
+jobs
+  -> /health      # 最小自托管健康面，避免继续把 jobs 保持在“无法启动验证”的状态
 
-CMD ["node", "dist/index.js"]
+postgres + redis
+  -> 作为 compose 内部依赖，由 API / jobs 运行时消费
 ```
 
-### 4.4 Nginx 配置
+### 4.3 启动顺序（当前推荐）
 
-```nginx
-# docker/nginx.conf
-events {
-    worker_connections 1024;
-}
+```bash
+# 1. 先执行数据库迁移
+BETTER_AUTH_SECRET=replace-with-a-real-secret \
+docker compose -f docker/docker-compose.prod.yml --profile ops run --rm migrate
 
-http {
-    upstream api {
-        server api:3001;
-    }
+# 2. 再启动完整自托管拓扑
+BETTER_AUTH_SECRET=replace-with-a-real-secret \
+docker compose -f docker/docker-compose.prod.yml up --build -d
 
-    # HTTPS
-    server {
-        listen 443 ssl http2;
-        server_name api.example.com;
-
-        ssl_certificate /etc/nginx/certs/fullchain.pem;
-        ssl_certificate_key /etc/nginx/certs/privkey.pem;
-
-        # API 路由
-        location /api/ {
-            proxy_pass http://api;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-
-        # Mastra / AI 路由
-        location /mastra/ {
-            proxy_pass http://api;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-            proxy_read_timeout 300s;        # AI 长请求
-        }
-
-        # SSE / WebSocket（AI 流式 + 实时通信）
-        location /api/copilotkit {
-            proxy_pass http://api;
-            proxy_set_header Host $host;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-            proxy_buffering off;            # SSE 不缓冲
-            proxy_cache off;
-            proxy_read_timeout 86400s;
-        }
-
-        # Scalar API 文档
-        location /api/docs {
-            proxy_pass http://api;
-        }
-    }
-
-    # HTTP → HTTPS 重定向
-    server {
-        listen 80;
-        server_name api.example.com;
-        return 301 https://$host$request_uri;
-    }
-}
+# 3. 烟雾验证
+curl http://localhost:8080/health
+curl http://localhost:8080/healthz
 ```
+
+说明：
+
+- `BETTER_AUTH_SECRET` 在 compose 中是强制变量，不允许继续依赖开发默认 secret。
+- `PUBLIC_API_URL` / `APP_URL` 默认指向 `http://localhost:8080`，用于 nginx 聚合入口；`web` 容器内部的 `API_URL` 则固定走 `http://api:3001`。
+- 当前 `nginx` 只精确转发后端拥有的路径，避免把 Next.js 自己的 `/api/copilotkit`、`/api/ag-ui/runtime*`、`/api/ai/feedback` 等同源 route handlers 误代理到 API。
+
+### 4.4 反向代理路由策略
+
+当前 `docker/nginx.conf` 的设计原则：
+
+- `/api/v1/*`、`/api/auth/*`、`/api/docs`、`/api/openapi.json`、`/health`、`/mastra/*` -> `api`
+- `/api/copilotkit`、`/api/ag-ui/runtime`、`/api/ag-ui/runtime/events` -> `web`
+- 其他页面与静态资源 -> `web`
+
+这样做的原因是：
+
+- API 合约面继续由 Hono + oRPC 持有
+- CopilotKit / AG-UI 的浏览器同源入口仍由 Next route handlers 持有
+- 不会因为反向代理过宽而破坏 Phase 4 已经完成的前后端集成
 
 ---
 
