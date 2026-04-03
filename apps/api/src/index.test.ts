@@ -702,8 +702,12 @@ test('Mastra runtime summary route reflects the current runtime registry state',
   const payload = (await response.json()) as {
     json: {
       agentCount: number
+      coverageMode: 'minimum-safe'
+      coverageRationale: string
       defaultModel: string
       openapiPath: string
+      plannedAgentIds: string[]
+      plannedWorkflowIds: string[]
       registeredAgentIds: string[]
       registeredWorkflowIds: string[]
       routePrefix: string
@@ -717,11 +721,24 @@ test('Mastra runtime summary route reflects the current runtime registry state',
   assert.equal(payload.json.routePrefix, '/mastra')
   assert.equal(payload.json.openapiPath, '/openapi.json')
   assert.equal(payload.json.defaultModel, 'openai/gpt-4.1-mini')
+  assert.equal(payload.json.coverageMode, 'minimum-safe')
+  assert.ok(payload.json.coverageRationale.includes('最小安全'))
   assert.equal(payload.json.toolCount, 7)
   assert.deepEqual(payload.json.registeredAgentIds.sort(), ['admin-copilot', 'audit-analyst'])
   assert.equal(payload.json.agentCount, payload.json.registeredAgentIds.length)
+  assert.deepEqual(payload.json.plannedAgentIds.sort(), [
+    'anomaly-detector',
+    'approval-agent',
+    'data-analyst',
+    'report-generator',
+  ])
   assert.deepEqual(payload.json.registeredWorkflowIds.sort(), ['report-schedule'])
   assert.equal(payload.json.workflowCount, payload.json.registeredWorkflowIds.length)
+  assert.deepEqual(payload.json.plannedWorkflowIds.sort(), [
+    'approval-flow',
+    'data-cleanup',
+    'onboarding',
+  ])
   assert.equal(payload.json.runtimeStage, 'workflows_ready')
 })
 

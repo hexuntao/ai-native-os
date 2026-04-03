@@ -37,44 +37,24 @@ Layer 1: LLM 编排层 — Mastra Core + Vercel AI SDK + Model Router
 
 ```typescript
 // apps/api/src/mastra/index.ts
-import { Mastra } from '@mastra/core'
-import { PgVector } from '@mastra/pg'
+import { Mastra } from '@mastra/core/mastra'
 import { adminCopilot } from './agents/admin-copilot'
-import { dataAnalyst } from './agents/data-analyst'
-import { approvalAgent } from './agents/approval-agent'
-import { anomalyDetector } from './agents/anomaly-detector'
-import { reportGenerator } from './agents/report-generator'
-import { approvalFlow } from './workflows/approval-flow'
+import { auditAnalyst } from './agents/audit-analyst'
+import { getMastraEvalScorerRegistry } from './evals/registry'
+import { mastraTools } from './tools'
 import { reportSchedule } from './workflows/report-schedule'
-import { dataCleanup } from './workflows/data-cleanup'
-import { mcpServer } from './mcp/server'
-import { mcpClient } from './mcp/client'
+
+const mastraScorers = getMastraEvalScorerRegistry()
 
 export const mastra = new Mastra({
   agents: {
     adminCopilot,
-    dataAnalyst,
-    approvalAgent,
-    anomalyDetector,
-    reportGenerator,
+    auditAnalyst,
   },
+  scorers: mastraScorers,
+  tools: mastraTools,
   workflows: {
-    approvalFlow,
     reportSchedule,
-    dataCleanup,
-  },
-  vectors: {
-    pgVector: new PgVector(process.env.DATABASE_URL!),
-  },
-  mcpServers: {
-    adminMcp: mcpServer,
-  },
-  mcpClients: {
-    external: mcpClient,
-  },
-  logger: {
-    level: 'info',
-    type: 'opentelemetry',
   },
 })
 ```
@@ -82,20 +62,49 @@ export const mastra = new Mastra({
 ```typescript
 // apps/api/src/index.ts
 import { Hono } from 'hono'
-import { MastraHono } from '@mastra/hono'
+import { SecureMastraServer } from './mastra/server'
 import { mastra } from './mastra'
 
 const app = new Hono()
 
-// 挂载 Mastra 路由（自动暴露 Agent/Workflow/Tool 端点）
-const mastraHono = new MastraHono({ mastra })
-app.route('/mastra', mastraHono.router())
+// 挂载 Mastra 路由，并在 requestContext 中注入统一认证态
+const mastraServer = new SecureMastraServer({
+  app,
+  mastra,
+  openapiPath: '/openapi.json',
+  prefix: '/mastra',
+})
+
+await mastraServer.init()
 
 // 挂载 oRPC 路由
 app.route('/api', orpcRouter)
 
 export default app
 ```
+
+### 1.4 当前运行时覆盖面（2026-04-03）
+
+截至 2026-04-03，仓库实际上线的是“最小安全集（minimum-safe）”，不是本文档中的全量目标矩阵。
+
+| 类型 | 标识符 | 当前状态 | 说明 |
+|------|------|------|------|
+| Agent | `admin-copilot` | active | 只读后台管理 Copilot，使用受 RBAC 与审计保护的查询类 Tool |
+| Agent | `audit-analyst` | active | 只读审计/运维分析 Agent，聚合操作日志与 AI 审计日志 |
+| Workflow | `report-schedule` | active | 只读报表快照编排，供 API、Jobs、MCP 统一复用 |
+| Agent | `data-analyst` | planned | 仍是目标蓝图，待分析类 Tool、数据脱敏与评估基线进一步补齐后再注册 |
+| Agent | `approval-agent` | planned | 仍是目标蓝图，待审批链路、Human-in-the-Loop 与持久化审批状态闭合后再注册 |
+| Agent | `anomaly-detector` | planned | 仍是目标蓝图，待高频检测、告警与误报评估基线补齐后再注册 |
+| Agent | `report-generator` | planned | 仍是目标蓝图，待导出、通知和模板渲染链路补齐后再注册 |
+| Workflow | `approval-flow` | planned | 仍是目标蓝图，依赖 `approval-agent` 与人工审批恢复链路 |
+| Workflow | `data-cleanup` | planned | 仍是目标蓝图，待写操作审批与回滚保护收敛后再注册 |
+| Workflow | `onboarding` | planned | 当前只保留在架构蓝图中，尚未进入活跃实现范围，也未注册到运行时 |
+
+设计原则：
+
+- 当前运行时只能暴露已经完成 Tool 级 RBAC、AI 审计和最小权限收敛的能力。
+- 文档中的目标 Agent / Workflow 蓝图继续保留，但必须明确标注为 `planned`，不能被误读为当前已经注册。
+- 后续如果要扩展运行时，必须先补齐对应 Tool、审批、审计、评估与回滚链路，再更新注册表与此表格。
 
 ---
 
@@ -152,7 +161,9 @@ export const agentName = new Agent({
 })
 ```
 
-### 2.2 核心 Agent 定义
+### 2.2 目标 Agent 蓝图（当前并未全部注册）
+
+> 当前已注册的运行时清单以“1.4 当前运行时覆盖面”为准。以下内容保留为目标设计蓝图，用于指导后续扩展，不代表这些 Agent 已经在当前仓库注册上线。
 
 #### Agent 1: Admin Copilot（全局管理助手）
 
@@ -579,6 +590,8 @@ export const createUserTool = createTool({
 ---
 
 ## 四、Workflow 定义规范
+
+> 当前已注册的 Workflow 仅有 `report-schedule`。下方 `approval-flow` 示例保留为目标蓝图，用于说明未来的 Human-in-the-Loop 编排方式，不代表当前运行时已经暴露该 Workflow。
 
 ### 4.1 Workflow 定义模板
 

@@ -2,7 +2,8 @@ import { Mastra } from '@mastra/core/mastra'
 
 import { resolveMastraEnvironment } from './env'
 import { getMastraEvalScorerRegistry } from './evals/registry'
-import { mastraAgents, mastraTools, mastraWorkflows } from './registry'
+import { mastraAgents, mastraRuntimeCoverage, mastraTools, mastraWorkflows } from './registry'
+import type { MastraRuntimeCoverageMode } from './runtime-coverage'
 
 /**
  * Mastra 运行时入口。
@@ -24,8 +25,12 @@ export const mastra = new Mastra({
 
 export interface MastraRuntimeSummary {
   agentCount: number
+  coverageMode: MastraRuntimeCoverageMode
+  coverageRationale: string
   defaultModel: string
   openapiPath: string
+  plannedAgentIds: string[]
+  plannedWorkflowIds: string[]
   registeredAgentIds: string[]
   registeredWorkflowIds: string[]
   routePrefix: string
@@ -56,8 +61,12 @@ export function getMastraRuntimeSummary(): MastraRuntimeSummary {
 
   return {
     agentCount: registeredAgentIds.length,
+    coverageMode: mastraRuntimeCoverage.mode,
+    coverageRationale: mastraRuntimeCoverage.rationale,
     defaultModel: mastraEnvironment.defaultModel,
     openapiPath: mastraEnvironment.openapiPath,
+    plannedAgentIds: mastraRuntimeCoverage.plannedAgentIds,
+    plannedWorkflowIds: mastraRuntimeCoverage.plannedWorkflowIds,
     registeredAgentIds,
     registeredWorkflowIds,
     routePrefix: mastraEnvironment.routePrefix,

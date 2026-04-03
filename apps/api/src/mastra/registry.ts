@@ -1,8 +1,17 @@
 import type { ToolAction, ToolExecutionContext } from '@mastra/core/tools'
 
 import { mastraAgentRegistry } from './agents'
+import {
+  assertMastraRuntimeCoverageMatchesRegistry,
+  getMastraRuntimeCoverage,
+} from './runtime-coverage'
 import { mastraTools as registeredMastraTools } from './tools'
 import { mastraWorkflows as registeredMastraWorkflows } from './workflows'
+
+assertMastraRuntimeCoverageMatchesRegistry({
+  actualAgentIds: Object.keys(mastraAgentRegistry),
+  actualWorkflowIds: Object.keys(registeredMastraWorkflows),
+})
 
 /**
  * Mastra 注册表。
@@ -14,10 +23,11 @@ import { mastraWorkflows as registeredMastraWorkflows } from './workflows'
  *
  * 当前状态：
  * - Tool 已启用并受 RBAC + audit 约束
- * - 首批只读 Agent 已注册
- * - 首个只读报表 Workflow 已注册，供 Trigger.dev 编排调用
+ * - 运行时当前按 `minimum-safe` 模式暴露能力，只注册只读 Agent 与只读 Workflow
+ * - 设计文档中的扩展 Agent / Workflow 仍保留为蓝图，不在这里伪装成已上线能力
  */
 export const mastraAgents = mastraAgentRegistry
+export const mastraRuntimeCoverage = getMastraRuntimeCoverage()
 
 export const mastraTools = registeredMastraTools as Record<
   string,

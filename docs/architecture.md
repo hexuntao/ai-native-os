@@ -217,7 +217,12 @@
 
 ---
 
-## 五、Monorepo 目录结构
+## 五、Monorepo 目录蓝图
+
+> 当前实现口径（2026-04-03）：
+> - Mastra 运行时当前只注册 `admin-copilot`、`audit-analyst` 和 `report-schedule`
+> - 下方目录树用于表达目标态结构，包含后续扩展蓝图文件名
+> - 目录树中的 `data-analyst`、`approval-agent`、`anomaly-detector`、`report-generator`、`approval-flow`、`data-cleanup`、`onboarding` 不应被误读为“当前仓库已经全部实现并注册”
 
 ```
 📦 ai-native-os (Turborepo + pnpm)
