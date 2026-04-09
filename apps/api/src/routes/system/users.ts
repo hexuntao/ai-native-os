@@ -659,8 +659,9 @@ export const usersListProcedure = requireAnyPermission(userReadPermissions)
     method: 'GET',
     path: '/api/v1/system/users',
     tags: ['System:Users'],
-    summary: 'List system users',
-    description: 'Returns paginated application users together with their mapped RBAC role codes.',
+    summary: '分页查询后台用户目录',
+    description:
+      '按分页、关键词和启停状态查询后台用户目录，返回应用用户基础信息以及归一化后的 RBAC 角色编码。',
   })
   .input(listUsersInputSchema)
   .output(userListResponseSchema)
@@ -674,8 +675,8 @@ export const usersGetByIdProcedure = requireAnyPermission(userReadPermissions)
     method: 'GET',
     path: '/api/v1/system/users/:id',
     tags: ['System:Users'],
-    summary: 'Get a system user by id',
-    description: 'Returns a single application user with the normalized RBAC role bindings.',
+    summary: '读取单个后台用户详情',
+    description: '按用户 UUID 读取单个后台用户主体详情，并返回当前绑定的 RBAC 角色编码。',
   })
   .input(getUserByIdInputSchema)
   .output(userEntrySchema)
@@ -689,9 +690,9 @@ export const usersCreateProcedure = requireAnyPermission(userWritePermissions)
     method: 'POST',
     path: '/api/v1/system/users',
     tags: ['System:Users'],
-    summary: 'Create a system user',
+    summary: '创建后台用户',
     description:
-      'Creates an application user, role bindings, and the matching Better Auth credential identity.',
+      '创建后台用户主体，并同步写入 Better Auth 凭证身份与 RBAC 角色绑定；该操作会记录审计日志。',
   })
   .input(createUserInputSchema)
   .output(userEntrySchema)
@@ -712,9 +713,9 @@ export const usersUpdateProcedure = requireAnyPermission(userWritePermissions)
     method: 'PUT',
     path: '/api/v1/system/users/:id',
     tags: ['System:Users'],
-    summary: 'Update a system user',
+    summary: '更新后台用户',
     description:
-      'Updates an application user, its role bindings, and optionally resets the Better Auth credential password.',
+      '更新后台用户主体、角色绑定与状态；如提供密码，还会同步重置 Better Auth credential 登录口令。',
   })
   .input(updateUserInputSchema)
   .output(userEntrySchema)
@@ -735,9 +736,8 @@ export const usersDeleteProcedure = requireAnyPermission(userWritePermissions)
     method: 'DELETE',
     path: '/api/v1/system/users/:id',
     tags: ['System:Users'],
-    summary: 'Delete a system user',
-    description:
-      'Deletes an application user together with the matching Better Auth identity when present.',
+    summary: '删除后台用户',
+    description: '删除后台用户主体，并在存在认证身份时一并删除 Better Auth 用户与关联凭证记录。',
   })
   .input(deleteUserInputSchema)
   .output(deleteUserResultSchema)

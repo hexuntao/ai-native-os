@@ -45,6 +45,7 @@
     "@opentelemetry/sdk-node": "^0.214.0",
     "@orpc/openapi": "^1.13.13",
     "@orpc/server": "latest",
+    "@orpc/zod": "^1.13.14",
     "@scalar/hono-api-reference": "latest",
     "@sentry/node": "^10.47.0",
     "ai": "^5.0.162",

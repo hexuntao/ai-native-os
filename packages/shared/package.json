@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@casl/ability": "latest",
+    "@orpc/zod": "1.13.14",
     "zod": "latest"
   }
 }

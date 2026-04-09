@@ -15,6 +15,42 @@ import { eq } from 'drizzle-orm'
 import { app } from '@/index'
 import { runMastraEvalSuite } from '@/mastra/evals/runner'
 
+interface OpenApiDocument {
+  components?: {
+    schemas?: Record<string, unknown>
+  }
+  paths: Record<string, unknown>
+}
+
+// 判断任意值是否为可安全读取属性的对象字面量。
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+// 兼容 OpenAPI inline schema 与 `$ref` schema 两种输出形态。
+function resolveOpenApiSchema(document: OpenApiDocument, schema: unknown): Record<string, unknown> {
+  if (!isRecord(schema)) {
+    throw new Error('Expected schema object')
+  }
+
+  const refValue = schema.$ref
+
+  if (typeof refValue !== 'string') {
+    return schema
+  }
+
+  const schemaName = refValue.replace('#/components/schemas/', '')
+  const resolvedSchema = document.components?.schemas?.[schemaName]
+
+  assert.ok(
+    resolvedSchema && isRecord(resolvedSchema),
+    `Expected schema ref ${schemaName} to resolve`,
+  )
+
+  return resolvedSchema
+}
+
+// 将 Better Auth 响应里的 `Set-Cookie` 头转换为后续请求可复用的 `Cookie` 头。
 function convertSetCookieToCookie(headers: Headers): Headers {
   const setCookieHeaders = headers.getSetCookie()
 
@@ -38,6 +74,7 @@ function convertSetCookieToCookie(headers: Headers): Headers {
   return headers
 }
 
+// 为给定角色构造一条真实登录态，供 contract-first 路由烟雾测试复用。
 async function createSessionForRole(roleCode: string): Promise<Headers> {
   const email = `contract-${roleCode}-${randomUUID()}@example.com`
   const username = `contract_${roleCode}_${randomUUID().replaceAll('-', '').slice(0, 12)}`
@@ -107,9 +144,7 @@ async function createSessionForRole(roleCode: string): Promise<Headers> {
 
 test('OpenAPI document exposes the contract-first business skeleton paths', async () => {
   const response = await app.request('http://localhost/api/openapi.json')
-  const payload = (await response.json()) as {
-    paths: Record<string, unknown>
-  }
+  const payload = (await response.json()) as OpenApiDocument
 
   assert.equal(response.status, 200)
   assert.ok('/api/v1/system/users' in payload.paths)
@@ -127,6 +162,97 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
   assert.ok('/api/v1/ai/prompts' in payload.paths)
   assert.ok('/api/v1/tools/gen' in payload.paths)
   assert.ok('/api/v1/tools/jobs' in payload.paths)
+})
+
+test('OpenAPI document exposes rich schema metadata for system user write contracts', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+  const usersPath = payload.paths['/api/v1/system/users']
+
+  assert.ok(usersPath && isRecord(usersPath), 'Expected /api/v1/system/users path to exist')
+
+  const postOperation = usersPath.post
+
+  assert.ok(postOperation && isRecord(postOperation), 'Expected POST operation for system users')
+  assert.equal(postOperation.summary, '创建后台用户')
+  assert.equal(
+    postOperation.description,
+    '创建后台用户主体，并同步写入 Better Auth 凭证身份与 RBAC 角色绑定；该操作会记录审计日志。',
+  )
+
+  const requestBody = postOperation.requestBody
+
+  assert.ok(requestBody && isRecord(requestBody), 'Expected request body metadata to exist')
+
+  const requestContent = requestBody.content
+
+  assert.ok(
+    requestContent && isRecord(requestContent),
+    'Expected request body content map to exist',
+  )
+
+  const jsonContent = requestContent['application/json']
+
+  assert.ok(jsonContent && isRecord(jsonContent), 'Expected JSON request body schema to exist')
+
+  const inputSchema = resolveOpenApiSchema(payload, jsonContent.schema)
+
+  assert.equal(inputSchema.title, 'CreateUserInput')
+  assert.equal(
+    inputSchema.description,
+    '创建后台用户主体，请求会同时写入应用用户表、Better Auth 凭证主体以及 RBAC 角色绑定。',
+  )
+  assert.ok(Array.isArray(inputSchema.examples))
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.username) &&
+      inputSchema.properties.username.description ===
+        '系统内唯一用户名，用于后台用户标识与目录检索，不直接替代邮箱登录。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.password) &&
+      inputSchema.properties.password.description ===
+        '初始登录密码，最少 12 位；仅在创建用户或显式重置密码时使用，不会在任何响应中返回。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.roleCodes) &&
+      Array.isArray(inputSchema.properties.roleCodes.examples),
+  )
+
+  const responses = postOperation.responses
+
+  assert.ok(responses && isRecord(responses), 'Expected response metadata to exist')
+
+  const createdResponse = responses['201'] ?? responses['200']
+
+  assert.ok(
+    createdResponse && isRecord(createdResponse),
+    'Expected success response metadata to exist',
+  )
+
+  const responseContent = createdResponse.content
+
+  assert.ok(responseContent && isRecord(responseContent), 'Expected JSON response content to exist')
+
+  const jsonResponse = responseContent['application/json']
+
+  assert.ok(jsonResponse && isRecord(jsonResponse), 'Expected JSON response schema to exist')
+
+  const outputSchema = resolveOpenApiSchema(payload, jsonResponse.schema)
+
+  assert.equal(outputSchema.title, 'UserEntry')
+  assert.equal(
+    outputSchema.description,
+    '后台用户目录条目，包含应用用户基础信息与当前归一化后的 RBAC 角色编码。',
+  )
+  assert.ok(
+    isRecord(outputSchema.properties) &&
+      isRecord(outputSchema.properties.email) &&
+      outputSchema.properties.email.description ===
+        '登录邮箱，必须唯一；创建或更新时会同步到 Better Auth 主体。',
+  )
 })
 
 test('viewer can consume the contract-first system and monitor read skeleton routes', async () => {
