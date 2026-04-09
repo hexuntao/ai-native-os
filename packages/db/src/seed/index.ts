@@ -10,7 +10,7 @@ export const seedEntrypoints = {
 async function main(): Promise<void> {
   const summary = await seedRbacDefaults()
 
-  console.info('RBAC seed completed.', summary)
+  console.info('RBAC and local auth seed completed.', summary)
 }
 
 main()

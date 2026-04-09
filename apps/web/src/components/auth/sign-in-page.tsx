@@ -1,3 +1,4 @@
+import type { LocalBootstrapCredentials } from '@ai-native-os/shared'
 import {
   Badge,
   Button,
@@ -15,13 +16,14 @@ import {
 import type { ReactNode } from 'react'
 
 interface SignInPageProps {
-  errorMessage?: string
+  defaultCredentialsHint?: LocalBootstrapCredentials | undefined
+  errorMessage?: string | undefined
 }
 
 /**
  * 负责渲染未登录入口页，并验证共享表单与卡片原语已可在 web 侧消费。
  */
-export function SignInPage({ errorMessage }: SignInPageProps): ReactNode {
+export function SignInPage({ defaultCredentialsHint, errorMessage }: SignInPageProps): ReactNode {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
       <section className="grid gap-6 lg:grid-cols-[1.6fr_0.9fr]">
@@ -96,6 +98,12 @@ export function SignInPage({ errorMessage }: SignInPageProps): ReactNode {
               ) : (
                 <FieldHint>Use any Better Auth account whose email maps to an RBAC user.</FieldHint>
               )}
+              {defaultCredentialsHint ? (
+                <FieldHint>
+                  Local bootstrap admin (dev/test only): <code>{defaultCredentialsHint.email}</code>{' '}
+                  / <code>{defaultCredentialsHint.password}</code>
+                </FieldHint>
+              ) : null}
               <Button className="w-full sm:w-auto" size="lg" type="submit">
                 Sign in
               </Button>

@@ -1,3 +1,4 @@
+import { resolveLocalBootstrapAdminCredentials } from '@ai-native-os/shared'
 import type { Route } from 'next'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -12,8 +13,12 @@ interface IndexPageProps {
   }>
 }
 
+/**
+ * 根路由负责在登录页与已登录 dashboard 之间做服务端分流。
+ */
 export default async function IndexPage({ searchParams }: IndexPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
+  const defaultCredentialsHint = resolveLocalBootstrapAdminCredentials()
   const errorMessage = resolveLoginErrorMessage(resolvedSearchParams.error)
   const shellState = await loadCurrentShellState(errorMessage)
 
@@ -22,8 +27,11 @@ export default async function IndexPage({ searchParams }: IndexPageProps): Promi
   }
 
   return shellState.errorMessage ? (
-    <SignInPage errorMessage={shellState.errorMessage} />
+    <SignInPage
+      defaultCredentialsHint={defaultCredentialsHint}
+      errorMessage={shellState.errorMessage}
+    />
   ) : (
-    <SignInPage />
+    <SignInPage defaultCredentialsHint={defaultCredentialsHint} />
   )
 }

@@ -1,10 +1,26 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes, scrypt } from 'node:crypto'
 
-import type { AppActions, AppSubjects, PermissionRule } from '@ai-native-os/shared'
+import {
+  type AppActions,
+  type AppSubjects,
+  localBootstrapPassword,
+  localBootstrapSubjects,
+  type PermissionRule,
+  shouldEnableLocalBootstrapAuth,
+} from '@ai-native-os/shared'
 import { inArray } from 'drizzle-orm'
 
 import { type Database, db } from '../client'
-import { menus, permissions, rolePermissions, roles, userRoles, users } from '../schema'
+import {
+  account as authAccounts,
+  user as authUsers,
+  menus,
+  permissions,
+  rolePermissions,
+  roles,
+  userRoles,
+  users,
+} from '../schema'
 
 type PermissionKey = `${AppActions}:${AppSubjects}`
 type MenuType = 'button' | 'directory' | 'menu'
@@ -40,6 +56,8 @@ export interface SeedMenuDefinition {
 }
 
 export interface SeedSummary {
+  authAccounts: number
+  authUsers: number
   menus: number
   permissions: number
   rolePermissions: number
@@ -53,6 +71,19 @@ interface SeedPermissionDefinition extends PermissionRule {
   id: string
 }
 
+type BetterAuthAccountInsert = typeof authAccounts.$inferInsert
+type BetterAuthUserInsert = typeof authUsers.$inferInsert
+
+const betterAuthPasswordConfig = {
+  N: 16_384,
+  dkLen: 64,
+  p: 1,
+  r: 16,
+} as const
+
+/**
+ * 为固定 seed 标识生成稳定 UUID，保证重复 seed 时主键保持一致。
+ */
 function buildSeedUuid(input: string): string {
   const hash = createHash('sha256').update(input).digest('hex')
   const variantByte = ((Number.parseInt(hash.slice(16, 18), 16) & 0x3f) | 0x80)
@@ -68,6 +99,9 @@ function buildSeedUuid(input: string): string {
   ].join('-')
 }
 
+/**
+ * 把动作与资源拼成稳定权限键，供 seed 关系表和映射表复用。
+ */
 export function createPermissionKey(action: AppActions, subject: AppSubjects): PermissionKey {
   return `${action}:${subject}`
 }
@@ -131,34 +165,13 @@ export const defaultRoles: readonly SeedRoleDefinition[] = [
 ] as const
 
 export const defaultUsers: readonly SeedUserDefinition[] = [
-  {
-    email: 'super_admin@ai-native-os.local',
-    id: buildSeedUuid('user:super_admin'),
-    nickname: '超级管理员',
-    roleCodes: ['super_admin'],
-    username: 'super_admin',
-  },
-  {
-    email: 'admin@ai-native-os.local',
-    id: buildSeedUuid('user:admin'),
-    nickname: '管理员',
-    roleCodes: ['admin'],
-    username: 'admin',
-  },
-  {
-    email: 'editor@ai-native-os.local',
-    id: buildSeedUuid('user:editor'),
-    nickname: '编辑员',
-    roleCodes: ['editor'],
-    username: 'editor',
-  },
-  {
-    email: 'viewer@ai-native-os.local',
-    id: buildSeedUuid('user:viewer'),
-    nickname: '查看者',
-    roleCodes: ['viewer'],
-    username: 'viewer',
-  },
+  ...localBootstrapSubjects.map((subject) => ({
+    email: subject.email,
+    id: buildSeedUuid(`user:${subject.roleCode}`),
+    nickname: subject.nickname,
+    roleCodes: [subject.roleCode],
+    username: subject.username,
+  })),
 ] as const
 
 export const defaultMenus: readonly SeedMenuDefinition[] = [
@@ -315,6 +328,9 @@ const permissionIdByKey = new Map(
   ]),
 )
 
+/**
+ * 根据角色编码读取固定角色主键，防止 seed 关系表使用魔法字符串。
+ */
 function getRoleIdByCode(roleCode: string): string {
   const roleId = roleIdByCode.get(roleCode)
 
@@ -325,6 +341,9 @@ function getRoleIdByCode(roleCode: string): string {
   return roleId
 }
 
+/**
+ * 根据权限键读取稳定权限主键，供角色权限映射复用。
+ */
 function getPermissionIdByKey(permissionKey: PermissionKey): string {
   const permissionId = permissionIdByKey.get(permissionKey)
 
@@ -335,7 +354,91 @@ function getPermissionIdByKey(permissionKey: PermissionKey): string {
   return permissionId
 }
 
+/**
+ * 为本地 bootstrap 主体同步生成 Better Auth `user/account` 记录。
+ *
+ * 约束：
+ * - 仅在非生产环境生成，避免固定口令进入真实生产库
+ * - `user.id` 与应用 RBAC `users.id` 对齐，为后续稳定主键桥接保留空间
+ */
+async function buildLocalBootstrapAuthRows(seededUsers: readonly SeedUserDefinition[]): Promise<{
+  authAccountRows: BetterAuthAccountInsert[]
+  authUserRows: BetterAuthUserInsert[]
+}> {
+  const now = new Date()
+  const hashedPassword = await hashBetterAuthCompatiblePassword(localBootstrapPassword)
+  const authUserRows = seededUsers.map<BetterAuthUserInsert>((seededUser) => ({
+    createdAt: now,
+    email: seededUser.email,
+    emailVerified: true,
+    id: seededUser.id,
+    image: null,
+    name: seededUser.nickname,
+    updatedAt: now,
+  }))
+  const authAccountRows = seededUsers.map<BetterAuthAccountInsert>((seededUser) => ({
+    accessToken: null,
+    accessTokenExpiresAt: null,
+    accountId: seededUser.id,
+    createdAt: now,
+    id: buildSeedUuid(`auth-account:${seededUser.id}`),
+    idToken: null,
+    password: hashedPassword,
+    providerId: 'credential',
+    refreshToken: null,
+    refreshTokenExpiresAt: null,
+    scope: null,
+    updatedAt: now,
+    userId: seededUser.id,
+  }))
+
+  return {
+    authAccountRows,
+    authUserRows,
+  }
+}
+
+/**
+ * 生成与 Better Auth credential provider 兼容的口令哈希格式。
+ *
+ * 兼容约束：
+ * - 保持 `salt:key` 结构
+ * - 继续使用 Better Auth 当前的 scrypt 参数
+ * - salt 作为十六进制字符串参与 KDF，和上游实现保持一致
+ */
+async function hashBetterAuthCompatiblePassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex')
+  const normalizedPassword = password.normalize('NFKC')
+  const key = await new Promise<Buffer>((resolve, reject) => {
+    scrypt(
+      normalizedPassword,
+      salt,
+      betterAuthPasswordConfig.dkLen,
+      {
+        N: betterAuthPasswordConfig.N,
+        maxmem: 128 * betterAuthPasswordConfig.N * betterAuthPasswordConfig.r * 2,
+        p: betterAuthPasswordConfig.p,
+        r: betterAuthPasswordConfig.r,
+      },
+      (error, derivedKey) => {
+        if (error) {
+          reject(error)
+          return
+        }
+
+        resolve(Buffer.from(derivedKey))
+      },
+    )
+  })
+
+  return `${salt}:${key.toString('hex')}`
+}
+
+/**
+ * 写入 RBAC 基线数据，并在本地 / 测试环境补齐默认 Better Auth 登录主体。
+ */
 export async function seedRbacDefaults(database: Database = db): Promise<SeedSummary> {
+  const shouldSeedLocalAuth = shouldEnableLocalBootstrapAuth()
   const roleRows = defaultRoles.map((role) => ({
     code: role.code,
     description: role.description,
@@ -391,6 +494,13 @@ export async function seedRbacDefaults(database: Database = db): Promise<SeedSum
       userId: user.id,
     })),
   )
+  const { authAccountRows, authUserRows } = shouldSeedLocalAuth
+    ? await buildLocalBootstrapAuthRows(defaultUsers)
+    : {
+        authAccountRows: [],
+        authUserRows: [],
+      }
+  const seededAuthEmails = authUserRows.map((authUserRow) => authUserRow.email)
 
   await database.transaction(async (transaction) => {
     for (const permissionRow of permissionRows) {
@@ -444,6 +554,39 @@ export async function seedRbacDefaults(database: Database = db): Promise<SeedSum
         })
     }
 
+    if (seededAuthEmails.length > 0) {
+      const existingBootstrapAuthUsers = await transaction
+        .select({
+          id: authUsers.id,
+        })
+        .from(authUsers)
+        .where(inArray(authUsers.email, seededAuthEmails))
+      const authUserIdsToReset = [
+        ...new Set([
+          ...authUserRows.map((authUserRow) => authUserRow.id),
+          ...existingBootstrapAuthUsers.map(
+            (existingBootstrapAuthUser) => existingBootstrapAuthUser.id,
+          ),
+        ]),
+      ]
+
+      if (authUserIdsToReset.length > 0) {
+        await transaction
+          .delete(authAccounts)
+          .where(inArray(authAccounts.userId, authUserIdsToReset))
+      }
+
+      await transaction.delete(authUsers).where(inArray(authUsers.email, seededAuthEmails))
+    }
+
+    if (authUserRows.length > 0) {
+      await transaction.insert(authUsers).values(authUserRows)
+    }
+
+    if (authAccountRows.length > 0) {
+      await transaction.insert(authAccounts).values(authAccountRows)
+    }
+
     const seededMenuIds = menuRows.map((menu) => menu.id)
     if (seededMenuIds.length > 0) {
       await transaction.delete(menus).where(inArray(menus.id, seededMenuIds))
@@ -476,6 +619,8 @@ export async function seedRbacDefaults(database: Database = db): Promise<SeedSum
   })
 
   return {
+    authAccounts: authAccountRows.length,
+    authUsers: authUserRows.length,
     menus: menuRows.length,
     permissions: permissionRows.length,
     rolePermissions: rolePermissionRows.length,

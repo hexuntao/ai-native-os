@@ -3,7 +3,7 @@ import type { AuthenticatedShellState } from './api'
 
 const loginErrorMessages = {
   invalid_credentials:
-    'Sign-in failed. Confirm the Better Auth account exists and the password is correct.',
+    'Sign-in failed. Confirm the seeded local admin or existing Better Auth password is correct.',
   missing_credentials: 'Email and password are required.',
 } as const
 

@@ -1,9 +1,9 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-03
-Current Mode: Phase 6 complete
-Current Phase: Phase 6 `Deployment`
-Overall Status: `phase_6_complete`
+Last Updated: 2026-04-08
+Current Mode: E2E remediation active
+Current Phase: Post-Phase 6 `E2E Remediation`
+Overall Status: `phase_6_complete_e2e_remediation_open`
 
 ## 1. Repository Snapshot
 
@@ -85,12 +85,16 @@ Overall Status: `phase_6_complete`
 | P6-C1 | 6 | Align deployment status contract and implement API rate limiting | done | P6-T5 | docs consistency + `429` middleware verification |
 | P6-C2 | 6 | Fill remaining contract-first API skeleton gaps | done | P6-C1 | OpenAPI + route smoke |
 | P6-C3 | 6 | Reconcile AI runtime coverage with design docs | done | P6-C1 | runtime matrix review |
+| E2E-S1-T1 | Post-P6 | Bootstrap seeded Better Auth admin and direct sign-in regression | done | none | migrate + seed + direct login |
+| E2E-S1-T2 | Post-P6 | Align local env template and startup docs | ready | E2E-S1-T1 | fresh shell `release:smoke` |
+| E2E-S2-T1 | Post-P6 | Add AI key preflight and degraded runtime exposure | blocked | E2E-S1-T2 | runtime summary and health degrade |
 
 ## 4. Current Ready Queue
 
-Priority order as of 2026-04-03:
+Priority order as of 2026-04-08:
 
-- No ready tasks. Phase 6 corrective queue is closed.
+- `E2E-S1-T2`
+- `E2E-S2-T1` remains blocked until Sprint 1 local env alignment closes.
 
 Auto-unlock rules:
 
@@ -178,7 +182,7 @@ Phase 1 QA executed:
 
 Active phase blockers:
 
-- None. Phase 6 corrective tasks are closed.
+- E2E remediation remains open until Sprint 1 local env alignment and later AI/runtime checks close.
 
 Residual follow-up risks:
 
@@ -188,11 +192,11 @@ Residual follow-up risks:
 - Telemetry backends remain `unknown` until real `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` values are configured.
 - Production AI features still require real upstream credentials such as `OPENAI_API_KEY`, and Copilot/AI dependencies continue to carry upstream peer-warning risk.
 
-Follow-up priority after Phase 6:
+Follow-up priority after current E2E remediation sprint:
 
-1. Better Auth ↔ RBAC principal bridge hardening
-2. Telemetry and external platform secret provisioning
-3. Future AI runtime expansion from `minimum-safe` to broader Agent / Workflow coverage
+1. Sprint 1 local env template and startup docs alignment
+2. AI key preflight, capability degradation, and MCP capability convergence
+3. Final E2E regression script and release-trust hardening
 
 ## 7. QA Recording Template
 

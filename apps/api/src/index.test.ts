@@ -13,7 +13,7 @@ import {
   users,
   writeAiAuditLog,
 } from '@ai-native-os/db'
-import { deserializeAbility } from '@ai-native-os/shared'
+import { deserializeAbility, localBootstrapAdminCredentials } from '@ai-native-os/shared'
 import { eq } from 'drizzle-orm'
 
 import {
@@ -376,6 +376,59 @@ test('auth routes create a session that unlocks the protected session endpoint',
   assert.equal(sessionPayload.json.authenticated, true)
   assert.equal(sessionPayload.json.user.email, email)
   assert.equal(sessionPayload.json.user.name, 'API Auth Test User')
+})
+
+test('seeded local admin can sign in without a manual sign-up bootstrap', async () => {
+  const origin = 'http://localhost:3000'
+  const signInResponse = await app.request('http://localhost/api/auth/sign-in/email', {
+    body: JSON.stringify({
+      email: localBootstrapAdminCredentials.email,
+      password: localBootstrapAdminCredentials.password,
+      rememberMe: true,
+    }),
+    headers: {
+      'content-type': 'application/json',
+      origin,
+    },
+    method: 'POST',
+  })
+
+  assert.equal(signInResponse.status, 200)
+
+  const authHeaders = convertSetCookieToCookie(signInResponse.headers)
+  authHeaders.set('origin', origin)
+
+  const sessionResponse = await app.request('http://localhost/api/v1/system/session', {
+    headers: authHeaders,
+  })
+  const sessionPayload = (await sessionResponse.json()) as {
+    json: {
+      authenticated: boolean
+      user: {
+        email: string
+      }
+    }
+  }
+
+  assert.equal(sessionResponse.status, 200)
+  assert.equal(sessionPayload.json.authenticated, true)
+  assert.equal(sessionPayload.json.user.email, localBootstrapAdminCredentials.email)
+
+  const rbacSummaryResponse = await app.request('http://localhost/api/v1/system/rbac-summary', {
+    headers: authHeaders,
+  })
+  const rbacSummaryPayload = (await rbacSummaryResponse.json()) as {
+    json: {
+      permissionRuleCount: number
+      rbacUserId: string | null
+      roleCodes: string[]
+    }
+  }
+
+  assert.equal(rbacSummaryResponse.status, 200)
+  assert.deepEqual(rbacSummaryPayload.json.roleCodes, ['admin'])
+  assert.ok(rbacSummaryPayload.json.permissionRuleCount > 0)
+  assert.ok(rbacSummaryPayload.json.rbacUserId)
 })
 
 test('auth routes write operation logs for sign-up, sign-in, and sign-out flows', async () => {
