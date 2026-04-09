@@ -135,8 +135,24 @@ function normalizeRulesForAbility(payload: AbilityPayload): PermissionRule[] {
   })
 }
 
+/**
+ * 把序列化后的权限载荷恢复为前端可复用的 CASL ability 实例。
+ */
+export function createAbilityFromPayload(payload: AbilityPayload) {
+  return deserializeAbility(normalizeRulesForAbility(payload))
+}
+
+/**
+ * 判断当前主体是否具备用户目录写权限，供服务端页面决定是否暴露 CRUD 表单。
+ */
+export function canManageUserDirectory(payload: AbilityPayload): boolean {
+  const ability = createAbilityFromPayload(payload)
+
+  return ability.can('manage', 'User') || ability.can('manage', 'all')
+}
+
 export function getVisibleNavigationItems(payload: AbilityPayload): NavigationItem[] {
-  const ability = deserializeAbility(normalizeRulesForAbility(payload))
+  const ability = createAbilityFromPayload(payload)
 
   return navigationItems.filter((item) => ability.can(item.action, item.subject))
 }

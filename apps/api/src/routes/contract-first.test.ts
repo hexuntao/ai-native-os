@@ -2,7 +2,14 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 
-import { db, listAiEvalRunsByEvalKey, roles, userRoles, users } from '@ai-native-os/db'
+import {
+  db,
+  listAiEvalRunsByEvalKey,
+  listOperationLogsByModule,
+  roles,
+  userRoles,
+  users,
+} from '@ai-native-os/db'
 import { eq } from 'drizzle-orm'
 
 import { app } from '@/index'
@@ -235,6 +242,162 @@ test('viewer can consume the contract-first system and monitor read skeleton rou
   assert.ok(['ok', 'error', 'unknown'].includes(serverPayload.json.health.telemetry.openTelemetry))
   assert.ok(['ok', 'error', 'unknown'].includes(serverPayload.json.health.telemetry.sentry))
   assert.ok(serverPayload.json.runtime.toolCount >= 1)
+})
+
+test('super_admin can perform full contract-first CRUD on system users', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const userSuffix = randomUUID().slice(0, 8)
+  const createResponse = await app.request('http://localhost/api/v1/system/users', {
+    body: JSON.stringify({
+      email: `crud-${userSuffix}@example.com`,
+      nickname: 'Contract CRUD User',
+      password: 'Passw0rd!Passw0rd!',
+      roleCodes: ['viewer'],
+      status: true,
+      username: `crud_${userSuffix}`,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      email: string
+      id: string
+      nickname: string | null
+      roleCodes: string[]
+      status: boolean
+      username: string
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.email, `crud-${userSuffix}@example.com`)
+  assert.equal(createPayload.json.nickname, 'Contract CRUD User')
+  assert.deepEqual(createPayload.json.roleCodes, ['viewer'])
+  assert.equal(createPayload.json.status, true)
+
+  const getResponse = await app.request(
+    `http://localhost/api/v1/system/users/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const getPayload = (await getResponse.json()) as {
+    json: {
+      id: string
+      roleCodes: string[]
+      username: string
+    }
+  }
+
+  assert.equal(getResponse.status, 200)
+  assert.equal(getPayload.json.id, createPayload.json.id)
+  assert.deepEqual(getPayload.json.roleCodes, ['viewer'])
+  assert.equal(getPayload.json.username, `crud_${userSuffix}`)
+
+  const updateResponse = await app.request(
+    `http://localhost/api/v1/system/users/${createPayload.json.id}`,
+    {
+      body: JSON.stringify({
+        email: `crud-updated-${userSuffix}@example.com`,
+        nickname: 'Contract CRUD User Updated',
+        roleCodes: ['editor'],
+        status: true,
+        username: `crud_updated_${userSuffix}`,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const updatePayload = (await updateResponse.json()) as {
+    json: {
+      email: string
+      id: string
+      nickname: string | null
+      roleCodes: string[]
+      username: string
+    }
+  }
+
+  assert.equal(updateResponse.status, 200)
+  assert.equal(updatePayload.json.id, createPayload.json.id)
+  assert.equal(updatePayload.json.email, `crud-updated-${userSuffix}@example.com`)
+  assert.equal(updatePayload.json.nickname, 'Contract CRUD User Updated')
+  assert.deepEqual(updatePayload.json.roleCodes, ['editor'])
+  assert.equal(updatePayload.json.username, `crud_updated_${userSuffix}`)
+
+  const deleteResponse = await app.request(
+    `http://localhost/api/v1/system/users/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const deletePayload = (await deleteResponse.json()) as {
+    json: {
+      deleted: boolean
+      id: string
+    }
+  }
+
+  assert.equal(deleteResponse.status, 200)
+  assert.equal(deletePayload.json.deleted, true)
+  assert.equal(deletePayload.json.id, createPayload.json.id)
+
+  const deletedReadResponse = await app.request(
+    `http://localhost/api/v1/system/users/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const deletedReadPayload = (await deletedReadResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(deletedReadResponse.status, 404)
+  assert.equal(deletedReadPayload.code, 'NOT_FOUND')
+  assert.match(deletedReadPayload.message, /User not found/)
+
+  const systemUserLogs = await listOperationLogsByModule('system_users')
+  const targetLogs = systemUserLogs.filter((log) => log.targetId === createPayload.json.id)
+
+  assert.ok(targetLogs.some((log) => log.action === 'create_user'))
+  assert.ok(targetLogs.some((log) => log.action === 'update_user'))
+  assert.ok(targetLogs.some((log) => log.action === 'delete_user'))
+})
+
+test('viewer cannot create users through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/api/v1/system/users', {
+    body: JSON.stringify({
+      email: `viewer-blocked-${randomUUID().slice(0, 8)}@example.com`,
+      nickname: 'Blocked Viewer Mutation',
+      password: 'Passw0rd!Passw0rd!',
+      roleCodes: ['viewer'],
+      status: true,
+      username: `viewer_blocked_${randomUUID().replaceAll('-', '').slice(0, 10)}`,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 403)
+  assert.equal(payload.code, 'FORBIDDEN')
+  assert.match(payload.message, /manage:User|manage:all/)
 })
 
 test('super_admin can consume the contract-first config and tools skeleton routes', async () => {

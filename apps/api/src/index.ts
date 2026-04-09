@@ -9,7 +9,11 @@ import {
   attachPromptEvalEvidenceInputSchema,
   createAiFeedbackInputSchema,
   createPromptVersionInputSchema,
+  createUserInputSchema,
   currentPermissionsResponseSchema,
+  deleteUserInputSchema,
+  deleteUserResultSchema,
+  getUserByIdInputSchema,
   healthResponseSchema,
   knowledgeListResponseSchema,
   listAiAuditLogsInputSchema,
@@ -32,6 +36,8 @@ import {
   roleListResponseSchema,
   rollbackPromptVersionInputSchema,
   serializedAbilityResponseSchema,
+  updateUserInputSchema,
+  userEntrySchema,
   userListResponseSchema,
 } from '@ai-native-os/shared'
 import type { HonoBindings, HonoVariables } from '@mastra/hono'
@@ -83,7 +89,13 @@ import { listOnlineUsers } from '@/routes/monitor/online'
 import { listMenus } from '@/routes/system/menus'
 import { listPermissions } from '@/routes/system/permissions'
 import { listRoles } from '@/routes/system/roles'
-import { listUsers } from '@/routes/system/users'
+import {
+  createUserEntry,
+  deleteUserEntry,
+  getUserById,
+  listUsers,
+  updateUserEntry,
+} from '@/routes/system/users'
 
 const rpcHandler = new RPCHandler(appRouter)
 
@@ -149,6 +161,19 @@ const contractFirstReadRequirements = {
   }>
 >
 
+const contractFirstWriteRequirements = {
+  users: [
+    { action: 'manage', subject: 'User' },
+    { action: 'manage', subject: 'all' },
+  ],
+} as const satisfies Record<
+  string,
+  ReadonlyArray<{
+    action: AppActions
+    subject: AppSubjects
+  }>
+>
+
 /**
  * 统一输出标准未认证响应，避免 REST 兼容入口与 oRPC 错误语义分叉。
  */
@@ -178,12 +203,16 @@ function jsonForbidden<TEnv extends AppEnv>(c: Context<TEnv>, message: string): 
 /**
  * 统一输出查询参数校验错误，确保 contract-first REST 请求得到稳定错误格式。
  */
-function jsonBadRequest<TEnv extends AppEnv>(c: Context<TEnv>, error: z.ZodError): Response {
+function jsonBadRequest<TEnv extends AppEnv>(
+  c: Context<TEnv>,
+  error: z.ZodError,
+  message = 'Invalid query parameters',
+): Response {
   return c.json(
     {
       code: 'BAD_REQUEST',
       issues: error.flatten(),
-      message: 'Invalid query parameters',
+      message,
     },
     400,
   )
@@ -217,6 +246,16 @@ function jsonOrpcError<TEnv extends AppEnv>(
     )
   }
 
+  if (error.code === 'NOT_FOUND') {
+    return c.json(
+      {
+        code: 'NOT_FOUND',
+        message: error.message,
+      },
+      404,
+    )
+  }
+
   throw error
 }
 
@@ -245,6 +284,7 @@ async function handleContractFirstGet<TInput, TOutput, TEnv extends AppEnv>(
     subject: AppSubjects
   }>,
   loader: (input: TInput) => Promise<TOutput>,
+  resolveInput?: (c: Context<TEnv>) => unknown,
 ): Promise<Response> {
   const context = await createAppContext(c)
 
@@ -259,7 +299,7 @@ async function handleContractFirstGet<TInput, TOutput, TEnv extends AppEnv>(
     )
   }
 
-  const parsedInput = inputSchema.safeParse(c.req.query())
+  const parsedInput = inputSchema.safeParse(resolveInput ? resolveInput(c) : c.req.query())
 
   if (!parsedInput.success) {
     return jsonBadRequest(c, parsedInput.error)
@@ -297,6 +337,7 @@ async function handleContractFirstPost<TInput, TOutput, TEnv extends AppEnv>(
     input: TInput,
     context: Awaited<ReturnType<typeof createAppContext>>,
   ) => Promise<TOutput>,
+  resolveInput?: (c: Context<TEnv>, requestJson: unknown) => unknown,
 ): Promise<Response> {
   const context = await createAppContext(c)
 
@@ -312,10 +353,12 @@ async function handleContractFirstPost<TInput, TOutput, TEnv extends AppEnv>(
   }
 
   const requestJson = await c.req.json().catch(() => null)
-  const parsedInput = inputSchema.safeParse(requestJson)
+  const parsedInput = inputSchema.safeParse(
+    resolveInput ? resolveInput(c, requestJson) : requestJson,
+  )
 
   if (!parsedInput.success) {
-    return jsonBadRequest(c, parsedInput.error)
+    return jsonBadRequest(c, parsedInput.error, 'Invalid request payload')
   }
 
   let payload: TOutput
@@ -425,6 +468,74 @@ app.get('/api/v1/system/users', (c) =>
     userListResponseSchema,
     contractFirstReadRequirements.users,
     listUsers,
+  ),
+)
+
+app.get('/api/v1/system/users/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getUserByIdInputSchema,
+    userEntrySchema,
+    contractFirstReadRequirements.users,
+    getUserById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/system/users', (c) =>
+  handleContractFirstPost(
+    c,
+    createUserInputSchema,
+    userEntrySchema,
+    contractFirstWriteRequirements.users,
+    async (input, context) =>
+      createUserEntry(input, {
+        ability: context.ability,
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.put('/api/v1/system/users/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    updateUserInputSchema,
+    userEntrySchema,
+    contractFirstWriteRequirements.users,
+    async (input, context) =>
+      updateUserEntry(input, {
+        ability: context.ability,
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext, requestJson) => ({
+      ...(typeof requestJson === 'object' && requestJson !== null ? requestJson : {}),
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.delete('/api/v1/system/users/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    deleteUserInputSchema,
+    deleteUserResultSchema,
+    contractFirstWriteRequirements.users,
+    async (input, context) =>
+      deleteUserEntry(input, {
+        ability: context.ability,
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
   ),
 )
 

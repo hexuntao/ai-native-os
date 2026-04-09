@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scrypt } from 'node:crypto'
+import { createHash } from 'node:crypto'
 
 import {
   type AppActions,
@@ -10,6 +10,7 @@ import {
 } from '@ai-native-os/shared'
 import { inArray } from 'drizzle-orm'
 
+import { hashCredentialPassword } from '../auth/credential-password'
 import { type Database, db } from '../client'
 import {
   account as authAccounts,
@@ -73,13 +74,6 @@ interface SeedPermissionDefinition extends PermissionRule {
 
 type BetterAuthAccountInsert = typeof authAccounts.$inferInsert
 type BetterAuthUserInsert = typeof authUsers.$inferInsert
-
-const betterAuthPasswordConfig = {
-  N: 16_384,
-  dkLen: 64,
-  p: 1,
-  r: 16,
-} as const
 
 /**
  * 为固定 seed 标识生成稳定 UUID，保证重复 seed 时主键保持一致。
@@ -366,7 +360,7 @@ async function buildLocalBootstrapAuthRows(seededUsers: readonly SeedUserDefinit
   authUserRows: BetterAuthUserInsert[]
 }> {
   const now = new Date()
-  const hashedPassword = await hashBetterAuthCompatiblePassword(localBootstrapPassword)
+  const hashedPassword = await hashCredentialPassword(localBootstrapPassword)
   const authUserRows = seededUsers.map<BetterAuthUserInsert>((seededUser) => ({
     createdAt: now,
     email: seededUser.email,
@@ -396,42 +390,6 @@ async function buildLocalBootstrapAuthRows(seededUsers: readonly SeedUserDefinit
     authAccountRows,
     authUserRows,
   }
-}
-
-/**
- * 生成与 Better Auth credential provider 兼容的口令哈希格式。
- *
- * 兼容约束：
- * - 保持 `salt:key` 结构
- * - 继续使用 Better Auth 当前的 scrypt 参数
- * - salt 作为十六进制字符串参与 KDF，和上游实现保持一致
- */
-async function hashBetterAuthCompatiblePassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString('hex')
-  const normalizedPassword = password.normalize('NFKC')
-  const key = await new Promise<Buffer>((resolve, reject) => {
-    scrypt(
-      normalizedPassword,
-      salt,
-      betterAuthPasswordConfig.dkLen,
-      {
-        N: betterAuthPasswordConfig.N,
-        maxmem: 128 * betterAuthPasswordConfig.N * betterAuthPasswordConfig.r * 2,
-        p: betterAuthPasswordConfig.p,
-        r: betterAuthPasswordConfig.r,
-      },
-      (error, derivedKey) => {
-        if (error) {
-          reject(error)
-          return
-        }
-
-        resolve(Buffer.from(derivedKey))
-      },
-    )
-  })
-
-  return `${salt}:${key.toString('hex')}`
 }
 
 /**

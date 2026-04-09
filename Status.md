@@ -1,6 +1,6 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-08
+Last Updated: 2026-04-09
 Current Mode: E2E remediation active
 Current Phase: Post-Phase 6 `E2E Remediation`
 Overall Status: `phase_6_complete_e2e_remediation_open`
@@ -86,15 +86,17 @@ Overall Status: `phase_6_complete_e2e_remediation_open`
 | P6-C2 | 6 | Fill remaining contract-first API skeleton gaps | done | P6-C1 | OpenAPI + route smoke |
 | P6-C3 | 6 | Reconcile AI runtime coverage with design docs | done | P6-C1 | runtime matrix review |
 | E2E-S1-T1 | Post-P6 | Bootstrap seeded Better Auth admin and direct sign-in regression | done | none | migrate + seed + direct login |
+| UX-C1 | Post-P6 | Deliver `system/users` full CRUD vertical with audit-safe web forms | done | P6-C2 | lint + typecheck + test + build |
 | E2E-S1-T2 | Post-P6 | Align local env template and startup docs | ready | E2E-S1-T1 | fresh shell `release:smoke` |
 | E2E-S2-T1 | Post-P6 | Add AI key preflight and degraded runtime exposure | blocked | E2E-S1-T2 | runtime summary and health degrade |
 
 ## 4. Current Ready Queue
 
-Priority order as of 2026-04-08:
+Priority order as of 2026-04-09:
 
 - `E2E-S1-T2`
 - `E2E-S2-T1` remains blocked until Sprint 1 local env alignment closes.
+- `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 
 Auto-unlock rules:
 

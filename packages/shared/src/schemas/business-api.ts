@@ -29,6 +29,28 @@ export const listUsersInputSchema = baseSearchSchema.extend({
   status: booleanQuerySchema.optional(),
 })
 
+const roleCodeSchema = z.string().trim().min(1).max(50)
+
+const nullableNicknameSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const trimmedValue = value.trim()
+
+  return trimmedValue.length === 0 ? null : trimmedValue
+}, z.string().trim().min(1).max(50).nullable())
+
+const optionalPasswordSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const trimmedValue = value.trim()
+
+  return trimmedValue.length === 0 ? undefined : trimmedValue
+}, z.string().min(12).max(100).optional())
+
 export const userListItemSchema = z.object({
   createdAt: z.string(),
   email: z.string().email(),
@@ -40,7 +62,41 @@ export const userListItemSchema = z.object({
   username: z.string(),
 })
 
+export const userEntrySchema = userListItemSchema
+
 export const userListResponseSchema = paginatedResponseSchema(userListItemSchema)
+
+export const getUserByIdInputSchema = z.object({
+  id: z.string().uuid(),
+})
+
+export const createUserInputSchema = z.object({
+  email: z.string().trim().email(),
+  nickname: nullableNicknameSchema.default(null),
+  password: z.string().min(12).max(100),
+  roleCodes: z.array(roleCodeSchema).max(10).default([]),
+  status: z.boolean().default(true),
+  username: z.string().trim().min(3).max(50),
+})
+
+export const updateUserInputSchema = z.object({
+  email: z.string().trim().email(),
+  id: z.string().uuid(),
+  nickname: nullableNicknameSchema.default(null),
+  password: optionalPasswordSchema,
+  roleCodes: z.array(roleCodeSchema).max(10).default([]),
+  status: z.boolean(),
+  username: z.string().trim().min(3).max(50),
+})
+
+export const deleteUserInputSchema = z.object({
+  id: z.string().uuid(),
+})
+
+export const deleteUserResultSchema = z.object({
+  deleted: z.literal(true),
+  id: z.string().uuid(),
+})
 
 export const listRolesInputSchema = baseSearchSchema.extend({
   status: booleanQuerySchema.optional(),
@@ -335,7 +391,13 @@ export const toolJobsListResponseSchema = paginatedResponseSchema(toolJobListIte
 })
 
 export type ListUsersInput = z.infer<typeof listUsersInputSchema>
+export type GetUserByIdInput = z.infer<typeof getUserByIdInputSchema>
+export type CreateUserInput = z.infer<typeof createUserInputSchema>
+export type UpdateUserInput = z.infer<typeof updateUserInputSchema>
+export type DeleteUserInput = z.infer<typeof deleteUserInputSchema>
+export type UserEntry = z.infer<typeof userEntrySchema>
 export type UserListResponse = z.infer<typeof userListResponseSchema>
+export type DeleteUserResult = z.infer<typeof deleteUserResultSchema>
 export type ListRolesInput = z.infer<typeof listRolesInputSchema>
 export type RoleListResponse = z.infer<typeof roleListResponseSchema>
 export type ListPermissionsInput = z.infer<typeof listPermissionsInputSchema>

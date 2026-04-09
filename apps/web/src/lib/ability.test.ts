@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { getVisibleNavigationItems, parseSerializedAbilityPayload } from './ability'
+import {
+  canManageUserDirectory,
+  getVisibleNavigationItems,
+  parseSerializedAbilityPayload,
+} from './ability'
 
 test('viewer ability payload only exposes read surfaces', () => {
   const payload = parseSerializedAbilityPayload({
@@ -15,4 +19,18 @@ test('viewer ability payload only exposes read surfaces', () => {
   const labels = getVisibleNavigationItems(payload).map((item) => item.label)
 
   assert.deepEqual(labels, ['Roles Matrix', 'Audit Trails', 'System Health'])
+  assert.equal(canManageUserDirectory(payload), false)
+})
+
+test('manage user permission exposes user directory write capability', () => {
+  const payload = parseSerializedAbilityPayload({
+    roleCodes: ['admin'],
+    rules: [
+      { action: 'manage', subject: 'User' },
+      { action: 'read', subject: 'Role' },
+    ],
+    userId: 'bb95c2ce-9db2-4ae8-80b4-123456789abc',
+  })
+
+  assert.equal(canManageUserDirectory(payload), true)
 })

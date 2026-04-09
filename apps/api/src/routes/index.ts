@@ -23,7 +23,13 @@ import { pingProcedure } from './system/ping'
 import { rbacSummaryProcedure } from './system/rbac-summary'
 import { rolesListProcedure } from './system/roles'
 import { sessionProcedure } from './system/session'
-import { usersListProcedure } from './system/users'
+import {
+  usersCreateProcedure,
+  usersDeleteProcedure,
+  usersGetByIdProcedure,
+  usersListProcedure,
+  usersUpdateProcedure,
+} from './system/users'
 import { toolGenListProcedure } from './tools/gen'
 import { toolJobsListProcedure } from './tools/jobs'
 
@@ -67,7 +73,13 @@ export const appRouter = {
     'rbac-summary': rbacSummaryProcedure,
     roles: rolesListProcedure,
     session: sessionProcedure,
-    users: usersListProcedure,
+    users: {
+      create: usersCreateProcedure,
+      delete: usersDeleteProcedure,
+      getById: usersGetByIdProcedure,
+      list: usersListProcedure,
+      update: usersUpdateProcedure,
+    },
   },
   tools: {
     gen: toolGenListProcedure,

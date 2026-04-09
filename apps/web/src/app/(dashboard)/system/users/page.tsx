@@ -1,8 +1,12 @@
+import type { RoleListResponse, UserEntry } from '@ai-native-os/shared'
 import {
   Badge,
+  Button,
   Field,
+  FieldError,
   FieldHint,
   FieldLabel,
+  Input,
   Table,
   TableBody,
   TableCell,
@@ -11,21 +15,79 @@ import {
   TableRow,
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
+
+import {
+  createUserAction,
+  deleteUserAction,
+  updateUserAction,
+} from '@/app/(dashboard)/system/users/actions'
 import { GenerativeUsersPanel } from '@/components/generative/generative-users-panel'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { canManageUserDirectory } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
   createToggleFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
-import { loadUsersList } from '@/lib/server-management'
+import {
+  loadAssignableRoles,
+  loadSerializedAbilityPayload,
+  loadUsersList,
+} from '@/lib/server-management'
 
 interface UsersPageProps {
   searchParams: Promise<DashboardSearchParams>
+}
+
+const formControlClassName =
+  'flex h-11 w-full rounded-[var(--radius-md)] border border-border/80 bg-background/70 px-4 py-2 text-sm text-foreground shadow-[var(--shadow-soft)] outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-2'
+
+const multiSelectClassName =
+  'min-h-32 w-full rounded-[var(--radius-md)] border border-border/80 bg-background/70 px-4 py-3 text-sm text-foreground shadow-[var(--shadow-soft)] outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-2'
+
+type AssignableRole = RoleListResponse['data'][number]
+
+/**
+ * 从搜索参数中提取一次性反馈消息，供服务端页面渲染操作结果提示。
+ */
+function readFlashMessage(searchParams: DashboardSearchParams): {
+  kind: 'error' | 'success'
+  message: string
+} | null {
+  const errorValue = searchParams.error
+  const successValue = searchParams.success
+  const normalizedError = Array.isArray(errorValue) ? errorValue[0] : errorValue
+  const normalizedSuccess = Array.isArray(successValue) ? successValue[0] : successValue
+
+  if (normalizedError) {
+    return {
+      kind: 'error',
+      message: normalizedError,
+    }
+  }
+
+  if (normalizedSuccess) {
+    return {
+      kind: 'success',
+      message: normalizedSuccess,
+    }
+  }
+
+  return null
+}
+
+/**
+ * 把当前查询状态回写为 returnTo，确保服务端动作完成后能返回同一筛选上下文。
+ */
+function createCurrentUsersHref(searchParams: DashboardSearchParams): string {
+  return createDashboardHref('/system/users', searchParams, {
+    error: undefined,
+    success: undefined,
+  })
 }
 
 export default async function SystemUsersPage({
@@ -33,20 +95,31 @@ export default async function SystemUsersPage({
 }: UsersPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
   const filters = createToggleFilterState(resolvedSearchParams)
-  const payload = await loadUsersList(filters)
+  const [payload, assignableRoles, abilityPayload] = await Promise.all([
+    loadUsersList(filters),
+    loadAssignableRoles(),
+    loadSerializedAbilityPayload(),
+  ])
+  const flashMessage = readFlashMessage(resolvedSearchParams)
+  const returnTo = createCurrentUsersHref(resolvedSearchParams)
+  const canManageUsers = abilityPayload ? canManageUserDirectory(abilityPayload) : false
 
   return (
     <DataSurfacePage
-      description="Contract-first operator directory backed by the authenticated system API. This surface stays read-only until write contracts and audit-safe mutations are implemented."
+      description="Contract-first operator directory backed by the authenticated system API. This page now supports audit-safe create, update, and delete actions for principals with explicit user-management permission."
       eyebrow="System Module"
       facts={[
         {
           label: 'Search scope',
-          value: filters.search ?? 'All usernames',
+          value: filters.search ?? 'Usernames and emails',
         },
         {
           label: 'Status filter',
           value: filters.status,
+        },
+        {
+          label: 'Mutation mode',
+          value: canManageUsers ? 'write-enabled' : 'read-only',
         },
       ]}
       metrics={[
@@ -61,19 +134,29 @@ export default async function SystemUsersPage({
           value: formatCount(payload.data.length),
         },
         {
-          detail: 'Distinct role bindings represented across the current page slice.',
-          label: 'Mapped roles',
-          value: formatCount(new Set(payload.data.flatMap((row) => row.roleCodes)).size),
+          detail: 'Active assignable roles exposed to the user management workflow.',
+          label: 'Assignable roles',
+          value: formatCount(assignableRoles.length),
         },
       ]}
       title="Users Directory"
     >
+      {flashMessage ? (
+        flashMessage.kind === 'error' ? (
+          <FieldError>{flashMessage.message}</FieldError>
+        ) : (
+          <div className="rounded-[var(--radius-md)] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {flashMessage.message}
+          </div>
+        )
+      ) : null}
+
       <FilterToolbar
         actionHref="/system/users"
         pageSize={filters.pageSize}
         resetHref="/system/users"
         searchDefaultValue={filters.search}
-        searchPlaceholder="Search username"
+        searchPlaceholder="Search username or email"
       >
         <Field>
           <FieldLabel htmlFor="status">Status</FieldLabel>
@@ -84,6 +167,84 @@ export default async function SystemUsersPage({
           </FilterSelect>
         </Field>
       </FilterToolbar>
+
+      {canManageUsers ? (
+        <form
+          action={createUserAction}
+          className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/75 p-5 shadow-[var(--shadow-soft)]"
+        >
+          <input name="returnTo" type="hidden" value={returnTo} />
+          <div className="grid gap-2">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              Create principal
+            </p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              New entries will create the application user, Better Auth credential identity, and
+              RBAC role bindings in one audited transaction.
+            </p>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="create-username">Username</FieldLabel>
+              <Input id="create-username" minLength={3} name="username" required />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-email">Email</FieldLabel>
+              <Input id="create-email" name="email" required type="email" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-nickname">Nickname</FieldLabel>
+              <Input id="create-nickname" name="nickname" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-password">Password</FieldLabel>
+              <Input id="create-password" minLength={12} name="password" required type="password" />
+              <FieldHint>密码至少 12 位，创建时会同步写入 Better Auth credential。</FieldHint>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-status">Status</FieldLabel>
+              <select
+                className={formControlClassName}
+                defaultValue="active"
+                id="create-status"
+                name="status"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-role-codes">Role bindings</FieldLabel>
+              <select
+                className={multiSelectClassName}
+                id="create-role-codes"
+                multiple
+                name="roleCodes"
+                size={Math.max(3, Math.min(assignableRoles.length, 6))}
+              >
+                {assignableRoles.map((role: AssignableRole) => (
+                  <option key={role.id} value={role.code}>
+                    {role.name} ({role.code})
+                  </option>
+                ))}
+              </select>
+              <FieldHint>
+                按住 Command / Ctrl 可多选角色，超级管理员边界仍由后端强制校验。
+              </FieldHint>
+            </Field>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button type="submit">Create user</Button>
+          </div>
+        </form>
+      ) : (
+        <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 text-sm leading-7 text-muted-foreground">
+          当前主体只有读取权限。用户创建、编辑、删除表单仅对具备 `manage:User` 或 `manage:all`
+          的主体显示。
+        </div>
+      )}
 
       <GenerativeUsersPanel rows={payload.data} />
 
@@ -97,10 +258,11 @@ export default async function SystemUsersPage({
                 <TableHead>Roles</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Updated</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payload.data.map((row) => (
+              {payload.data.map((row: UserEntry) => (
                 <TableRow key={row.id}>
                   <TableCell>
                     <div className="grid gap-1">
@@ -116,7 +278,7 @@ export default async function SystemUsersPage({
                       {row.roleCodes.length === 0 ? (
                         <Badge variant="secondary">unassigned</Badge>
                       ) : (
-                        row.roleCodes.map((roleCode) => (
+                        row.roleCodes.map((roleCode: string) => (
                           <Badge key={roleCode} variant="outline">
                             {roleCode}
                           </Badge>
@@ -132,6 +294,100 @@ export default async function SystemUsersPage({
                   <TableCell className="text-muted-foreground">
                     {formatDateTime(row.updatedAt)}
                   </TableCell>
+                  <TableCell className="align-top">
+                    {canManageUsers ? (
+                      <div className="grid gap-3">
+                        <details className="rounded-[var(--radius-lg)] border border-border/70 bg-background/70 p-3">
+                          <summary className="cursor-pointer text-sm font-medium text-foreground">
+                            Edit user
+                          </summary>
+                          <form action={updateUserAction} className="mt-3 grid gap-3">
+                            <input name="id" type="hidden" value={row.id} />
+                            <input name="returnTo" type="hidden" value={returnTo} />
+                            <Field>
+                              <FieldLabel htmlFor={`username-${row.id}`}>Username</FieldLabel>
+                              <Input
+                                defaultValue={row.username}
+                                id={`username-${row.id}`}
+                                name="username"
+                                required
+                              />
+                            </Field>
+                            <Field>
+                              <FieldLabel htmlFor={`email-${row.id}`}>Email</FieldLabel>
+                              <Input
+                                defaultValue={row.email}
+                                id={`email-${row.id}`}
+                                name="email"
+                                required
+                                type="email"
+                              />
+                            </Field>
+                            <Field>
+                              <FieldLabel htmlFor={`nickname-${row.id}`}>Nickname</FieldLabel>
+                              <Input
+                                defaultValue={row.nickname ?? ''}
+                                id={`nickname-${row.id}`}
+                                name="nickname"
+                              />
+                            </Field>
+                            <Field>
+                              <FieldLabel htmlFor={`password-${row.id}`}>Reset password</FieldLabel>
+                              <Input
+                                id={`password-${row.id}`}
+                                minLength={12}
+                                name="password"
+                                type="password"
+                              />
+                              <FieldHint>留空表示不重置密码。</FieldHint>
+                            </Field>
+                            <Field>
+                              <FieldLabel htmlFor={`status-${row.id}`}>Status</FieldLabel>
+                              <select
+                                className={formControlClassName}
+                                defaultValue={row.status ? 'active' : 'inactive'}
+                                id={`status-${row.id}`}
+                                name="status"
+                              >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                              </select>
+                            </Field>
+                            <Field>
+                              <FieldLabel htmlFor={`roles-${row.id}`}>Role bindings</FieldLabel>
+                              <select
+                                className={multiSelectClassName}
+                                defaultValue={row.roleCodes}
+                                id={`roles-${row.id}`}
+                                multiple
+                                name="roleCodes"
+                                size={Math.max(3, Math.min(assignableRoles.length, 6))}
+                              >
+                                {assignableRoles.map((role: AssignableRole) => (
+                                  <option key={role.id} value={role.code}>
+                                    {role.name} ({role.code})
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                            <Button size="sm" type="submit" variant="secondary">
+                              Save changes
+                            </Button>
+                          </form>
+                        </details>
+
+                        <form action={deleteUserAction}>
+                          <input name="id" type="hidden" value={row.id} />
+                          <input name="returnTo" type="hidden" value={returnTo} />
+                          <Button size="sm" type="submit" variant="ghost">
+                            Delete
+                          </Button>
+                        </form>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Read only</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -145,12 +401,12 @@ export default async function SystemUsersPage({
             </p>
             <div className="mt-4 grid gap-3 text-sm leading-7 text-muted-foreground">
               <p>
-                RBAC mappings shown here are derived from the application user table, not Better
-                Auth user IDs directly.
+                This surface mutates the application user table, Better Auth identities, and RBAC
+                role mappings together to avoid directory drift.
               </p>
               <p>
-                Read access does not imply mutation capability. Write flows remain intentionally
-                unavailable in this phase.
+                Destructive and privileged actions remain server-guarded. The UI never bypasses
+                RBAC, self-protection, or super-admin boundaries.
               </p>
             </div>
           </div>
