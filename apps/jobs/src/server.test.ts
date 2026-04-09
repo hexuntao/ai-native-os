@@ -40,6 +40,15 @@ test('jobs self-hosted environment falls back to container-safe defaults', () =>
   assert.equal(environment.port, 3040)
 })
 
+test('jobs self-hosted environment prefers JOBS_PORT over shared PORT', () => {
+  const environment = resolveJobsServerEnvironment({
+    JOBS_PORT: '3040',
+    PORT: '3001',
+  })
+
+  assert.equal(environment.port, 3040)
+})
+
 test('jobs health payload exposes runtime summary for Docker probes', () => {
   const payload = buildJobsHealthPayload(new Date('2026-04-02T00:00:00.000Z'))
 

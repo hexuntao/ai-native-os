@@ -22,10 +22,45 @@
 > - 当前仓库已经落地并验证过的真实运行时合同，以 `docs/environment-matrix.md` 为准。
 > - `apps/worker` 已完成 runtime / binding contract 对齐；`wrangler`、Cloudflare bindings 声明与 staging deploy 仍属于 `P6-T3` 范围。
 
-### 2.1 统一环境变量模板
+### 2.1 当前仓库本地开发模板
+
+当前仓库的本地开发入口以根目录 `.env.example` 为准，不再建议直接照抄下面的目标态大模板。
+
+推荐步骤：
 
 ```bash
-# .env.example
+cp .env.example .env.local
+pnpm infra:up
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```
+
+补充说明：
+
+- 根脚本 `pnpm dev`、`pnpm db:migrate`、`pnpm db:seed`、`pnpm release:smoke`、`pnpm jobs:start` 会自动加载 `.env.local`
+- 如果当前 shell 已经导出了同名环境变量，这些值优先级更高
+- `PORT` 现在专用于 `api`；`apps/jobs` 自托管健康服务改用独立的 `JOBS_PORT`，默认 `3040`
+- `pnpm dev` 里的 `jobs` 运行在 Trigger.dev 开发模式，不暴露 `/health`
+- 如果需要验证 `apps/jobs` 的健康探针，必须单独执行：
+
+```bash
+pnpm jobs:start
+```
+
+- `pnpm release:smoke` 默认只验证 `web + api`
+- 若本地也要验证 `jobs`，请先执行 `pnpm jobs:start`，再运行：
+
+```bash
+RELEASE_INCLUDE_JOBS=1 \
+JOBS_HEALTH_URL=http://localhost:3040/health \
+pnpm release:smoke
+```
+
+### 2.2 目标态环境变量参考
+
+```bash
+# target-state.env.reference
 
 # ============ 基础配置 ============
 NODE_ENV=production

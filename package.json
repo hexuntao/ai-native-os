@@ -5,19 +5,21 @@
   "packageManager": "pnpm@10.18.0",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "dev": "tsx scripts/with-local-env.ts turbo run dev --parallel",
     "format": "turbo run format",
     "infra:down": "docker compose -f docker/docker-compose.yml down",
     "infra:up": "docker compose -f docker/docker-compose.yml up -d",
+    "jobs:start": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/jobs start",
     "lint": "turbo run lint",
-    "release:backup:verify": "tsx apps/api/src/lib/release/backup-verify.cli.ts",
-    "release:smoke": "tsx apps/api/src/lib/release/smoke-check.cli.ts",
+    "release:backup:verify": "tsx scripts/with-local-env.ts tsx apps/api/src/lib/release/backup-verify.cli.ts",
+    "release:smoke": "tsx scripts/with-local-env.ts tsx apps/api/src/lib/release/smoke-check.cli.ts",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "db:check": "pnpm --filter @ai-native-os/db db:check",
-    "db:generate": "pnpm --filter @ai-native-os/db db:generate",
-    "db:migrate": "pnpm --filter @ai-native-os/db db:migrate",
-    "db:push": "pnpm --filter @ai-native-os/db db:push"
+    "db:check": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/db db:check",
+    "db:generate": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/db db:generate",
+    "db:migrate": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/db db:migrate",
+    "db:push": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/db db:push",
+    "db:seed": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/db db:seed"
   },
   "devDependencies": {
     "@types/node": "latest",

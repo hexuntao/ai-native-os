@@ -40,12 +40,8 @@ test('release playbook documents security, backup, rollback, and smoke procedure
 test('root package exposes release smoke and backup verification scripts', () => {
   const packageJson = readRootPackageJson()
 
-  assert.equal(
-    packageJson.scripts?.['release:smoke'],
-    'tsx apps/api/src/lib/release/smoke-check.cli.ts',
-  )
-  assert.equal(
-    packageJson.scripts?.['release:backup:verify'],
-    'tsx apps/api/src/lib/release/backup-verify.cli.ts',
-  )
+  assert.match(packageJson.scripts?.['release:smoke'] ?? '', /scripts\/with-local-env\.ts/)
+  assert.match(packageJson.scripts?.['release:smoke'] ?? '', /smoke-check\.cli\.ts/)
+  assert.match(packageJson.scripts?.['release:backup:verify'] ?? '', /scripts\/with-local-env\.ts/)
+  assert.match(packageJson.scripts?.['release:backup:verify'] ?? '', /backup-verify\.cli\.ts/)
 })

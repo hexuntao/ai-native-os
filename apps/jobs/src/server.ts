@@ -26,7 +26,7 @@ function parseJobsServerPort(rawPort: string | undefined): number {
   const port = Number.parseInt(rawPort ?? '3040', 10)
 
   if (!Number.isInteger(port) || port <= 0) {
-    throw new Error('PORT must be a positive integer for @ai-native-os/jobs')
+    throw new Error('JOBS_PORT must be a positive integer for @ai-native-os/jobs')
   }
 
   return port
@@ -40,7 +40,7 @@ export function resolveJobsServerEnvironment(
 ): JobsServerEnvironment {
   return {
     host: environment.HOST?.trim() || '0.0.0.0',
-    port: parseJobsServerPort(environment.PORT),
+    port: parseJobsServerPort(environment.JOBS_PORT),
   }
 }
 

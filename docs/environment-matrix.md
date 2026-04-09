@@ -1,6 +1,6 @@
 # 环境矩阵与密钥契约
 
-Last Updated: 2026-04-02
+Last Updated: 2026-04-09
 Owner: Scheduler Thread
 Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4` + `P6-T5`
 
@@ -35,6 +35,40 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4` + `P6-T5`
   - Trigger.dev 当前缺少 CLI 登录态，`deploy --dry-run` 仍会阻塞在交互登录
   - Vercel 的本地 `.vercel/project.json` 仍是 gitignored 本地态，不属于仓库交付物
 
+## 1.1 本地启动最小闭环
+
+当前仓库的本地开发与 smoke 命令已经收敛到同一套 `.env.local` 入口：
+
+```bash
+cp .env.example .env.local
+pnpm infra:up
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```
+
+说明：
+
+- 根脚本 `pnpm dev`、`pnpm db:migrate`、`pnpm db:seed`、`pnpm release:smoke`、`pnpm jobs:start` 会自动加载 `.env.local`
+- 如果当前 shell 已显式导出同名变量，根脚本不会覆盖这些值
+- `pnpm dev` 会启动 `web + api + jobs(dev)` 的开发链路，适合日常开发
+- `PORT` 只保留给 `api`；`jobs` 自托管健康服务固定使用 `JOBS_PORT`，默认 `3040`
+- `apps/jobs` 的只读 `/health` 仅由 `pnpm jobs:start` 暴露；`jobs dev` 不提供该健康端点
+- 因此本地要验证 `jobs` 健康探针或自托管 smoke 时，需要开第二个终端执行：
+
+```bash
+pnpm jobs:start
+```
+
+- `pnpm release:smoke` 默认只检查 `web + api`
+- 若要把 `jobs` 也纳入 smoke，需要先运行 `pnpm jobs:start`，然后显式提供：
+
+```bash
+RELEASE_INCLUDE_JOBS=1 \
+JOBS_HEALTH_URL=http://localhost:3040/health \
+pnpm release:smoke
+```
+
 ## 2. 当前运行时环境变量
 
 下表只列出仓库当前代码真实读取的环境变量，也是当前 `.env.example` 必须覆盖的最小合同。
@@ -44,7 +78,8 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4` + `P6-T5`
 | `NODE_ENV` | `web`, `api`, `auth`, `db` | all runtimes | no | 控制生产约束与默认值 |
 | `APP_URL` | `web`, `api`, `auth` | all runtimes | no | 浏览器入口地址；Vercel preview 未显式配置时会回退到 `https://${VERCEL_URL}` |
 | `API_URL` | `web`, `api`, `auth` | all runtimes | no | API 基础地址；Vercel preview 未显式配置时会临时回退到当前部署域名，但完整数据面仍建议显式提供 |
-| `PORT` | `api`, `jobs` | Node runtime | no | `api` 默认 `3001`，`jobs` 自托管健康服务默认 `3040`；在当前 Docker 拓扑里该端口仅对 compose 内部网络开放 |
+| `PORT` | `api` | Node runtime | no | `api` 默认 `3001` |
+| `JOBS_PORT` | `jobs` | jobs self-hosted runtime | no | `jobs` 自托管健康服务默认 `3040`；在当前 Docker 拓扑里该端口仅对 compose 内部网络开放 |
 | `DATABASE_URL` | `db`, `api`, `jobs` | all non-test server runtimes | yes | PostgreSQL 连接串 |
 | `REDIS_URL` | `api` | Redis URL 可用时 | yes | 健康检查与后续 Redis 连接入口 |
 | `REDIS_HOST` | `api` | 不使用 `REDIS_URL` 时 | no | 与 `REDIS_PORT`/`REDIS_PASSWORD` 组合使用 |

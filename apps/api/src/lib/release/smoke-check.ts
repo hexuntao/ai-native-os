@@ -197,7 +197,7 @@ export function resolveReleaseSmokeEnvironment(
           environment.JOBS_HEALTH_URL?.trim() || 'http://localhost:3040/health',
         )
       : null,
-    timeoutMs: parsePositiveInteger(environment.RELEASE_TIMEOUT_MS, 5000, 'RELEASE_TIMEOUT_MS'),
+    timeoutMs: parsePositiveInteger(environment.RELEASE_TIMEOUT_MS, 15000, 'RELEASE_TIMEOUT_MS'),
   }
 }
 
@@ -415,42 +415,48 @@ export async function runReleaseSmokeChecks(
   environment: ReleaseSmokeEnvironment = resolveReleaseSmokeEnvironment(),
   dependencies: ReleaseSmokeDependencies = defaultReleaseSmokeDependencies,
 ): Promise<ReleaseSmokeSummary> {
-  const probeTasks: Promise<ProbeExecutionResult>[] = [
-    runJsonProbe(
-      'api-health',
-      buildEndpointUrl(environment.apiBaseUrl, '/health'),
-      environment.timeoutMs,
-      dependencies.fetcher,
-      validateApiHealthPayload,
-    ),
-    runJsonProbe(
-      'api-ping',
-      buildEndpointUrl(environment.apiBaseUrl, '/api/v1/system/ping'),
-      environment.timeoutMs,
-      dependencies.fetcher,
-      validateApiPingPayload,
-    ),
-    runJsonProbe(
-      'web-health',
-      buildEndpointUrl(environment.appBaseUrl, '/healthz'),
-      environment.timeoutMs,
-      dependencies.fetcher,
-      validateWebHealthPayload,
-    ),
-    runTextProbe(
-      'web-root',
-      buildEndpointUrl(environment.appBaseUrl, '/'),
-      environment.timeoutMs,
-      dependencies.fetcher,
-      validateHtmlPayload,
-    ),
+  const probeTasks: Array<() => Promise<ProbeExecutionResult>> = [
+    () =>
+      runJsonProbe(
+        'api-health',
+        buildEndpointUrl(environment.apiBaseUrl, '/health'),
+        environment.timeoutMs,
+        dependencies.fetcher,
+        validateApiHealthPayload,
+      ),
+    () =>
+      runJsonProbe(
+        'api-ping',
+        buildEndpointUrl(environment.apiBaseUrl, '/api/v1/system/ping'),
+        environment.timeoutMs,
+        dependencies.fetcher,
+        validateApiPingPayload,
+      ),
+    () =>
+      runJsonProbe(
+        'web-health',
+        buildEndpointUrl(environment.appBaseUrl, '/healthz'),
+        environment.timeoutMs,
+        dependencies.fetcher,
+        validateWebHealthPayload,
+      ),
+    () =>
+      runTextProbe(
+        'web-root',
+        buildEndpointUrl(environment.appBaseUrl, '/'),
+        environment.timeoutMs,
+        dependencies.fetcher,
+        validateHtmlPayload,
+      ),
   ]
 
   if (environment.includeJobs && environment.jobsHealthUrl) {
-    probeTasks.push(
+    const jobsHealthUrl = environment.jobsHealthUrl
+
+    probeTasks.push(() =>
       runJsonProbe(
         'jobs-health',
-        environment.jobsHealthUrl,
+        jobsHealthUrl,
         environment.timeoutMs,
         dependencies.fetcher,
         validateJobsHealthPayload,
@@ -458,7 +464,14 @@ export async function runReleaseSmokeChecks(
     )
   }
 
-  const settledResults = await Promise.all(probeTasks)
+  const settledResults: ProbeExecutionResult[] = []
+
+  /**
+   * 依次执行探针，避免本地 `next dev` 冷启动时并发请求把健康检查误判为超时。
+   */
+  for (const runProbe of probeTasks) {
+    settledResults.push(await runProbe())
+  }
 
   return {
     checkedAt: dependencies.now().toISOString(),

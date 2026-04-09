@@ -43,7 +43,7 @@ test('resolveReleaseSmokeEnvironment keeps local defaults when no overrides exis
   assert.equal(environment.apiBaseUrl, 'http://localhost:3001')
   assert.equal(environment.includeJobs, false)
   assert.equal(environment.jobsHealthUrl, null)
-  assert.equal(environment.timeoutMs, 5000)
+  assert.equal(environment.timeoutMs, 15000)
 })
 
 test('resolveReleaseSmokeEnvironment honors release overrides and jobs health URL', () => {
@@ -262,5 +262,98 @@ test('runReleaseSmokeChecks reports probe context when jobs health is unreachabl
       now: () => new Date('2026-04-02T12:00:00.000Z'),
     }),
     /Smoke probe "jobs-health" failed for https:\/\/jobs\.example\.com\/health: Unexpected fetch URL/,
+  )
+})
+
+test('runReleaseSmokeChecks executes probes sequentially to avoid cold-start contention', async () => {
+  const environment = createSmokeEnvironment()
+  const callOrder: string[] = []
+  const fetcher: typeof globalThis.fetch = async (
+    input: string | URL | Request,
+  ): Promise<Response> => {
+    const url = input instanceof Request ? input.url : input.toString()
+    callOrder.push(url)
+
+    switch (url) {
+      case 'https://api.example.com/health':
+        return Response.json({
+          checks: {
+            api: 'ok',
+            database: 'ok',
+            redis: 'unknown',
+            telemetry: {
+              openTelemetry: 'unknown',
+              sentry: 'unknown',
+            },
+          },
+          status: 'ok',
+          timestamp: '2026-04-02T12:00:00.000Z',
+        })
+      case 'https://api.example.com/api/v1/system/ping':
+        assert.deepEqual(callOrder, ['https://api.example.com/health', url])
+        return Response.json({
+          json: {
+            ok: true,
+            service: 'api',
+            timestamp: '2026-04-02T12:00:00.000Z',
+          },
+        })
+      case 'https://app.example.com/healthz':
+        assert.deepEqual(callOrder, [
+          'https://api.example.com/health',
+          'https://api.example.com/api/v1/system/ping',
+          url,
+        ])
+        return Response.json({
+          service: '@ai-native-os/web',
+          status: 'ok',
+          timestamp: '2026-04-02T12:00:00.000Z',
+        })
+      case 'https://app.example.com/':
+        assert.deepEqual(callOrder, [
+          'https://api.example.com/health',
+          'https://api.example.com/api/v1/system/ping',
+          'https://app.example.com/healthz',
+          url,
+        ])
+        return new Response('<!DOCTYPE html><html><body>ok</body></html>', {
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+          },
+          status: 200,
+        })
+      case 'https://jobs.example.com/health':
+        assert.deepEqual(callOrder, [
+          'https://api.example.com/health',
+          'https://api.example.com/api/v1/system/ping',
+          'https://app.example.com/healthz',
+          'https://app.example.com/',
+          url,
+        ])
+        return Response.json({
+          runtime: {
+            name: '@ai-native-os/jobs',
+            scheduledTaskIds: ['report-schedule-trigger'],
+            status: 'workflow-orchestration-ready',
+            taskIds: ['rag-indexing'],
+            triggerConfigPath: 'apps/jobs/trigger.config.ts',
+          },
+          service: '@ai-native-os/jobs',
+          status: 'ok',
+          timestamp: '2026-04-02T12:00:00.000Z',
+        })
+      default:
+        throw new Error(`Unexpected fetch URL: ${url}`)
+    }
+  }
+
+  const summary = await runReleaseSmokeChecks(environment, {
+    fetcher,
+    now: () => new Date('2026-04-02T12:00:00.000Z'),
+  })
+
+  assert.deepEqual(
+    summary.results.map((result) => result.name),
+    ['api-health', 'api-ping', 'web-health', 'web-root', 'jobs-health'],
   )
 })

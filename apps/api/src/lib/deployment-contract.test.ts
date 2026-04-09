@@ -8,6 +8,7 @@ const runtimeEnvironmentKeys = [
   'APP_URL',
   'API_URL',
   'PORT',
+  'JOBS_PORT',
   'DATABASE_URL',
   'REDIS_URL',
   'REDIS_HOST',
