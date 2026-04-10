@@ -8,11 +8,19 @@ import {
   aiFeedbackListResponseSchema,
   attachPromptEvalEvidenceInputSchema,
   createAiFeedbackInputSchema,
+  createPermissionInputSchema,
   createPromptVersionInputSchema,
+  createRoleInputSchema,
   createUserInputSchema,
   currentPermissionsResponseSchema,
+  deletePermissionInputSchema,
+  deletePermissionResultSchema,
+  deleteRoleInputSchema,
+  deleteRoleResultSchema,
   deleteUserInputSchema,
   deleteUserResultSchema,
+  getPermissionByIdInputSchema,
+  getRoleByIdInputSchema,
   getUserByIdInputSchema,
   healthResponseSchema,
   knowledgeListResponseSchema,
@@ -29,13 +37,17 @@ import {
   menuListResponseSchema,
   onlineUserListResponseSchema,
   operationLogListResponseSchema,
+  permissionEntrySchema,
   permissionListResponseSchema,
   promptVersionEntrySchema,
   promptVersionListInputSchema,
   promptVersionListResponseSchema,
+  roleEntrySchema,
   roleListResponseSchema,
   rollbackPromptVersionInputSchema,
   serializedAbilityResponseSchema,
+  updatePermissionInputSchema,
+  updateRoleInputSchema,
   updateUserInputSchema,
   userEntrySchema,
   userListResponseSchema,
@@ -87,8 +99,20 @@ import {
 import { listMonitorLogs } from '@/routes/monitor/logs'
 import { listOnlineUsers } from '@/routes/monitor/online'
 import { listMenus } from '@/routes/system/menus'
-import { listPermissions } from '@/routes/system/permissions'
-import { listRoles } from '@/routes/system/roles'
+import {
+  createPermissionEntry,
+  deletePermissionEntry,
+  getPermissionById,
+  listPermissions,
+  updatePermissionEntry,
+} from '@/routes/system/permissions'
+import {
+  createRoleEntry,
+  deleteRoleEntry,
+  getRoleById,
+  listRoles,
+  updateRoleEntry,
+} from '@/routes/system/roles'
 import {
   createUserEntry,
   deleteUserEntry,
@@ -162,6 +186,14 @@ const contractFirstReadRequirements = {
 >
 
 const contractFirstWriteRequirements = {
+  permissions: [
+    { action: 'manage', subject: 'Permission' },
+    { action: 'manage', subject: 'all' },
+  ],
+  roles: [
+    { action: 'manage', subject: 'Role' },
+    { action: 'manage', subject: 'all' },
+  ],
   users: [
     { action: 'manage', subject: 'User' },
     { action: 'manage', subject: 'all' },
@@ -549,6 +581,68 @@ app.get('/api/v1/system/roles', (c) =>
   ),
 )
 
+app.get('/api/v1/system/roles/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getRoleByIdInputSchema,
+    roleEntrySchema,
+    contractFirstReadRequirements.roles,
+    getRoleById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/system/roles', (c) =>
+  handleContractFirstPost(
+    c,
+    createRoleInputSchema,
+    roleEntrySchema,
+    contractFirstWriteRequirements.roles,
+    async (input, context) =>
+      createRoleEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.put('/api/v1/system/roles/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    updateRoleInputSchema,
+    roleEntrySchema,
+    contractFirstWriteRequirements.roles,
+    async (input, context) =>
+      updateRoleEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext, requestJson) => ({
+      ...(typeof requestJson === 'object' && requestJson !== null ? requestJson : {}),
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.delete('/api/v1/system/roles/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    deleteRoleInputSchema,
+    deleteRoleResultSchema,
+    contractFirstWriteRequirements.roles,
+    async (input, context) =>
+      deleteRoleEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
 app.get('/api/v1/system/permissions', (c) =>
   handleContractFirstGet(
     c,
@@ -556,6 +650,113 @@ app.get('/api/v1/system/permissions', (c) =>
     permissionListResponseSchema,
     contractFirstReadRequirements.permissions,
     listPermissions,
+  ),
+)
+
+app.get('/api/v1/system/permissions/current', async (c) => {
+  const context = await createAppContext(c)
+
+  if (!context.session) {
+    return c.json(
+      {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required',
+      },
+      401,
+    )
+  }
+
+  return c.json({
+    json: currentPermissionsResponseSchema.parse({
+      permissionRules: context.permissionRules,
+      rbacUserId: context.rbacUserId,
+      roleCodes: context.roleCodes,
+      userId: context.userId,
+    }),
+  })
+})
+
+app.get('/api/v1/system/permissions/ability', async (c) => {
+  const context = await createAppContext(c)
+
+  if (!context.session) {
+    return c.json(
+      {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required',
+      },
+      401,
+    )
+  }
+
+  return c.json({
+    json: serializedAbilityResponseSchema.parse({
+      roleCodes: context.roleCodes,
+      rules: context.permissionRules,
+      userId: context.userId,
+    }),
+  })
+})
+
+app.get('/api/v1/system/permissions/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getPermissionByIdInputSchema,
+    permissionEntrySchema,
+    contractFirstReadRequirements.permissions,
+    getPermissionById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/system/permissions', (c) =>
+  handleContractFirstPost(
+    c,
+    createPermissionInputSchema,
+    permissionEntrySchema,
+    contractFirstWriteRequirements.permissions,
+    async (input, context) =>
+      createPermissionEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.put('/api/v1/system/permissions/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    updatePermissionInputSchema,
+    permissionEntrySchema,
+    contractFirstWriteRequirements.permissions,
+    async (input, context) =>
+      updatePermissionEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext, requestJson) => ({
+      ...(typeof requestJson === 'object' && requestJson !== null ? requestJson : {}),
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.delete('/api/v1/system/permissions/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    deletePermissionInputSchema,
+    deletePermissionResultSchema,
+    contractFirstWriteRequirements.permissions,
+    async (input, context) =>
+      deletePermissionEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
   ),
 )
 
@@ -713,51 +914,6 @@ app.post('/api/v1/ai/prompts/rollback', (c) =>
       }),
   ),
 )
-
-app.get('/api/v1/system/permissions/current', async (c) => {
-  const context = await createAppContext(c)
-
-  if (!context.session) {
-    return c.json(
-      {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required',
-      },
-      401,
-    )
-  }
-
-  return c.json({
-    json: currentPermissionsResponseSchema.parse({
-      permissionRules: context.permissionRules,
-      rbacUserId: context.rbacUserId,
-      roleCodes: context.roleCodes,
-      userId: context.userId,
-    }),
-  })
-})
-
-app.get('/api/v1/system/permissions/ability', async (c) => {
-  const context = await createAppContext(c)
-
-  if (!context.session) {
-    return c.json(
-      {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required',
-      },
-      401,
-    )
-  }
-
-  return c.json({
-    json: serializedAbilityResponseSchema.parse({
-      roleCodes: context.roleCodes,
-      rules: context.permissionRules,
-      userId: context.userId,
-    }),
-  })
-})
 
 app.all('/api/v1/*', async (c) => {
   const result = await rpcHandler.handle(c.req.raw, {

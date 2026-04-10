@@ -1,4 +1,4 @@
-import type { RoleListResponse } from '@ai-native-os/shared'
+import type { PermissionListResponse, RoleListResponse } from '@ai-native-os/shared'
 import { cookies } from 'next/headers'
 import { fetchSerializedAbilityPayload } from './api'
 import { resolveWebEnvironment } from './env'
@@ -22,6 +22,9 @@ import {
   type ToggleFilterState,
 } from './management'
 
+/**
+ * 读取当前服务端请求的 cookie 头，供后续管理接口透传同一会话上下文。
+ */
 async function readCookieHeader(): Promise<string | undefined> {
   const cookieStore = await cookies()
 
@@ -31,7 +34,9 @@ async function readCookieHeader(): Promise<string | undefined> {
 /**
  * 在服务端读取序列化权限载荷，供页面层决定是否展示写路径。
  */
-export async function loadSerializedAbilityPayload() {
+export async function loadSerializedAbilityPayload(): Promise<
+  Awaited<ReturnType<typeof fetchSerializedAbilityPayload>>
+> {
   return fetchSerializedAbilityPayload(await readCookieHeader(), resolveWebEnvironment())
 }
 
@@ -58,6 +63,21 @@ export async function loadAssignableRoles(): Promise<RoleListResponse['data']> {
     pageSize: 100,
     search: undefined,
     status: 'active',
+  })
+
+  return payload.data
+}
+
+/**
+ * 在服务端读取可分配权限选项，供角色管理页复用统一 contract-first 数据源。
+ */
+export async function loadAssignablePermissions(): Promise<PermissionListResponse['data']> {
+  const payload = await loadPermissionsList({
+    action: undefined,
+    page: 1,
+    pageSize: 200,
+    resource: undefined,
+    search: undefined,
   })
 
   return payload.data

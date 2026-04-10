@@ -6,11 +6,12 @@ import {
   db,
   listAiEvalRunsByEvalKey,
   listOperationLogsByModule,
+  permissions,
   roles,
   userRoles,
   users,
 } from '@ai-native-os/db'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 
 import { app } from '@/index'
 import { runMastraEvalSuite } from '@/mastra/evals/runner'
@@ -205,6 +206,36 @@ async function createSessionForRole(roleCode: string): Promise<Headers> {
   return authHeaders
 }
 
+// 读取角色 CRUD 测试所需的权限主键，避免在测试里硬编码权限 UUID。
+async function loadRoleCrudPermissionIds(): Promise<{
+  roleReadPermissionId: string
+  userReadPermissionId: string
+}> {
+  const permissionRows = await db
+    .select({
+      action: permissions.action,
+      id: permissions.id,
+      resource: permissions.resource,
+    })
+    .from(permissions)
+    .where(inArray(permissions.resource, ['Role', 'User']))
+
+  const userReadPermissionId = permissionRows.find(
+    (permission) => permission.resource === 'User' && permission.action === 'read',
+  )?.id
+  const roleReadPermissionId = permissionRows.find(
+    (permission) => permission.resource === 'Role' && permission.action === 'read',
+  )?.id
+
+  assert.ok(userReadPermissionId, 'Expected read:User permission to exist')
+  assert.ok(roleReadPermissionId, 'Expected read:Role permission to exist')
+
+  return {
+    roleReadPermissionId,
+    userReadPermissionId,
+  }
+}
+
 test('OpenAPI document exposes the contract-first business skeleton paths', async () => {
   const response = await app.request('http://localhost/api/openapi.json')
   const payload = (await response.json()) as OpenApiDocument
@@ -212,7 +243,14 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
   assert.equal(response.status, 200)
   assert.ok('/api/v1/system/users' in payload.paths)
   assert.ok('/api/v1/system/roles' in payload.paths)
+  assert.ok(
+    '/api/v1/system/roles/{id}' in payload.paths || '/api/v1/system/roles/:id' in payload.paths,
+  )
   assert.ok('/api/v1/system/permissions' in payload.paths)
+  assert.ok(
+    '/api/v1/system/permissions/{id}' in payload.paths ||
+      '/api/v1/system/permissions/:id' in payload.paths,
+  )
   assert.ok('/api/v1/system/menus' in payload.paths)
   assert.ok('/api/v1/system/dicts' in payload.paths)
   assert.ok('/api/v1/system/config' in payload.paths)
@@ -342,12 +380,12 @@ test('OpenAPI document exposes rich schema metadata for system roles and permiss
   assert.equal(rolesOperation.summary, '查询角色列表')
   assert.equal(
     rolesOperation.description,
-    '分页返回系统角色目录，并附带每个角色当前绑定的用户数量与权限数量，供角色管理界面直接展示。',
+    '分页返回系统角色目录，并附带每个角色当前绑定的用户数量、权限数量和权限主键列表，供角色管理界面直接展示与回填。',
   )
   assert.equal(permissionsOperation.summary, '查询权限规则列表')
   assert.equal(
     permissionsOperation.description,
-    '分页返回权限规则目录，包含资源、动作、条件、字段约束和是否为禁止规则等信息，供权限中心直接消费。',
+    '分页返回权限规则目录，包含资源、动作、条件、字段约束、角色引用数量和是否为禁止规则等信息，供权限中心直接消费。',
   )
 
   const rolesStatusParameter = findOperationParameter(rolesOperation, 'status')
@@ -409,8 +447,19 @@ test('OpenAPI document exposes rich schema metadata for system roles and permiss
   )
   assert.ok(
     isRecord(roleEntrySchema.properties) &&
+      isRecord(roleEntrySchema.properties.permissionIds) &&
+      roleEntrySchema.properties.permissionIds.description ===
+        '当前角色绑定的权限规则主键列表，供角色编辑表单直接回填；后端会在写入时校验这些权限必须存在。',
+  )
+  assert.ok(
+    isRecord(roleEntrySchema.properties) &&
       isRecord(roleEntrySchema.properties.userCount) &&
       roleEntrySchema.properties.userCount.description === '当前绑定该角色的用户数量。',
+  )
+  assert.ok(
+    isRecord(permissionEntrySchema.properties) &&
+      isRecord(permissionEntrySchema.properties.roleCount) &&
+      permissionEntrySchema.properties.roleCount.description === '当前引用该权限规则的角色数量。',
   )
   assert.ok(
     isRecord(permissionEntrySchema.properties) &&
@@ -423,6 +472,154 @@ test('OpenAPI document exposes rich schema metadata for system roles and permiss
       isRecord(permissionEntrySchema.properties.inverted) &&
       permissionEntrySchema.properties.inverted.description ===
         '是否为反向规则；`true` 表示禁止规则，`false` 表示允许规则。',
+  )
+})
+
+test('OpenAPI document exposes rich schema metadata for system permission write contracts', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+  const permissionsPath = payload.paths['/api/v1/system/permissions']
+
+  assert.ok(
+    permissionsPath && isRecord(permissionsPath),
+    'Expected /api/v1/system/permissions path to exist',
+  )
+
+  const postOperation = permissionsPath.post
+
+  assert.ok(
+    postOperation && isRecord(postOperation),
+    'Expected POST operation for system permissions',
+  )
+  assert.equal(postOperation.summary, '创建权限规则')
+  assert.equal(
+    postOperation.description,
+    '创建自定义权限规则；系统保留权限、`manage:all` 提升和完全重复的规则会在服务端被拒绝，并记录审计日志。',
+  )
+
+  const requestBody = postOperation.requestBody
+
+  assert.ok(requestBody && isRecord(requestBody), 'Expected request body metadata to exist')
+
+  const requestContent = requestBody.content
+
+  assert.ok(
+    requestContent && isRecord(requestContent),
+    'Expected request body content map to exist',
+  )
+
+  const jsonContent = requestContent['application/json']
+
+  assert.ok(jsonContent && isRecord(jsonContent), 'Expected JSON request body schema to exist')
+
+  const inputSchema = resolveOpenApiSchema(payload, jsonContent.schema)
+
+  assert.equal(inputSchema.title, 'CreatePermissionInput')
+  assert.equal(
+    inputSchema.description,
+    '创建自定义权限规则；系统保留权限与 `manage:all` 提升会在服务端被拒绝，且完全重复的权限规则不会重复创建。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.conditions) &&
+      inputSchema.properties.conditions.description ===
+        '创建时的 CASL 条件表达式；未填写时默认 `null`。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.fields) &&
+      inputSchema.properties.fields.description ===
+        '可选字段范围；未填写时默认 `null`，表示不限制字段维度。',
+  )
+
+  const responses = postOperation.responses
+
+  assert.ok(responses && isRecord(responses), 'Expected response metadata to exist')
+
+  const responseJson =
+    isRecord(responses['200']) && isRecord(responses['200'].content)
+      ? responses['200'].content['application/json']
+      : undefined
+
+  assert.ok(responseJson && isRecord(responseJson), 'Expected JSON response schema to exist')
+
+  const outputSchema = resolveOpenApiSchema(payload, responseJson.schema)
+
+  assert.equal(outputSchema.title, 'PermissionEntry')
+  assert.equal(
+    outputSchema.description,
+    '权限规则条目，表示一条 CASL 资源动作规则及其条件约束，并附带角色引用数量摘要。',
+  )
+})
+
+test('OpenAPI document exposes rich schema metadata for system role write contracts', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+  const rolesPath = payload.paths['/api/v1/system/roles']
+
+  assert.ok(rolesPath && isRecord(rolesPath), 'Expected /api/v1/system/roles path to exist')
+
+  const postOperation = rolesPath.post
+
+  assert.ok(postOperation && isRecord(postOperation), 'Expected POST operation for system roles')
+  assert.equal(postOperation.summary, '创建角色')
+  assert.equal(
+    postOperation.description,
+    '创建自定义 RBAC 角色并同步绑定权限规则；系统保留角色编码与 `manage:all` 权限会在服务端被拒绝，且该操作会记录审计日志。',
+  )
+
+  const requestBody = postOperation.requestBody
+
+  assert.ok(requestBody && isRecord(requestBody), 'Expected request body metadata to exist')
+
+  const requestContent = requestBody.content
+
+  assert.ok(
+    requestContent && isRecord(requestContent),
+    'Expected request body content map to exist',
+  )
+
+  const jsonContent = requestContent['application/json']
+
+  assert.ok(jsonContent && isRecord(jsonContent), 'Expected JSON request body schema to exist')
+
+  const inputSchema = resolveOpenApiSchema(payload, jsonContent.schema)
+
+  assert.equal(inputSchema.title, 'CreateRoleInput')
+  assert.equal(
+    inputSchema.description,
+    '创建一个自定义 RBAC 角色，并同步绑定权限规则；系统保留角色编码不可通过该接口复用。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.code) &&
+      inputSchema.properties.code.description ===
+        '新角色编码，作为稳定 RBAC 标识使用；不得复用系统保留编码，例如 `super_admin`、`admin`、`editor`、`viewer`。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.permissionIds) &&
+      inputSchema.properties.permissionIds.description ===
+        '当前角色绑定的权限规则主键列表，供角色编辑表单直接回填；后端会在写入时校验这些权限必须存在。',
+  )
+
+  const responses = postOperation.responses
+
+  assert.ok(responses && isRecord(responses), 'Expected response metadata to exist')
+
+  const responseJson =
+    isRecord(responses['200']) && isRecord(responses['200'].content)
+      ? responses['200'].content['application/json']
+      : undefined
+
+  assert.ok(responseJson && isRecord(responseJson), 'Expected JSON response schema to exist')
+
+  const outputSchema = resolveOpenApiSchema(payload, responseJson.schema)
+
+  assert.equal(outputSchema.title, 'RoleEntry')
+  assert.equal(
+    outputSchema.description,
+    '角色目录条目，包含角色基础信息、权限绑定主键列表以及用户数/权限数两个管理摘要，可直接用于角色编辑表单回填。',
   )
 })
 
@@ -673,6 +870,476 @@ test('super_admin can perform full contract-first CRUD on system users', async (
   assert.ok(targetLogs.some((log) => log.action === 'create_user'))
   assert.ok(targetLogs.some((log) => log.action === 'update_user'))
   assert.ok(targetLogs.some((log) => log.action === 'delete_user'))
+})
+
+test('super_admin can perform full contract-first CRUD on custom system roles', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const roleSuffix = randomUUID().slice(0, 8)
+  const { roleReadPermissionId, userReadPermissionId } = await loadRoleCrudPermissionIds()
+  const createResponse = await app.request('http://localhost/api/v1/system/roles', {
+    body: JSON.stringify({
+      code: `ops_${roleSuffix}`,
+      description: 'Contract CRUD Role',
+      name: `Contract Role ${roleSuffix}`,
+      permissionIds: [userReadPermissionId],
+      sortOrder: 40,
+      status: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      code: string
+      id: string
+      permissionIds: string[]
+      status: boolean
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.code, `ops_${roleSuffix}`)
+  assert.deepEqual(createPayload.json.permissionIds, [userReadPermissionId])
+  assert.equal(createPayload.json.status, true)
+
+  const readResponse = await app.request(
+    `http://localhost/api/v1/system/roles/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const readPayload = (await readResponse.json()) as {
+    json: {
+      code: string
+      id: string
+      permissionIds: string[]
+      userCount: number
+    }
+  }
+
+  assert.equal(readResponse.status, 200)
+  assert.equal(readPayload.json.id, createPayload.json.id)
+  assert.deepEqual(readPayload.json.permissionIds, [userReadPermissionId])
+  assert.equal(readPayload.json.userCount, 0)
+
+  const updateResponse = await app.request(
+    `http://localhost/api/v1/system/roles/${createPayload.json.id}`,
+    {
+      body: JSON.stringify({
+        code: `ops_updated_${roleSuffix}`,
+        description: 'Contract CRUD Role Updated',
+        name: `Contract Role Updated ${roleSuffix}`,
+        permissionIds: [roleReadPermissionId, userReadPermissionId],
+        sortOrder: 50,
+        status: true,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const updatePayload = (await updateResponse.json()) as {
+    json: {
+      code: string
+      id: string
+      name: string
+      permissionIds: string[]
+      sortOrder: number
+    }
+  }
+
+  assert.equal(updateResponse.status, 200)
+  assert.equal(updatePayload.json.id, createPayload.json.id)
+  assert.equal(updatePayload.json.code, `ops_updated_${roleSuffix}`)
+  assert.equal(updatePayload.json.name, `Contract Role Updated ${roleSuffix}`)
+  assert.deepEqual(updatePayload.json.permissionIds, [roleReadPermissionId, userReadPermissionId])
+  assert.equal(updatePayload.json.sortOrder, 50)
+
+  const deleteResponse = await app.request(
+    `http://localhost/api/v1/system/roles/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const deletePayload = (await deleteResponse.json()) as {
+    json: {
+      deleted: boolean
+      id: string
+    }
+  }
+
+  assert.equal(deleteResponse.status, 200)
+  assert.equal(deletePayload.json.deleted, true)
+  assert.equal(deletePayload.json.id, createPayload.json.id)
+
+  const deletedReadResponse = await app.request(
+    `http://localhost/api/v1/system/roles/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const deletedReadPayload = (await deletedReadResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(deletedReadResponse.status, 404)
+  assert.equal(deletedReadPayload.code, 'NOT_FOUND')
+  assert.match(deletedReadPayload.message, /Role not found/)
+
+  const systemRoleLogs = await listOperationLogsByModule('system_roles')
+  const targetLogs = systemRoleLogs.filter((log) => log.targetId === createPayload.json.id)
+
+  assert.ok(targetLogs.some((log) => log.action === 'create_role'))
+  assert.ok(targetLogs.some((log) => log.action === 'update_role'))
+  assert.ok(targetLogs.some((log) => log.action === 'delete_role'))
+})
+
+test('viewer cannot create roles through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const { userReadPermissionId } = await loadRoleCrudPermissionIds()
+  const response = await app.request('http://localhost/api/v1/system/roles', {
+    body: JSON.stringify({
+      code: `viewer_blocked_${randomUUID().slice(0, 8)}`,
+      description: 'Blocked Viewer Role Mutation',
+      name: 'Blocked Viewer Role Mutation',
+      permissionIds: [userReadPermissionId],
+      sortOrder: 20,
+      status: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 403)
+  assert.equal(payload.code, 'FORBIDDEN')
+  assert.match(payload.message, /manage:Role|manage:all/)
+})
+
+test('seeded system roles remain read-only through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const [viewerRole] = await db
+    .select({
+      id: roles.id,
+    })
+    .from(roles)
+    .where(eq(roles.code, 'viewer'))
+    .limit(1)
+
+  assert.ok(viewerRole, 'Expected seeded viewer role to exist')
+
+  const response = await app.request(`http://localhost/api/v1/system/roles/${viewerRole.id}`, {
+    headers: authHeaders,
+    method: 'DELETE',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 400)
+  assert.equal(payload.code, 'BAD_REQUEST')
+  assert.match(payload.message, /Seeded system role viewer is read-only/)
+})
+
+test('super_admin can perform full contract-first CRUD on custom system permissions', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const permissionSuffix = randomUUID().slice(0, 8)
+  const createResponse = await app.request('http://localhost/api/v1/system/permissions', {
+    body: JSON.stringify({
+      action: 'approve',
+      conditions: { department: 'finance', permissionSuffix },
+      description: 'Contract CRUD Permission',
+      fields: ['status', 'approverId'],
+      inverted: false,
+      resource: 'Approval',
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      action: string
+      id: string
+      resource: string
+      roleCount: number
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.action, 'approve')
+  assert.equal(createPayload.json.resource, 'Approval')
+  assert.equal(createPayload.json.roleCount, 0)
+
+  const readResponse = await app.request(
+    `http://localhost/api/v1/system/permissions/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const readPayload = (await readResponse.json()) as {
+    json: {
+      conditions: Record<string, unknown> | null
+      fields: string[] | null
+      id: string
+      roleCount: number
+    }
+  }
+
+  assert.equal(readResponse.status, 200)
+  assert.equal(readPayload.json.id, createPayload.json.id)
+  assert.deepEqual(readPayload.json.fields, ['approverId', 'status'])
+  assert.deepEqual(readPayload.json.conditions, {
+    department: 'finance',
+    permissionSuffix,
+  })
+  assert.equal(readPayload.json.roleCount, 0)
+
+  const updateResponse = await app.request(
+    `http://localhost/api/v1/system/permissions/${createPayload.json.id}`,
+    {
+      body: JSON.stringify({
+        action: 'import',
+        conditions: { department: 'finance', permissionSuffix, stage: 'review' },
+        description: 'Contract CRUD Permission Updated',
+        fields: ['status'],
+        inverted: true,
+        resource: 'Config',
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const updatePayload = (await updateResponse.json()) as {
+    json: {
+      action: string
+      description: string | null
+      fields: string[] | null
+      id: string
+      inverted: boolean
+      resource: string
+    }
+  }
+
+  assert.equal(updateResponse.status, 200)
+  assert.equal(updatePayload.json.id, createPayload.json.id)
+  assert.equal(updatePayload.json.action, 'import')
+  assert.equal(updatePayload.json.resource, 'Config')
+  assert.equal(updatePayload.json.description, 'Contract CRUD Permission Updated')
+  assert.deepEqual(updatePayload.json.fields, ['status'])
+  assert.equal(updatePayload.json.inverted, true)
+
+  const deleteResponse = await app.request(
+    `http://localhost/api/v1/system/permissions/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const deletePayload = (await deleteResponse.json()) as {
+    json: {
+      deleted: boolean
+      id: string
+    }
+  }
+
+  assert.equal(deleteResponse.status, 200)
+  assert.equal(deletePayload.json.deleted, true)
+  assert.equal(deletePayload.json.id, createPayload.json.id)
+
+  const deletedReadResponse = await app.request(
+    `http://localhost/api/v1/system/permissions/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const deletedReadPayload = (await deletedReadResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(deletedReadResponse.status, 404)
+  assert.equal(deletedReadPayload.code, 'NOT_FOUND')
+  assert.match(deletedReadPayload.message, /Permission not found/)
+
+  const systemPermissionLogs = await listOperationLogsByModule('system_permissions')
+  const targetLogs = systemPermissionLogs.filter((log) => log.targetId === createPayload.json.id)
+
+  assert.ok(targetLogs.some((log) => log.action === 'create_permission'))
+  assert.ok(targetLogs.some((log) => log.action === 'update_permission'))
+  assert.ok(targetLogs.some((log) => log.action === 'delete_permission'))
+})
+
+test('viewer cannot create permissions through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/api/v1/system/permissions', {
+    body: JSON.stringify({
+      action: 'approve',
+      conditions: null,
+      description: 'Blocked Viewer Permission Mutation',
+      fields: ['status'],
+      inverted: false,
+      resource: 'Approval',
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 403)
+  assert.equal(payload.code, 'FORBIDDEN')
+  assert.match(payload.message, /manage:Permission|manage:all/)
+})
+
+test('seeded permissions remain read-only through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const [viewerPermission] = await db
+    .select({
+      id: permissions.id,
+    })
+    .from(permissions)
+    .where(and(eq(permissions.action, 'read'), eq(permissions.resource, 'Role')))
+    .limit(1)
+
+  assert.ok(viewerPermission, 'Expected seeded read:Role permission to exist')
+
+  const response = await app.request(
+    `http://localhost/api/v1/system/permissions/${viewerPermission.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 400)
+  assert.equal(payload.code, 'BAD_REQUEST')
+  assert.match(payload.message, /Seeded permission is read-only/)
+})
+
+test('assigned custom permissions cannot change semantics until roles are unbound', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const permissionSuffix = randomUUID().slice(0, 8)
+  const permissionResponse = await app.request('http://localhost/api/v1/system/permissions', {
+    body: JSON.stringify({
+      action: 'approve',
+      conditions: { permissionSuffix },
+      description: 'Bound Permission Mutation Guard',
+      fields: ['status'],
+      inverted: false,
+      resource: 'Approval',
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const permissionPayload = (await permissionResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+
+  assert.equal(permissionResponse.status, 200)
+
+  const roleResponse = await app.request('http://localhost/api/v1/system/roles', {
+    body: JSON.stringify({
+      code: `guard_role_${permissionSuffix}`,
+      description: 'Permission guard test role',
+      name: `Permission Guard ${permissionSuffix}`,
+      permissionIds: [permissionPayload.json.id],
+      sortOrder: 90,
+      status: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const rolePayload = (await roleResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+
+  assert.equal(roleResponse.status, 200)
+
+  const blockedUpdateResponse = await app.request(
+    `http://localhost/api/v1/system/permissions/${permissionPayload.json.id}`,
+    {
+      body: JSON.stringify({
+        action: 'import',
+        conditions: { permissionSuffix, stage: 'changed' },
+        description: 'Permission semantics changed while bound',
+        fields: ['status'],
+        inverted: false,
+        resource: 'Config',
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const blockedPayload = (await blockedUpdateResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(blockedUpdateResponse.status, 400)
+  assert.equal(blockedPayload.code, 'BAD_REQUEST')
+  assert.match(blockedPayload.message, /Assigned roles must be removed/)
+
+  const roleDeleteResponse = await app.request(
+    `http://localhost/api/v1/system/roles/${rolePayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+
+  assert.equal(roleDeleteResponse.status, 200)
+
+  const permissionDeleteResponse = await app.request(
+    `http://localhost/api/v1/system/permissions/${permissionPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+
+  assert.equal(permissionDeleteResponse.status, 200)
 })
 
 test('viewer cannot create users through the contract-first write route', async () => {

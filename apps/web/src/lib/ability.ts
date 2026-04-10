@@ -108,10 +108,16 @@ export const navigationItems: readonly NavigationItem[] = [
   },
 ] as const
 
+/**
+ * 解析来自 API 的序列化权限载荷，统一恢复为前端可消费的稳定结构。
+ */
 export function parseSerializedAbilityPayload(payload: unknown): AbilityPayload {
   return serializedAbilityResponseSchema.parse(payload)
 }
 
+/**
+ * 规范化规则数组，便于交给 CASL 反序列化逻辑安全恢复 ability 实例。
+ */
 function normalizeRulesForAbility(payload: AbilityPayload): PermissionRule[] {
   return payload.rules.map((rule) => {
     const normalizedRule: PermissionRule = {
@@ -138,7 +144,9 @@ function normalizeRulesForAbility(payload: AbilityPayload): PermissionRule[] {
 /**
  * 把序列化后的权限载荷恢复为前端可复用的 CASL ability 实例。
  */
-export function createAbilityFromPayload(payload: AbilityPayload) {
+export function createAbilityFromPayload(
+  payload: AbilityPayload,
+): ReturnType<typeof deserializeAbility> {
   return deserializeAbility(normalizeRulesForAbility(payload))
 }
 
@@ -151,6 +159,27 @@ export function canManageUserDirectory(payload: AbilityPayload): boolean {
   return ability.can('manage', 'User') || ability.can('manage', 'all')
 }
 
+/**
+ * 判断当前主体是否具备角色目录写权限，供角色管理页决定是否暴露 CRUD 表单。
+ */
+export function canManageRoles(payload: AbilityPayload): boolean {
+  const ability = createAbilityFromPayload(payload)
+
+  return ability.can('manage', 'Role') || ability.can('manage', 'all')
+}
+
+/**
+ * 判断当前主体是否具备权限中心写权限，供权限管理页决定是否暴露 CRUD 表单。
+ */
+export function canManagePermissions(payload: AbilityPayload): boolean {
+  const ability = createAbilityFromPayload(payload)
+
+  return ability.can('manage', 'Permission') || ability.can('manage', 'all')
+}
+
+/**
+ * 根据当前 ability 过滤导航项，避免未授权页面入口暴露在侧边栏中。
+ */
 export function getVisibleNavigationItems(payload: AbilityPayload): NavigationItem[] {
   const ability = createAbilityFromPayload(payload)
 

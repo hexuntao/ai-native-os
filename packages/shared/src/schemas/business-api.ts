@@ -386,6 +386,17 @@ const permissionIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
   examples: ['2f3dc6ce-3c88-4db0-b194-f8506bbf1001'],
 })
 
+const rolePermissionIdsFieldSchema = withOpenApiSchemaDoc(
+  z.array(permissionIdSchema).max(200).default([]),
+  {
+    title: 'RolePermissionIds',
+    description:
+      '当前角色绑定的权限规则主键列表，供角色编辑表单直接回填；后端会在写入时校验这些权限必须存在。',
+    examples: [['2f3dc6ce-3c88-4db0-b194-f8506bbf1001']],
+    default: [],
+  },
+)
+
 const permissionFieldsSchema = withOpenApiSchemaDoc(z.array(z.string()).nullable(), {
   title: 'PermissionFields',
   description: '字段级权限约束；为空表示不限制字段维度。',
@@ -405,6 +416,12 @@ const permissionInvertedSchema = withOpenApiSchemaDoc(z.boolean(), {
   title: 'PermissionInverted',
   description: '是否为反向规则；`true` 表示禁止规则，`false` 表示允许规则。',
   examples: [false],
+})
+
+const permissionRoleCountSchema = withOpenApiSchemaDoc(z.number().int().min(0), {
+  title: 'PermissionRoleCount',
+  description: '当前引用该权限规则的角色数量。',
+  examples: [2],
 })
 
 export const listRolesInputSchema = withOpenApiSchemaDoc(
@@ -445,6 +462,7 @@ export const roleListItemSchema = withOpenApiSchemaDoc(
     id: roleIdSchema,
     name: roleNameFieldSchema,
     permissionCount: rolePermissionCountSchema,
+    permissionIds: rolePermissionIdsFieldSchema,
     sortOrder: roleSortOrderSchema,
     status: roleStatusFieldSchema,
     updatedAt: withOpenApiSchemaDoc(z.string(), {
@@ -456,7 +474,8 @@ export const roleListItemSchema = withOpenApiSchemaDoc(
   }),
   {
     title: 'RoleEntry',
-    description: '角色列表条目，包含角色基础信息以及用户数、权限数两个管理摘要。',
+    description:
+      '角色目录条目，包含角色基础信息、权限绑定主键列表以及用户数/权限数两个管理摘要，可直接用于角色编辑表单回填。',
     examples: [
       {
         id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
@@ -467,8 +486,158 @@ export const roleListItemSchema = withOpenApiSchemaDoc(
         status: true,
         userCount: 3,
         permissionCount: 18,
+        permissionIds: ['2f3dc6ce-3c88-4db0-b194-f8506bbf1001'],
         createdAt: '2026-04-09T09:30:00.000Z',
         updatedAt: '2026-04-09T10:00:00.000Z',
+      },
+    ],
+  },
+)
+
+export const roleEntrySchema = roleListItemSchema
+
+export const getRoleByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: roleIdSchema,
+  }),
+  {
+    title: 'GetRoleByIdInput',
+    description: '按角色 UUID 读取单个角色详情，包括已绑定权限主键列表。',
+    examples: [
+      {
+        id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
+      },
+    ],
+  },
+)
+
+export const createRoleInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    code: withOpenApiSchemaDoc(roleCodeSchema, {
+      title: 'CreateRoleCode',
+      description:
+        '新角色编码，作为稳定 RBAC 标识使用；不得复用系统保留编码，例如 `super_admin`、`admin`、`editor`、`viewer`。',
+      examples: ['ops_auditor'],
+    }),
+    description: withOpenApiSchemaDoc(nullableRoleDescriptionSchema.default(null), {
+      title: 'CreateRoleDescription',
+      description: '角色说明，未填写时默认写入 `null`。',
+      examples: ['面向运维审计成员的只读巡检角色。'],
+      default: null,
+    }),
+    name: withOpenApiSchemaDoc(roleNameFieldSchema, {
+      title: 'CreateRoleName',
+      description: '角色显示名称，用于后台管理界面和成员分配表单。',
+      examples: ['运维审计员'],
+    }),
+    permissionIds: rolePermissionIdsFieldSchema,
+    sortOrder: withOpenApiSchemaDoc(z.coerce.number().int().min(-9999).max(9999), {
+      title: 'CreateRoleSortOrder',
+      description: '创建角色时的排序值；数值越小越靠前。',
+      examples: [30],
+      default: 0,
+    }),
+    status: withOpenApiSchemaDoc(roleStatusFieldSchema.default(true), {
+      title: 'CreateRoleStatus',
+      description: '创建后是否立即启用；默认 `true`。',
+      examples: [true],
+      default: true,
+    }),
+  }),
+  {
+    title: 'CreateRoleInput',
+    description:
+      '创建一个自定义 RBAC 角色，并同步绑定权限规则；系统保留角色编码不可通过该接口复用。',
+    examples: [
+      {
+        code: 'ops_auditor',
+        name: '运维审计员',
+        description: '面向运维审计成员的只读巡检角色。',
+        sortOrder: 30,
+        status: true,
+        permissionIds: ['2f3dc6ce-3c88-4db0-b194-f8506bbf1001'],
+      },
+    ],
+  },
+)
+
+export const updateRoleInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    code: withOpenApiSchemaDoc(roleCodeSchema, {
+      title: 'UpdateRoleCode',
+      description:
+        '更新后的角色编码，仍作为稳定 RBAC 标识使用；系统保留角色与系统保留编码不可在该接口中改写。',
+      examples: ['ops_auditor'],
+    }),
+    description: withOpenApiSchemaDoc(nullableRoleDescriptionSchema.default(null), {
+      title: 'UpdateRoleDescription',
+      description: '更新后的角色说明，空字符串会归一化为 `null`。',
+      examples: ['面向运维审计成员的只读巡检角色。'],
+      default: null,
+    }),
+    id: roleIdSchema,
+    name: withOpenApiSchemaDoc(roleNameFieldSchema, {
+      title: 'UpdateRoleName',
+      description: '更新后的角色显示名称。',
+      examples: ['运维审计员'],
+    }),
+    permissionIds: rolePermissionIdsFieldSchema,
+    sortOrder: withOpenApiSchemaDoc(z.coerce.number().int().min(-9999).max(9999), {
+      title: 'UpdateRoleSortOrder',
+      description: '更新后的排序值；数值越小越靠前。',
+      examples: [30],
+    }),
+    status: roleStatusFieldSchema,
+  }),
+  {
+    title: 'UpdateRoleInput',
+    description:
+      '更新自定义 RBAC 角色的基础信息、启停状态与权限绑定；系统保留角色会在服务端被拒绝修改。',
+    examples: [
+      {
+        id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
+        code: 'ops_auditor',
+        name: '运维审计员',
+        description: '覆盖运维巡检与审计查询的角色。',
+        sortOrder: 40,
+        status: true,
+        permissionIds: ['2f3dc6ce-3c88-4db0-b194-f8506bbf1001'],
+      },
+    ],
+  },
+)
+
+export const deleteRoleInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: roleIdSchema,
+  }),
+  {
+    title: 'DeleteRoleInput',
+    description: '删除角色的请求参数，按角色 UUID 指定目标。',
+    examples: [
+      {
+        id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
+      },
+    ],
+  },
+)
+
+export const deleteRoleResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    deleted: withOpenApiSchemaDoc(z.literal(true), {
+      title: 'DeleteRoleSuccessFlag',
+      description: '角色删除成功标志，固定为 `true`。',
+      examples: [true],
+    }),
+    id: roleIdSchema,
+  }),
+  {
+    title: 'DeleteRoleResult',
+    description: '角色删除成功后的标准响应。',
+    examples: [
+      {
+        deleted: true,
+        id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
       },
     ],
   },
@@ -551,11 +720,12 @@ export const permissionListItemSchema = withOpenApiSchemaDoc(
     fields: permissionFieldsSchema,
     id: permissionIdSchema,
     inverted: permissionInvertedSchema,
+    roleCount: permissionRoleCountSchema,
     resource: appSubjectFieldSchema,
   }),
   {
     title: 'PermissionEntry',
-    description: '权限规则列表条目，表示一条 CASL 资源动作规则及其条件约束。',
+    description: '权限规则条目，表示一条 CASL 资源动作规则及其条件约束，并附带角色引用数量摘要。',
     examples: [
       {
         id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
@@ -565,7 +735,166 @@ export const permissionListItemSchema = withOpenApiSchemaDoc(
         fields: ['email', 'nickname'],
         conditions: null,
         inverted: false,
+        roleCount: 2,
         createdAt: '2026-04-09T09:30:00.000Z',
+      },
+    ],
+  },
+)
+
+export const permissionEntrySchema = permissionListItemSchema
+
+export const getPermissionByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: permissionIdSchema,
+  }),
+  {
+    title: 'GetPermissionByIdInput',
+    description: '按权限 UUID 读取单个权限规则详情。',
+    examples: [
+      {
+        id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
+      },
+    ],
+  },
+)
+
+export const createPermissionInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    action: withOpenApiSchemaDoc(appActionFieldSchema, {
+      title: 'CreatePermissionAction',
+      description: '新权限规则的 CASL 动作，例如 `read`、`update`、`approve`。',
+      examples: ['approve'],
+    }),
+    conditions: withOpenApiSchemaDoc(permissionConditionsSchema.default(null), {
+      title: 'CreatePermissionConditions',
+      description: '创建时的 CASL 条件表达式；未填写时默认 `null`。',
+      examples: [{ department: 'finance' }, null],
+      default: null,
+    }),
+    description: withOpenApiSchemaDoc(z.string().trim().min(1).max(200).nullable().default(null), {
+      title: 'CreatePermissionDescription',
+      description: '权限说明，未填写时默认写入 `null`。',
+      examples: ['允许财务审批员处理指定部门审批单。'],
+      default: null,
+    }),
+    fields: withOpenApiSchemaDoc(permissionFieldsSchema.default(null), {
+      title: 'CreatePermissionFields',
+      description: '可选字段范围；未填写时默认 `null`，表示不限制字段维度。',
+      examples: [['status', 'approverId'], null],
+      default: null,
+    }),
+    inverted: withOpenApiSchemaDoc(permissionInvertedSchema.default(false), {
+      title: 'CreatePermissionInverted',
+      description: '是否创建为禁止规则；默认 `false`。',
+      examples: [false],
+      default: false,
+    }),
+    resource: withOpenApiSchemaDoc(appSubjectFieldSchema, {
+      title: 'CreatePermissionResource',
+      description: '新权限规则的资源主体，对应系统中的受控业务对象。',
+      examples: ['Approval'],
+    }),
+  }),
+  {
+    title: 'CreatePermissionInput',
+    description:
+      '创建自定义权限规则；系统保留权限与 `manage:all` 提升会在服务端被拒绝，且完全重复的权限规则不会重复创建。',
+    examples: [
+      {
+        resource: 'Approval',
+        action: 'approve',
+        description: '允许财务审批员处理指定部门审批单。',
+        fields: ['status', 'approverId'],
+        conditions: { department: 'finance' },
+        inverted: false,
+      },
+    ],
+  },
+)
+
+export const updatePermissionInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    action: withOpenApiSchemaDoc(appActionFieldSchema, {
+      title: 'UpdatePermissionAction',
+      description: '更新后的 CASL 动作。',
+      examples: ['approve'],
+    }),
+    conditions: withOpenApiSchemaDoc(permissionConditionsSchema.default(null), {
+      title: 'UpdatePermissionConditions',
+      description: '更新后的 CASL 条件表达式；空对象和 `null` 会按原样保存。',
+      examples: [{ department: 'finance' }, null],
+      default: null,
+    }),
+    description: withOpenApiSchemaDoc(z.string().trim().min(1).max(200).nullable().default(null), {
+      title: 'UpdatePermissionDescription',
+      description: '更新后的权限说明；未填写时归一化为 `null`。',
+      examples: ['允许财务审批员处理指定部门审批单。'],
+      default: null,
+    }),
+    fields: withOpenApiSchemaDoc(permissionFieldsSchema.default(null), {
+      title: 'UpdatePermissionFields',
+      description: '更新后的字段范围；未填写时表示不限制字段。',
+      examples: [['status', 'approverId'], null],
+      default: null,
+    }),
+    id: permissionIdSchema,
+    inverted: permissionInvertedSchema,
+    resource: withOpenApiSchemaDoc(appSubjectFieldSchema, {
+      title: 'UpdatePermissionResource',
+      description: '更新后的资源主体。',
+      examples: ['Approval'],
+    }),
+  }),
+  {
+    title: 'UpdatePermissionInput',
+    description:
+      '更新自定义权限规则；若该权限已被角色引用，则只能修改说明，规则语义变更需先解绑角色后再操作。',
+    examples: [
+      {
+        id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
+        resource: 'Approval',
+        action: 'approve',
+        description: '允许财务审批员处理指定部门审批单。',
+        fields: ['status', 'approverId'],
+        conditions: { department: 'finance' },
+        inverted: false,
+      },
+    ],
+  },
+)
+
+export const deletePermissionInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: permissionIdSchema,
+  }),
+  {
+    title: 'DeletePermissionInput',
+    description: '删除权限规则的请求参数，按权限 UUID 指定目标。',
+    examples: [
+      {
+        id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
+      },
+    ],
+  },
+)
+
+export const deletePermissionResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    deleted: withOpenApiSchemaDoc(z.literal(true), {
+      title: 'DeletePermissionSuccessFlag',
+      description: '权限删除成功标志，固定为 `true`。',
+      examples: [true],
+    }),
+    id: permissionIdSchema,
+  }),
+  {
+    title: 'DeletePermissionResult',
+    description: '权限规则删除成功后的标准响应。',
+    examples: [
+      {
+        deleted: true,
+        id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
       },
     ],
   },
@@ -587,6 +916,7 @@ export const permissionListResponseSchema = withOpenApiSchemaDoc(
             fields: ['email', 'nickname'],
             conditions: null,
             inverted: false,
+            roleCount: 2,
             createdAt: '2026-04-09T09:30:00.000Z',
           },
         ],
@@ -867,9 +1197,21 @@ export type UserEntry = z.infer<typeof userEntrySchema>
 export type UserListResponse = z.infer<typeof userListResponseSchema>
 export type DeleteUserResult = z.infer<typeof deleteUserResultSchema>
 export type ListRolesInput = z.infer<typeof listRolesInputSchema>
+export type GetRoleByIdInput = z.infer<typeof getRoleByIdInputSchema>
+export type CreateRoleInput = z.infer<typeof createRoleInputSchema>
+export type UpdateRoleInput = z.infer<typeof updateRoleInputSchema>
+export type DeleteRoleInput = z.infer<typeof deleteRoleInputSchema>
+export type RoleEntry = z.infer<typeof roleEntrySchema>
 export type RoleListResponse = z.infer<typeof roleListResponseSchema>
+export type DeleteRoleResult = z.infer<typeof deleteRoleResultSchema>
 export type ListPermissionsInput = z.infer<typeof listPermissionsInputSchema>
+export type GetPermissionByIdInput = z.infer<typeof getPermissionByIdInputSchema>
+export type CreatePermissionInput = z.infer<typeof createPermissionInputSchema>
+export type UpdatePermissionInput = z.infer<typeof updatePermissionInputSchema>
+export type DeletePermissionInput = z.infer<typeof deletePermissionInputSchema>
+export type PermissionEntry = z.infer<typeof permissionEntrySchema>
 export type PermissionListResponse = z.infer<typeof permissionListResponseSchema>
+export type DeletePermissionResult = z.infer<typeof deletePermissionResultSchema>
 export type ListMenusInput = z.infer<typeof listMenusInputSchema>
 export type MenuListResponse = z.infer<typeof menuListResponseSchema>
 export type ListDictsInput = z.infer<typeof listDictsInputSchema>

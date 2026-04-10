@@ -18,10 +18,22 @@ import { configListProcedure } from './system/config'
 import { dictsListProcedure } from './system/dicts'
 import { menusListProcedure } from './system/menus'
 import { permissionAdminCheckProcedure } from './system/permission-admin-check'
-import { permissionsListProcedure } from './system/permissions'
+import {
+  permissionsCreateProcedure,
+  permissionsDeleteProcedure,
+  permissionsGetByIdProcedure,
+  permissionsListProcedure,
+  permissionsUpdateProcedure,
+} from './system/permissions'
 import { pingProcedure } from './system/ping'
 import { rbacSummaryProcedure } from './system/rbac-summary'
-import { rolesListProcedure } from './system/roles'
+import {
+  rolesCreateProcedure,
+  rolesDeleteProcedure,
+  rolesGetByIdProcedure,
+  rolesListProcedure,
+  rolesUpdateProcedure,
+} from './system/roles'
 import { sessionProcedure } from './system/session'
 import {
   usersCreateProcedure,
@@ -69,9 +81,21 @@ export const appRouter = {
     menus: menusListProcedure,
     'permission-admin-check': permissionAdminCheckProcedure,
     ping: pingProcedure,
-    permissions: permissionsListProcedure,
+    permissions: {
+      create: permissionsCreateProcedure,
+      delete: permissionsDeleteProcedure,
+      getById: permissionsGetByIdProcedure,
+      list: permissionsListProcedure,
+      update: permissionsUpdateProcedure,
+    },
     'rbac-summary': rbacSummaryProcedure,
-    roles: rolesListProcedure,
+    roles: {
+      create: rolesCreateProcedure,
+      delete: rolesDeleteProcedure,
+      getById: rolesGetByIdProcedure,
+      list: rolesListProcedure,
+      update: rolesUpdateProcedure,
+    },
     session: sessionProcedure,
     users: {
       create: usersCreateProcedure,
