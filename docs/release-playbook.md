@@ -27,6 +27,9 @@ Scope: Phase 6 `P6-T5`
 当前仓库已经提供两条可直接执行的发布校验命令：
 
 ```bash
+# 最终本地回归：lint / typecheck / migrate / seed / 权限 / MCP / audit / test / build / release smoke
+pnpm e2e:final
+
 # 统一 smoke：web / api，必要时可附加 jobs
 pnpm release:smoke
 
@@ -36,6 +39,11 @@ BACKUP_FILE=./backups/ai-native-os.dump pnpm release:backup:verify
 
 脚本职责：
 
+- `pnpm e2e:final`
+  - 串行执行 `pnpm lint`、`pnpm typecheck`、`pnpm db:migrate`、`pnpm db:seed`、应用内权限/MCP/AI audit 回归、`pnpm test`、`pnpm build`
+  - 默认要求当前 `APP_URL` / `API_URL` 指向一个已运行的可访问栈，并在最后执行 `release:smoke`
+  - 若只想先跑仓库级与应用内回归，可显式设置 `E2E_RELEASE_SMOKE_MODE=skip`
+  - 输出结构化 JSON，总结每一步的状态、耗时、warning 与最终 `releaseTrust`
 - `pnpm release:smoke`
   - 默认检查 `APP_URL`、`API_URL`
   - 校验 `/health`、`/api/v1/system/ping`、`/healthz`、首页可访问
@@ -52,6 +60,7 @@ BACKUP_FILE=./backups/ai-native-os.dump pnpm release:backup:verify
 
 ### 3.1 必须通过的仓库级检查
 
+- [ ] `pnpm e2e:final`
 - [ ] `pnpm lint`
 - [ ] `pnpm typecheck`
 - [ ] `pnpm test`
@@ -209,6 +218,12 @@ node -e "fetch('http://127.0.0.1:3040/health').then(async (response) => { if (!r
 ### 6.1 本地自托管拓扑
 
 ```bash
+# 已有运行中的 API / Web 栈时，直接跑最终回归
+APP_URL=http://localhost:8080 \
+API_URL=http://localhost:8080 \
+pnpm e2e:final
+
+# 仅单独重放 HTTP smoke 时，可继续使用
 APP_URL=http://localhost:8080 \
 API_URL=http://localhost:8080 \
 pnpm release:smoke
@@ -229,12 +244,20 @@ node -e "fetch('http://127.0.0.1:3040/health').then(async (response) => { if (!r
 ```bash
 APP_URL=https://admin.example.com \
 API_URL=https://admin.example.com \
+pnpm e2e:final
+
+APP_URL=https://admin.example.com \
+API_URL=https://admin.example.com \
 pnpm release:smoke
 ```
 
 ### 6.3 分离域名部署
 
 ```bash
+APP_URL=https://admin.example.com \
+API_URL=https://api.example.com \
+pnpm e2e:final
+
 APP_URL=https://admin.example.com \
 API_URL=https://api.example.com \
 pnpm release:smoke
@@ -246,6 +269,8 @@ pnpm release:smoke
 - `api /api/v1/system/ping` 返回成功
 - `web /healthz` 返回成功
 - `web /` 返回实际 HTML 页面
+- 默认 bootstrap 账号可直接登录，且 `viewer/admin/editor/super_admin` 权限回归通过
+- MCP discovery / workflow 执行 / AI audit 对账通过
 - 若启用外部 jobs HTTP 探针，则 `/health` 返回 `@ai-native-os/jobs`
 - 若使用当前自托管 Docker jobs 拓扑，则容器内 `http://127.0.0.1:3040/health` 返回 `@ai-native-os/jobs`
 

@@ -6,6 +6,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "tsx scripts/with-local-env.ts turbo run dev --parallel",
+    "e2e:final": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/api exec tsx src/lib/release/e2e-regression.cli.ts",
     "format": "turbo run format",
     "infra:down": "docker compose -f docker/docker-compose.yml down",
     "infra:up": "docker compose -f docker/docker-compose.yml up -d",

@@ -1,9 +1,9 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-09
-Current Mode: E2E remediation active
-Current Phase: Post-Phase 6 `E2E Remediation`
-Overall Status: `phase_6_complete_e2e_remediation_open`
+Last Updated: 2026-04-10
+Current Mode: Post-Phase 6 backlog ready
+Current Phase: Post-Phase 6 `Hardening & Documentation Rollout`
+Overall Status: `phase_6_complete_e2e_remediation_closed`
 
 ## 1. Repository Snapshot
 
@@ -92,13 +92,14 @@ Overall Status: `phase_6_complete_e2e_remediation_open`
 | E2E-S2-T1 | Post-P6 | Add AI key preflight and degraded runtime exposure | done | E2E-S1-T2 | runtime summary and health degrade |
 | E2E-S2-T2 | Post-P6 | Reconcile MCP and Copilot discovery with executable capability surface | done | E2E-S2-T1 | discovery parity under `viewer/admin/editor/super_admin` |
 | E2E-S2-T3 | Post-P6 | Align AI agent and workflow capability documentation with dynamic discovery rules | done | E2E-S2-T2 | docs/runtime parity under authenticated principals |
-| E2E-S3-T1 | Post-P6 | Finalize end-to-end regression script and release-trust hardening | ready | E2E-S2-T3 | final local smoke bundle + release confidence report |
+| E2E-S3-T1 | Post-P6 | Finalize end-to-end regression script and release-trust hardening | done | E2E-S2-T3 | final local smoke bundle + release confidence report |
+| DOC-C2 | Post-P6 | Roll out the OpenAPI documentation template to `system/roles` and `system/permissions` | ready | DOC-C1, E2E-S3-T1 | Scalar schema parity for roles and permissions |
 
 ## 4. Current Ready Queue
 
 Priority order as of 2026-04-10:
 
-- `E2E-S3-T1`
+- `DOC-C2`
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 - `DOC-C1` is closed; `system/users` now serves as the OpenAPI documentation template for later contract surfaces.
 
@@ -188,7 +189,7 @@ Phase 1 QA executed:
 
 Active phase blockers:
 
-- E2E remediation remains open until Sprint 1 local env alignment and later AI/runtime checks close.
+- none
 
 Residual follow-up risks:
 
@@ -200,9 +201,9 @@ Residual follow-up risks:
 
 Follow-up priority after current E2E remediation sprint:
 
-1. Final E2E regression script and release-trust hardening
+1. `DOC-C2` rollout for `system/roles` and `system/permissions`
 2. Additional CRUD and documentation-template rollout beyond `system/users`
-3. `DOC-C2` rollout for `system/roles` and `system/permissions`
+3. Better Auth ↔ RBAC stable principal-bridge hardening
 
 ## 7. QA Recording Template
 
@@ -231,6 +232,33 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### E2E-S3-T1 Finalize end-to-end regression script and release-trust hardening
+- Status: done
+- Changed files:
+  - `Status.md`
+  - `package.json`
+  - `docs/release-playbook.md`
+  - `apps/api/src/lib/release/e2e-regression.ts`
+  - `apps/api/src/lib/release/e2e-regression.cli.ts`
+  - `apps/api/src/lib/release/e2e-regression.test.ts`
+- Commands:
+  - `pnpm biome check --write apps/api/src/lib/release/e2e-regression.ts apps/api/src/lib/release/e2e-regression.cli.ts apps/api/src/lib/release/e2e-regression.test.ts package.json`
+  - `pnpm biome check --write apps/api/src/lib/release/e2e-regression.ts`
+  - `pnpm biome check --write apps/api/src/lib/release/e2e-regression.cli.ts package.json`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `E2E_RELEASE_SMOKE_MODE=skip pnpm e2e:final`
+- Result:
+  - Added a repository-level final regression bundle that executes the standard hardening sequence in one command: `lint -> typecheck -> db:migrate -> db:seed -> bootstrap login -> viewer/admin/editor/super_admin capability checks -> MCP workflow execution -> AI audit verification -> test -> build -> release smoke`.
+  - Fixed the CLI so it runs inside the `@ai-native-os/api` package context for path-alias compatibility while still spawning child commands from the repository root, making `pnpm e2e:final` a stable one-click entrypoint.
+  - Verified the bundle end-to-end with `E2E_RELEASE_SMOKE_MODE=skip`; the summary passed with `releaseTrust=medium`, accurately reflecting that final validation reused prior `release:smoke` evidence instead of re-running the live endpoint probe in this invocation.
+- Unlocked tasks:
+  - `DOC-C2`
+- Notes:
+  - The final regression script intentionally distinguishes repository proof from live deployment proof. If `release:smoke` is included in a future invocation, the same summary can elevate trust from `medium` to `high`.
 
 ### E2E-S2-T3 Align AI agent and workflow capability documentation with dynamic discovery rules
 - Status: done
