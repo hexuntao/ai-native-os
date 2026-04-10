@@ -89,13 +89,15 @@ Overall Status: `phase_6_complete_e2e_remediation_open`
 | UX-C1 | Post-P6 | Deliver `system/users` full CRUD vertical with audit-safe web forms | done | P6-C2 | lint + typecheck + test + build |
 | DOC-C1 | Post-P6 | Establish `system/users` OpenAPI documentation template and reusable schema doc helper | done | UX-C1 | lint + typecheck + test + build |
 | E2E-S1-T2 | Post-P6 | Align local env template and startup docs | done | E2E-S1-T1 | fresh shell `release:smoke` |
-| E2E-S2-T1 | Post-P6 | Add AI key preflight and degraded runtime exposure | ready | E2E-S1-T2 | runtime summary and health degrade |
+| E2E-S2-T1 | Post-P6 | Add AI key preflight and degraded runtime exposure | done | E2E-S1-T2 | runtime summary and health degrade |
+| E2E-S2-T2 | Post-P6 | Reconcile MCP and Copilot discovery with executable capability surface | done | E2E-S2-T1 | discovery parity under `viewer/admin/editor/super_admin` |
+| E2E-S2-T3 | Post-P6 | Align AI agent and workflow capability documentation with dynamic discovery rules | ready | E2E-S2-T2 | docs/runtime parity under authenticated principals |
 
 ## 4. Current Ready Queue
 
-Priority order as of 2026-04-09:
+Priority order as of 2026-04-10:
 
-- `E2E-S2-T1`
+- `E2E-S2-T3`
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 - `DOC-C1` is closed; `system/users` now serves as the OpenAPI documentation template for later contract surfaces.
 
@@ -197,7 +199,7 @@ Residual follow-up risks:
 
 Follow-up priority after current E2E remediation sprint:
 
-1. AI key preflight, capability degradation, and MCP capability convergence
+1. AI agent / workflow 文档与动态 discovery 规则对齐
 2. Final E2E regression script and release-trust hardening
 3. Additional CRUD and documentation-template rollout beyond `system/users`
 
@@ -228,6 +230,28 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### E2E-S2-T2 Reconcile MCP and Copilot discovery with executable capability surface
+- Status: done
+- Changed files:
+  - `Status.md`
+  - `apps/api/src/copilotkit/runtime.ts`
+  - `apps/api/src/mastra/discovery.ts`
+  - `apps/api/src/mastra/mcp/integration.test.ts`
+  - `apps/api/src/mastra/mcp/server.ts`
+- Commands:
+  - `pnpm biome check --write apps/api/src/mastra/discovery.ts apps/api/src/mastra/mcp/server.ts apps/api/src/copilotkit/runtime.ts apps/api/src/mastra/mcp/integration.test.ts`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Added a shared Mastra discovery helper so MCP wrapper visibility and Copilot agent discovery now both derive from the current principal's actual RBAC capability surface.
+  - Hid `run_report_schedule` from `admin`, kept it visible and executable for `editor` and `super_admin`, and proved the parity through MCP integration tests that execute the discovered workflow over the external MCP client.
+  - Tightened Copilot runtime construction to only mount agents that the current principal can actually use, preventing a new discovery-vs-execution drift at the bridge layer.
+- Unlocked tasks:
+  - `E2E-S2-T3`
+- Notes:
+  - Agent availability is now intentionally conservative: a Copilot agent is only exposed when the current principal satisfies the minimum permissions for every Tool that agent depends on.
 
 ### P6-C3 Reconcile AI runtime coverage with design docs
 - Status: done

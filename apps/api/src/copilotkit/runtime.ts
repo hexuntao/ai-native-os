@@ -11,8 +11,10 @@ import {
 } from '@copilotkit/runtime'
 import type { RequestContext } from '@mastra/core/request-context'
 import type { Context } from 'hono'
+
 import { mastra } from '@/mastra'
-import { mastraAgentRegistry } from '@/mastra/agents'
+import { resolveAiRuntimeCapability } from '@/mastra/capabilities'
+import { getEnabledCopilotAgentIds } from '@/mastra/discovery'
 import { createMastraRequestContextFromAppContext } from '@/mastra/request-context'
 import type { ApiEnv } from '@/middleware/auth'
 import { type AppContext, createAppContext } from '@/orpc/context'
@@ -25,9 +27,37 @@ export const defaultCopilotAgentId = 'admin-copilot'
 type CopilotRuntimeAgents = NonNullable<
   NonNullable<ConstructorParameters<typeof CopilotRuntime>[0]>['agents']
 >
+type CopilotRuntimeAgentMap = Awaited<CopilotRuntimeAgents>
 
 function resolveCopilotResourceId(context: AppContext): string {
   return context.rbacUserId ?? context.userId ?? 'anonymous'
+}
+
+/**
+ * 为 Copilot 不可用场景生成稳定的错误响应。
+ */
+function createCopilotUnavailableResponse(summary: CopilotBridgeSummary): Response {
+  if (summary.capability.status === 'degraded') {
+    return Response.json(
+      {
+        code: 'AI_DEGRADED',
+        message: summary.capability.reason,
+      },
+      {
+        status: 503,
+      },
+    )
+  }
+
+  return Response.json(
+    {
+      code: 'FORBIDDEN',
+      message: 'The current principal does not have permission to use any Copilot agents.',
+    },
+    {
+      status: 403,
+    },
+  )
 }
 
 /**
@@ -38,10 +68,14 @@ function resolveCopilotResourceId(context: AppContext): string {
  * - `resourceId` 明确绑定到当前主体，避免跨用户共享 Agent memory 语义
  */
 export function getCopilotBridgeSummary(context: AppContext): CopilotBridgeSummary {
+  const capability = resolveAiRuntimeCapability()
+  const agentIds = getEnabledCopilotAgentIds(context.ability, capability)
+
   return copilotBridgeSummarySchema.parse({
-    agentIds: Object.keys(mastraAgentRegistry).sort(),
+    agentIds,
     authRequired: true,
-    defaultAgentId: defaultCopilotAgentId,
+    capability,
+    defaultAgentId: agentIds.includes(defaultCopilotAgentId) ? defaultCopilotAgentId : null,
     endpoint: copilotKitEndpointPath,
     protocol: 'ag-ui',
     resourceId: resolveCopilotResourceId(context),
@@ -83,11 +117,19 @@ export async function requireAuthenticatedAppContext<TEnv extends ApiEnv>(
 export function createCopilotRuntimeForAppContext(context: AppContext): CopilotRuntime {
   const requestContext = createMastraRequestContextFromAppContext(context) as RequestContext
   const resourceId = resolveCopilotResourceId(context)
-  const agents = MastraAgent.getLocalAgents({
+  const enabledAgentIds = getEnabledCopilotAgentIds(context.ability)
+  const localAgents = MastraAgent.getLocalAgents({
     mastra,
     requestContext,
     resourceId,
-  }) as unknown as Awaited<CopilotRuntimeAgents>
+  }) as unknown as CopilotRuntimeAgentMap
+  const agents = Object.fromEntries(
+    enabledAgentIds.flatMap((agentId) => {
+      const agent = localAgents[agentId]
+
+      return agent ? [[agentId, agent]] : []
+    }),
+  ) as CopilotRuntimeAgentMap
 
   return new CopilotRuntime({
     agents,
@@ -106,6 +148,12 @@ export async function handleCopilotKitRequest<TEnv extends ApiEnv>(
 
   if (appContextOrResponse instanceof Response) {
     return appContextOrResponse
+  }
+
+  const summary = getCopilotBridgeSummary(appContextOrResponse)
+
+  if (summary.capability.status === 'degraded' || !summary.defaultAgentId) {
+    return createCopilotUnavailableResponse(summary)
   }
 
   const runtime = createCopilotRuntimeForAppContext(appContextOrResponse)
@@ -154,6 +202,11 @@ export async function handleAgUiRuntimeEventsRequest<TEnv extends ApiEnv>(
   }
 
   const summary = getCopilotBridgeSummary(appContextOrResponse)
+
+  if (summary.capability.status === 'degraded' || summary.agentIds.length === 0) {
+    return createCopilotUnavailableResponse(summary)
+  }
+
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       const encoder = new TextEncoder()

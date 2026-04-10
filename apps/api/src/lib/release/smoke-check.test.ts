@@ -73,6 +73,17 @@ test('runReleaseSmokeChecks validates app, api, and jobs endpoints', async () =>
         Response.json({
           checks: {
             api: 'ok',
+            ai: {
+              copilot: 'degraded',
+              defaultModel: 'openai/gpt-4.1-mini',
+              embeddingProvider: 'deterministic-local',
+              openaiApiKeyConfigured: false,
+              reason:
+                'OPENAI_API_KEY is missing; Copilot and remote embedding capabilities are disabled until a real upstream model key is configured.',
+              remoteEmbeddings: 'degraded',
+              status: 'degraded',
+              unavailableSurfaces: ['copilot', 'remote-embeddings'],
+            },
             database: 'ok',
             redis: 'unknown',
             telemetry: {
@@ -136,7 +147,7 @@ test('runReleaseSmokeChecks validates app, api, and jobs endpoints', async () =>
 
   assert.equal(summary.status, 'ok')
   assert.equal(summary.results.length, 5)
-  assert.equal(summary.warnings.length, 3)
+  assert.equal(summary.warnings.length, 4)
   assert.deepEqual(
     summary.results.map((result) => result.name),
     ['api-health', 'api-ping', 'web-health', 'web-root', 'jobs-health'],
@@ -156,6 +167,17 @@ test('runReleaseSmokeChecks fails when the API database check is not healthy', a
         Response.json({
           checks: {
             api: 'ok',
+            ai: {
+              copilot: 'degraded',
+              defaultModel: 'openai/gpt-4.1-mini',
+              embeddingProvider: 'deterministic-local',
+              openaiApiKeyConfigured: false,
+              reason:
+                'OPENAI_API_KEY is missing; Copilot and remote embedding capabilities are disabled until a real upstream model key is configured.',
+              remoteEmbeddings: 'degraded',
+              status: 'degraded',
+              unavailableSurfaces: ['copilot', 'remote-embeddings'],
+            },
             database: 'error',
             redis: 'unknown',
             telemetry: {
@@ -215,6 +237,17 @@ test('runReleaseSmokeChecks reports probe context when jobs health is unreachabl
         Response.json({
           checks: {
             api: 'ok',
+            ai: {
+              copilot: 'degraded',
+              defaultModel: 'openai/gpt-4.1-mini',
+              embeddingProvider: 'deterministic-local',
+              openaiApiKeyConfigured: false,
+              reason:
+                'OPENAI_API_KEY is missing; Copilot and remote embedding capabilities are disabled until a real upstream model key is configured.',
+              remoteEmbeddings: 'degraded',
+              status: 'degraded',
+              unavailableSurfaces: ['copilot', 'remote-embeddings'],
+            },
             database: 'ok',
             redis: 'unknown',
             telemetry: {
@@ -279,6 +312,17 @@ test('runReleaseSmokeChecks executes probes sequentially to avoid cold-start con
         return Response.json({
           checks: {
             api: 'ok',
+            ai: {
+              copilot: 'degraded',
+              defaultModel: 'openai/gpt-4.1-mini',
+              embeddingProvider: 'deterministic-local',
+              openaiApiKeyConfigured: false,
+              reason:
+                'OPENAI_API_KEY is missing; Copilot and remote embedding capabilities are disabled until a real upstream model key is configured.',
+              remoteEmbeddings: 'degraded',
+              status: 'degraded',
+              unavailableSurfaces: ['copilot', 'remote-embeddings'],
+            },
             database: 'ok',
             redis: 'unknown',
             telemetry: {

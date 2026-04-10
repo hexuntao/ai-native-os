@@ -118,6 +118,13 @@ test('health endpoint responds without crashing the app', async () => {
   const payload = (await response.json()) as {
     checks: {
       api: string
+      ai: {
+        copilot: string
+        openaiApiKeyConfigured: boolean
+        reason: string
+        remoteEmbeddings: string
+        status: string
+      }
       database: string
       redis: string
       telemetry: {
@@ -131,6 +138,11 @@ test('health endpoint responds without crashing the app', async () => {
   assert.ok(response.status === 200 || response.status === 503)
   assert.ok((response.headers.get('x-request-id') ?? '').length > 0)
   assert.equal(payload.checks.api, 'ok')
+  assert.ok(['enabled', 'degraded'].includes(payload.checks.ai.status))
+  assert.ok(['enabled', 'degraded'].includes(payload.checks.ai.copilot))
+  assert.ok(['enabled', 'degraded'].includes(payload.checks.ai.remoteEmbeddings))
+  assert.equal(typeof payload.checks.ai.openaiApiKeyConfigured, 'boolean')
+  assert.ok(payload.checks.ai.reason.length > 0)
   assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.database))
   assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.redis))
   assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.telemetry.openTelemetry))
@@ -755,9 +767,22 @@ test('Mastra runtime summary route reflects the current runtime registry state',
   const payload = (await response.json()) as {
     json: {
       agentCount: number
+      ai: {
+        copilot: 'degraded' | 'enabled'
+        defaultModel: string
+        embeddingProvider: 'deterministic-local' | 'openai'
+        openaiApiKeyConfigured: boolean
+        reason: string
+        remoteEmbeddings: 'degraded' | 'enabled'
+        status: 'degraded' | 'enabled'
+        unavailableSurfaces: string[]
+      }
       coverageMode: 'minimum-safe'
       coverageRationale: string
       defaultModel: string
+      degradedAgentIds: string[]
+      enabledAgentCount: number
+      enabledAgentIds: string[]
       openapiPath: string
       plannedAgentIds: string[]
       plannedWorkflowIds: string[]
@@ -774,11 +799,13 @@ test('Mastra runtime summary route reflects the current runtime registry state',
   assert.equal(payload.json.routePrefix, '/mastra')
   assert.equal(payload.json.openapiPath, '/openapi.json')
   assert.equal(payload.json.defaultModel, 'openai/gpt-4.1-mini')
+  assert.equal(payload.json.ai.defaultModel, 'openai/gpt-4.1-mini')
   assert.equal(payload.json.coverageMode, 'minimum-safe')
   assert.ok(payload.json.coverageRationale.includes('最小安全'))
   assert.equal(payload.json.toolCount, 7)
   assert.deepEqual(payload.json.registeredAgentIds.sort(), ['admin-copilot', 'audit-analyst'])
   assert.equal(payload.json.agentCount, payload.json.registeredAgentIds.length)
+  assert.equal(payload.json.enabledAgentCount, payload.json.enabledAgentIds.length)
   assert.deepEqual(payload.json.plannedAgentIds.sort(), [
     'anomaly-detector',
     'approval-agent',
@@ -792,6 +819,13 @@ test('Mastra runtime summary route reflects the current runtime registry state',
     'data-cleanup',
     'onboarding',
   ])
+  assert.equal(payload.json.ai.status, 'degraded')
+  assert.equal(payload.json.ai.copilot, 'degraded')
+  assert.equal(payload.json.ai.remoteEmbeddings, 'degraded')
+  assert.equal(payload.json.ai.embeddingProvider, 'deterministic-local')
+  assert.equal(payload.json.ai.openaiApiKeyConfigured, false)
+  assert.deepEqual(payload.json.enabledAgentIds, [])
+  assert.deepEqual(payload.json.degradedAgentIds.sort(), ['admin-copilot', 'audit-analyst'])
   assert.equal(payload.json.runtimeStage, 'workflows_ready')
 })
 
@@ -814,7 +848,11 @@ test('Copilot bridge summary route exposes authenticated AG-UI runtime metadata'
   const payload = (await response.json()) as {
     agentIds: string[]
     authRequired: boolean
-    defaultAgentId: string
+    capability: {
+      reason: string
+      status: 'degraded' | 'enabled'
+    }
+    defaultAgentId: string | null
     endpoint: string
     protocol: 'ag-ui'
     resourceId: string
@@ -828,8 +866,10 @@ test('Copilot bridge summary route exposes authenticated AG-UI runtime metadata'
   assert.equal(payload.transport, 'streaming-http')
   assert.equal(payload.endpoint, copilotKitEndpointPath)
   assert.equal(payload.runtimePath, agUiRuntimePath)
-  assert.equal(payload.defaultAgentId, 'admin-copilot')
-  assert.deepEqual(payload.agentIds, ['admin-copilot', 'audit-analyst'])
+  assert.equal(payload.defaultAgentId, null)
+  assert.equal(payload.capability.status, 'degraded')
+  assert.ok(payload.capability.reason.includes('OPENAI_API_KEY'))
+  assert.deepEqual(payload.agentIds, [])
   assert.ok(payload.resourceId.length > 0)
 })
 
@@ -838,21 +878,28 @@ test('AG-UI runtime events endpoint emits authenticated SSE bootstrap events', a
   const response = await app.request(`http://localhost${agUiRuntimeEventsPath}`, {
     headers: authHeaders,
   })
-  const body = await response.text()
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
 
-  assert.equal(response.status, 200)
-  assert.equal(response.headers.get('content-type'), 'text/event-stream; charset=utf-8')
-  assert.ok(body.includes('event: runtime.ready'))
-  assert.ok(body.includes('event: session.context'))
-  assert.ok(body.includes('admin-copilot'))
+  assert.equal(response.status, 503)
+  assert.equal(payload.code, 'AI_DEGRADED')
+  assert.ok(payload.message.includes('OPENAI_API_KEY'))
 })
 
-test('CopilotKit bridge route is mounted and rejects unsupported authenticated GET requests', async () => {
+test('CopilotKit bridge route reports degraded AI state before unsupported method handling', async () => {
   const authHeaders = await createSessionForRole('viewer')
   const response = await app.request(`http://localhost${copilotKitEndpointPath}`, {
     headers: authHeaders,
     method: 'GET',
   })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
 
-  assert.equal(response.status, 404)
+  assert.equal(response.status, 503)
+  assert.equal(payload.code, 'AI_DEGRADED')
+  assert.ok(payload.message.includes('OPENAI_API_KEY'))
 })

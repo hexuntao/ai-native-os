@@ -1,5 +1,7 @@
+import type { AiRuntimeCapability } from '@ai-native-os/shared'
 import { Mastra } from '@mastra/core/mastra'
 
+import { isCopilotCapabilityEnabled, resolveAiRuntimeCapability } from './capabilities'
 import { resolveMastraEnvironment } from './env'
 import { getMastraEvalScorerRegistry } from './evals/registry'
 import { mastraAgents, mastraRuntimeCoverage, mastraTools, mastraWorkflows } from './registry'
@@ -25,9 +27,13 @@ export const mastra = new Mastra({
 
 export interface MastraRuntimeSummary {
   agentCount: number
+  ai: AiRuntimeCapability
   coverageMode: MastraRuntimeCoverageMode
   coverageRationale: string
   defaultModel: string
+  degradedAgentIds: string[]
+  enabledAgentCount: number
+  enabledAgentIds: string[]
   openapiPath: string
   plannedAgentIds: string[]
   plannedWorkflowIds: string[]
@@ -58,12 +64,21 @@ function resolveRuntimeStage(
 export function getMastraRuntimeSummary(): MastraRuntimeSummary {
   const registeredAgentIds = Object.keys(mastraAgents)
   const registeredWorkflowIds = Object.keys(mastraWorkflows)
+  const aiCapability = resolveAiRuntimeCapability()
+  const enabledAgentIds = isCopilotCapabilityEnabled(aiCapability) ? registeredAgentIds : []
+  const degradedAgentIds = registeredAgentIds.filter(
+    (agentId) => !enabledAgentIds.includes(agentId),
+  )
 
   return {
     agentCount: registeredAgentIds.length,
+    ai: aiCapability,
     coverageMode: mastraRuntimeCoverage.mode,
     coverageRationale: mastraRuntimeCoverage.rationale,
     defaultModel: mastraEnvironment.defaultModel,
+    degradedAgentIds,
+    enabledAgentCount: enabledAgentIds.length,
+    enabledAgentIds,
     openapiPath: mastraEnvironment.openapiPath,
     plannedAgentIds: mastraRuntimeCoverage.plannedAgentIds,
     plannedWorkflowIds: mastraRuntimeCoverage.plannedWorkflowIds,

@@ -8,6 +8,7 @@ import {
 } from '@ai-native-os/shared'
 import { sql } from 'drizzle-orm'
 
+import { resolveAiRuntimeCapability } from '@/mastra/capabilities'
 import { getTelemetryRuntimeState } from './telemetry'
 
 export interface RedisProbeConfig {
@@ -20,6 +21,7 @@ export interface RedisProbeConfig {
 export interface ApiHealthSnapshot {
   checks: {
     api: 'ok'
+    ai: ReturnType<typeof resolveAiRuntimeCapability>
     database: DependencyHealthStatus
     redis: DependencyHealthStatus
     telemetry: TelemetryHealth
@@ -194,9 +196,11 @@ function buildTelemetryHealth(): TelemetryHealth {
  */
 export async function getApiHealthSnapshot(): Promise<ApiHealthSnapshot> {
   const [database, redis] = await Promise.all([checkDatabaseHealth(), checkRedisHealth()])
+  const ai = resolveAiRuntimeCapability()
   const telemetry = buildTelemetryHealth()
   const hasError =
     database === 'error' ||
+    ai.status === 'degraded' ||
     redis === 'error' ||
     telemetry.openTelemetry === 'error' ||
     telemetry.sentry === 'error'
@@ -204,6 +208,7 @@ export async function getApiHealthSnapshot(): Promise<ApiHealthSnapshot> {
   return healthResponseSchema.parse({
     checks: {
       api: 'ok',
+      ai,
       database,
       redis,
       telemetry,

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { aiRuntimeCapabilitySchema } from './ai-runtime'
+
 export const healthCheckStatusSchema = z.enum(['ok', 'error', 'degraded', 'unknown'])
 export const dependencyHealthStatusSchema = z.enum(['ok', 'error', 'unknown'])
 
@@ -12,6 +14,7 @@ export const healthResponseSchema = z.object({
   status: healthCheckStatusSchema,
   checks: z.object({
     api: z.literal('ok'),
+    ai: aiRuntimeCapabilitySchema,
     database: dependencyHealthStatusSchema,
     redis: dependencyHealthStatusSchema,
     telemetry: telemetryHealthSchema,

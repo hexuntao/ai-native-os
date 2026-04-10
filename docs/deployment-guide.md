@@ -96,6 +96,8 @@ GOOGLE_CLIENT_SECRET=
 # ============ AI ============
 # LLM Provider
 OPENAI_API_KEY=sk-xxx
+# 缺失时系统不会崩溃，但 `/health` 与运行时摘要会标记 AI degraded，
+# Copilot / remote embedding discovery 也会前置降级，不再等到执行时才报错。
 ANTHROPIC_API_KEY=sk-ant-xxx
 
 # Mastra

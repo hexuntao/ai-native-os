@@ -40,7 +40,7 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
         {
           detail: 'Registered agent count in the current runtime.',
           label: 'Agents',
-          value: formatCount(payload.runtime.agentCount),
+          value: `${formatCount(payload.runtime.enabledAgentCount)}/${formatCount(payload.runtime.agentCount)}`,
         },
         {
           detail: 'Registered workflow count in the current runtime.',
@@ -55,6 +55,9 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
           <FieldLabel>Health status</FieldLabel>
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge variant="accent">{payload.health.api}</Badge>
+            <Badge variant={payload.health.ai.status === 'enabled' ? 'accent' : 'secondary'}>
+              ai:{payload.health.ai.status}
+            </Badge>
             <Badge variant={payload.health.database === 'ok' ? 'accent' : 'secondary'}>
               database:{payload.health.database}
             </Badge>
@@ -81,6 +84,7 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
             Current Mastra stage: {payload.runtime.runtimeStage}. This reflects registry readiness,
             not queue or worker deployment completeness.
           </FieldHint>
+          <FieldHint>AI capability: {payload.health.ai.reason}</FieldHint>
         </Field>
       </div>
 
@@ -91,6 +95,14 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
               <TableRow>
                 <TableCell className="font-medium">API status</TableCell>
                 <TableCell>{payload.health.api}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">AI capability</TableCell>
+                <TableCell>{payload.health.ai.status}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">AI degrade reason</TableCell>
+                <TableCell>{payload.health.ai.reason}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell className="font-medium">Database status</TableCell>
@@ -121,7 +133,9 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
               </TableRow>
               <TableRow>
                 <TableCell className="font-medium">Agent count</TableCell>
-                <TableCell>{payload.runtime.agentCount}</TableCell>
+                <TableCell>
+                  {payload.runtime.enabledAgentCount}/{payload.runtime.agentCount}
+                </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell className="font-medium">Tool count</TableCell>

@@ -89,7 +89,7 @@ pnpm release:smoke
 | `BETTER_AUTH_SECRET` | `auth`, `api`, `web` | production required | yes | Better Auth 签名密钥 |
 | `BETTER_AUTH_URL` | `auth`, `api`, `web` | recommended | no | Better Auth 基础地址 |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | `auth` | cross-origin auth setups | no | 逗号分隔 origin 列表 |
-| `OPENAI_API_KEY` | `api`, `jobs` | production RAG / remote embeddings | yes | 当前唯一已接线的远程模型密钥 |
+| `OPENAI_API_KEY` | `api`, `jobs` | production RAG / remote embeddings | yes | 当前唯一已接线的远程模型密钥；缺失时 `/health`、`/api/v1/system/mastra-runtime`、`/api/ag-ui/runtime` 会显式暴露 `ai=degraded`，并隐藏 Copilot 可执行入口 |
 | `MASTRA_DEFAULT_MODEL` | `api` | optional | no | Mastra 默认模型路由 |
 | `MASTRA_OPENAPI_PATH` | `api` | optional | no | Mastra OpenAPI 子路径 |
 | `MASTRA_ROUTE_PREFIX` | `api` | optional | no | Mastra 运行时前缀 |

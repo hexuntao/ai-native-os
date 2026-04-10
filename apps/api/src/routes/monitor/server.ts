@@ -36,6 +36,7 @@ export const monitorServerSummaryProcedure = requireAnyPermission([
       },
       runtime: {
         agentCount: runtimeSummary.agentCount,
+        enabledAgentCount: runtimeSummary.enabledAgentCount,
         runtimeStage: runtimeSummary.runtimeStage,
         toolCount: runtimeSummary.toolCount,
         workflowCount: runtimeSummary.workflowCount,

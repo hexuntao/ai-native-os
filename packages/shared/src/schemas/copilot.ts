@@ -1,9 +1,12 @@
 import { z } from 'zod'
 
+import { aiRuntimeCapabilitySchema } from './ai-runtime'
+
 export const copilotBridgeSummarySchema = z.object({
   agentIds: z.array(z.string()),
   authRequired: z.literal(true),
-  defaultAgentId: z.string(),
+  capability: aiRuntimeCapabilitySchema,
+  defaultAgentId: z.string().nullable(),
   endpoint: z.string(),
   protocol: z.literal('ag-ui'),
   resourceId: z.string(),

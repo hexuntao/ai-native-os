@@ -218,8 +218,11 @@ function CopilotFocusBridge({
  */
 export function CopilotPanel({ initialBridgeSummary, shellState }: CopilotPanelProps): ReactNode {
   const pathname = usePathname()
+  const hasUsableBridge =
+    Boolean(initialBridgeSummary?.defaultAgentId) &&
+    initialBridgeSummary?.capability.status === 'enabled'
   const [streamStatus, setStreamStatus] = useState<CopilotStreamStatus>(
-    initialBridgeSummary ? 'connecting' : 'idle',
+    initialBridgeSummary ? (hasUsableBridge ? 'connecting' : 'error') : 'idle',
   )
   const [sessionContext, setSessionContext] = useState<CopilotSessionContextEvent | null>(null)
   const bridgeSummaryQuery = useQuery({
@@ -231,6 +234,17 @@ export function CopilotPanel({ initialBridgeSummary, shellState }: CopilotPanelP
 
   useEffect(() => {
     if (!bridgeSummaryQuery.data) {
+      return
+    }
+
+    if (
+      bridgeSummaryQuery.data.capability.status === 'degraded' ||
+      !bridgeSummaryQuery.data.defaultAgentId
+    ) {
+      startTransition(() => {
+        setStreamStatus('error')
+      })
+
       return
     }
 
@@ -318,12 +332,17 @@ export function CopilotPanel({ initialBridgeSummary, shellState }: CopilotPanelP
                 ? `${bridgeSummary.agentIds.length} agents available over ${bridgeSummary.transport}.`
                 : 'Copilot bridge summary is unavailable for this session.'}
             </p>
+            {bridgeSummary ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {bridgeSummary.capability.reason}
+              </p>
+            ) : null}
             <p className="mt-3 text-sm text-muted-foreground">
               {formatRequestContext(sessionContext)}
             </p>
           </div>
 
-          {bridgeSummary ? (
+          {bridgeSummary?.defaultAgentId && bridgeSummary.capability.status === 'enabled' ? (
             <CopilotKit
               agent={bridgeSummary.defaultAgentId}
               credentials="include"
@@ -348,8 +367,9 @@ export function CopilotPanel({ initialBridgeSummary, shellState }: CopilotPanelP
           ) : (
             <div className="grid gap-4 rounded-[var(--radius-xl)] border border-dashed border-border/80 bg-card-strong/72 p-5">
               <p className="text-sm leading-6 text-muted-foreground">
-                The authenticated Copilot bridge could not be loaded. Retry after the runtime
-                summary path is healthy again.
+                {bridgeSummary
+                  ? bridgeSummary.capability.reason
+                  : 'The authenticated Copilot bridge could not be loaded. Retry after the runtime summary path is healthy again.'}
               </p>
               <Button
                 onClick={() => {

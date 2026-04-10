@@ -1,4 +1,4 @@
-import type { AppAbility } from '@ai-native-os/shared'
+import { type AppAbility, aiRuntimeCapabilitySchema } from '@ai-native-os/shared'
 import type { RequestContext } from '@mastra/core/request-context'
 import type { ToolExecutionContext } from '@mastra/core/tools'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -8,6 +8,7 @@ import { z } from 'zod'
 
 import { getMastraRuntimeSummary } from '@/mastra'
 import { adminCopilot } from '@/mastra/agents'
+import { getEnabledCopilotAgentIds, getEnabledMcpWrapperToolIds } from '@/mastra/discovery'
 import { createMastraRequestContextFromAppContext } from '@/mastra/request-context'
 import { getMastraToolCatalog, userDirectoryRegistration } from '@/mastra/tools'
 import {
@@ -34,9 +35,12 @@ const askAdminCopilotOutputSchema = z.object({
 })
 
 const mcpRuntimeSummarySchema = z.object({
+  ai: aiRuntimeCapabilitySchema,
   directToolIds: z.array(z.string()),
+  enabledAgentIds: z.array(z.string()),
   endpoint: z.string(),
   promptNames: z.array(z.string()),
+  degradedAgentIds: z.array(z.string()),
   registeredAgentIds: z.array(z.string()),
   registeredWorkflowIds: z.array(z.string()),
   resourceUris: z.array(z.string()),
@@ -73,22 +77,28 @@ function serializeJsonContent(payload: unknown): { type: 'text'; text: string }[
   ]
 }
 
-function getMcpRuntimeSummary(): McpRuntimeSummary {
+/**
+ * 构建当前登录主体视角下的 MCP 运行时摘要。
+ *
+ * 这里显式按主体能力过滤 wrapper 清单，避免 summary 继续把“已注册”误报成“当前可执行”。
+ */
+function getMcpRuntimeSummary(appContext: AppContext): McpRuntimeSummary {
   const runtimeSummary = getMastraRuntimeSummary()
+  const enabledAgentIds = getEnabledCopilotAgentIds(appContext.ability, runtimeSummary.ai)
+  const wrapperToolIds = getEnabledMcpWrapperToolIds(appContext.ability, runtimeSummary.ai)
 
   return mcpRuntimeSummarySchema.parse({
-    directToolIds: ['tool_user_directory'],
+    ai: runtimeSummary.ai,
+    directToolIds: [...wrapperToolIds.direct],
+    enabledAgentIds,
     endpoint: mastraMcpEndpointPath,
+    degradedAgentIds: runtimeSummary.degradedAgentIds,
     promptNames: ['system-report'],
     registeredAgentIds: runtimeSummary.registeredAgentIds,
     registeredWorkflowIds: runtimeSummary.registeredWorkflowIds,
     resourceUris: [enabledToolCatalogResourceUri, runtimeSummaryResourceUri],
     transport: 'streamable-http',
-    wrapperToolIds: {
-      agent: ['ask_admin_copilot'],
-      direct: ['tool_user_directory'],
-      workflow: ['run_report_schedule'],
-    },
+    wrapperToolIds,
   })
 }
 
@@ -108,99 +118,106 @@ function getEnabledToolCatalogResource(
  */
 export function createAiNativeOsMcpServer(appContext: AppContext): McpServer {
   const requestContext = createMastraRequestContextFromAppContext(appContext)
-  const runtimeSummary = getMcpRuntimeSummary()
+  const runtimeSummary = getMcpRuntimeSummary(appContext)
   const enabledToolCatalog = getEnabledToolCatalogResource(appContext.ability)
+  const enabledWrapperToolIds = runtimeSummary.wrapperToolIds
   const server = new McpServer({
     name: 'ai-native-os',
     version: '0.1.0',
   })
 
-  server.registerTool(
-    'ask_admin_copilot',
-    {
-      annotations: {
-        openWorldHint: false,
-        readOnlyHint: true,
+  if (enabledWrapperToolIds.agent.includes('ask_admin_copilot')) {
+    server.registerTool(
+      'ask_admin_copilot',
+      {
+        annotations: {
+          openWorldHint: false,
+          readOnlyHint: true,
+        },
+        description:
+          'Ask the read-only Admin Copilot agent through the authenticated Mastra runtime.',
+        inputSchema: askAdminCopilotInputSchema,
+        outputSchema: askAdminCopilotOutputSchema,
+        title: 'Ask Admin Copilot',
       },
-      description:
-        'Ask the read-only Admin Copilot agent through the authenticated Mastra runtime.',
-      inputSchema: askAdminCopilotInputSchema,
-      outputSchema: askAdminCopilotOutputSchema,
-      title: 'Ask Admin Copilot',
-    },
-    async ({ message }) => {
-      const result = await adminCopilot.generate(message, {
-        requestContext,
-      })
-      const output = askAdminCopilotOutputSchema.parse({
-        agentId: 'admin-copilot',
-        answer: result.text,
-        runId: result.runId ?? null,
-      })
+      async ({ message }) => {
+        const result = await adminCopilot.generate(message, {
+          requestContext,
+        })
+        const output = askAdminCopilotOutputSchema.parse({
+          agentId: 'admin-copilot',
+          answer: result.text,
+          runId: result.runId ?? null,
+        })
 
-      return {
-        content: serializeJsonContent(output),
-        structuredContent: output,
-      }
-    },
-  )
-
-  server.registerTool(
-    'run_report_schedule',
-    {
-      annotations: {
-        openWorldHint: false,
-        readOnlyHint: true,
+        return {
+          content: serializeJsonContent(output),
+          structuredContent: output,
+        }
       },
-      description:
-        'Execute the audited read-only report schedule workflow with the current authenticated principal.',
-      inputSchema: reportScheduleWorkflowInputSchema,
-      outputSchema: reportScheduleWorkflowOutputSchema,
-      title: 'Run Report Schedule Workflow',
-    },
-    async (input) => {
-      const output = await runReportScheduleWorkflow({
-        input: reportScheduleWorkflowInputSchema.parse(input),
-        requestContext,
-      })
+    )
+  }
 
-      return {
-        content: serializeJsonContent(output),
-        structuredContent: output,
-      }
-    },
-  )
-
-  server.registerTool(
-    'tool_user_directory',
-    {
-      annotations: {
-        openWorldHint: false,
-        readOnlyHint: true,
+  if (enabledWrapperToolIds.workflow.includes('run_report_schedule')) {
+    server.registerTool(
+      'run_report_schedule',
+      {
+        annotations: {
+          openWorldHint: false,
+          readOnlyHint: true,
+        },
+        description:
+          'Execute the audited read-only report schedule workflow with the current authenticated principal.',
+        inputSchema: reportScheduleWorkflowInputSchema,
+        outputSchema: reportScheduleWorkflowOutputSchema,
+        title: 'Run Report Schedule Workflow',
       },
-      description:
-        'Query the authenticated user directory tool with the current RBAC rules and AI audit protections.',
-      inputSchema: userDirectoryRegistration.inputSchema,
-      outputSchema: userDirectoryRegistration.outputSchema,
-      title: 'User Directory Tool',
-    },
-    async (input) => {
-      const execute = userDirectoryRegistration.tool.execute
+      async (input) => {
+        const output = await runReportScheduleWorkflow({
+          input: reportScheduleWorkflowInputSchema.parse(input),
+          requestContext,
+        })
 
-      if (!execute) {
-        throw new Error('user-directory tool execute handler is not available')
-      }
+        return {
+          content: serializeJsonContent(output),
+          structuredContent: output,
+        }
+      },
+    )
+  }
 
-      const output = userDirectoryRegistration.outputSchema.parse(
-        await execute(input, toToolExecutionContext(requestContext)),
-      ) as Record<string, unknown>
+  if (enabledWrapperToolIds.direct.includes('tool_user_directory')) {
+    server.registerTool(
+      'tool_user_directory',
+      {
+        annotations: {
+          openWorldHint: false,
+          readOnlyHint: true,
+        },
+        description:
+          'Query the authenticated user directory tool with the current RBAC rules and AI audit protections.',
+        inputSchema: userDirectoryRegistration.inputSchema,
+        outputSchema: userDirectoryRegistration.outputSchema,
+        title: 'User Directory Tool',
+      },
+      async (input) => {
+        const execute = userDirectoryRegistration.tool.execute
 
-      return {
-        content: serializeJsonContent(output),
-        structuredContent: output,
-      }
-    },
-  )
+        if (!execute) {
+          throw new Error('user-directory tool execute handler is not available')
+        }
+
+        const output = userDirectoryRegistration.outputSchema.parse(
+          await execute(input, toToolExecutionContext(requestContext)),
+        ) as Record<string, unknown>
+
+        return {
+          content: serializeJsonContent(output),
+          structuredContent: output,
+        }
+      },
+    )
+  }
 
   server.registerResource(
     'runtime-summary',

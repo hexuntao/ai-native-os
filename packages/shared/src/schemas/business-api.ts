@@ -8,6 +8,7 @@ import {
   aiFeedbackUserActionSchema,
 } from './ai-feedback'
 import { aiKnowledgeMetadataSchema } from './ai-knowledge'
+import { aiRuntimeCapabilitySchema } from './ai-runtime'
 import { aiAuditLogEntrySchema } from './ai-tools'
 import { paginatedResponseSchema } from './common'
 import { dependencyHealthStatusSchema, telemetryHealthSchema } from './health'
@@ -482,6 +483,7 @@ export const serverSummarySchema = z.object({
   }),
   health: z.object({
     api: z.literal('ok'),
+    ai: aiRuntimeCapabilitySchema,
     database: dependencyHealthStatusSchema,
     redis: dependencyHealthStatusSchema,
     status: z.enum(['degraded', 'ok']),
@@ -489,6 +491,7 @@ export const serverSummarySchema = z.object({
   }),
   runtime: z.object({
     agentCount: z.number().int().min(0),
+    enabledAgentCount: z.number().int().min(0),
     runtimeStage: z.enum(['agents_ready', 'tools_only', 'workflows_ready']),
     toolCount: z.number().int().min(0),
     workflowCount: z.number().int().min(0),

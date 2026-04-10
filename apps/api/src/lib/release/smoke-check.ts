@@ -278,6 +278,10 @@ function validateApiHealthPayload(payload: unknown): ProbeValidationResult {
     warnings.push('API redis health is unknown')
   }
 
+  if (healthPayload.checks.ai.status === 'degraded') {
+    warnings.push(`API AI runtime is degraded: ${healthPayload.checks.ai.reason}`)
+  }
+
   if (healthPayload.checks.telemetry.openTelemetry === 'unknown') {
     warnings.push('API OpenTelemetry health is unknown')
   }
@@ -287,7 +291,7 @@ function validateApiHealthPayload(payload: unknown): ProbeValidationResult {
   }
 
   return {
-    detail: `api=${healthPayload.checks.api}, database=${healthPayload.checks.database}, redis=${healthPayload.checks.redis}, telemetry=${healthPayload.checks.telemetry.openTelemetry}/${healthPayload.checks.telemetry.sentry}`,
+    detail: `api=${healthPayload.checks.api}, ai=${healthPayload.checks.ai.status}, database=${healthPayload.checks.database}, redis=${healthPayload.checks.redis}, telemetry=${healthPayload.checks.telemetry.openTelemetry}/${healthPayload.checks.telemetry.sentry}`,
     warnings,
   }
 }
