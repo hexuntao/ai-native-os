@@ -106,6 +106,58 @@ export default app
 - 文档中的目标 Agent / Workflow 蓝图继续保留，但必须明确标注为 `planned`，不能被误读为当前已经注册。
 - 后续如果要扩展运行时，必须先补齐对应 Tool、审批、审计、评估与回滚链路，再更新注册表与此表格。
 
+### 1.5 当前 discovery 规则（2026-04-10）
+
+从 2026-04-10 起，AI Runtime 的 discovery 不再采用“已注册即暴露”的静态规则，而是采用**注册表 + 主体能力过滤**两阶段模型：
+
+1. `registry` 定义“系统里已经注册了哪些 Agent / Workflow / Tool”
+2. `discovery` 再按当前登录主体的 RBAC 能力和 AI runtime capability 过滤“当前请求真正可见、可执行的入口”
+
+当前实现基线如下：
+
+| 入口类型 | discovery 条件 | 说明 |
+|------|------|------|
+| Copilot Agent | `OPENAI_API_KEY` 已配置，且当前主体满足该 Agent 所有依赖 Tool 的最小权限 | Agent 不是按角色名暴露，而是按依赖 Tool 的权限闭包暴露 |
+| MCP `ask_admin_copilot` | 满足 `admin-copilot` 的同一套 discovery 条件 | MCP wrapper 与 Copilot bridge 共享同一能力判定 |
+| MCP `tool_user_directory` | 当前主体具备 `read:User` | 与 direct tool 权限保持一致 |
+| MCP `run_report_schedule` | 当前主体具备 `export:Report` | 与 Workflow 最小权限保持一致 |
+| Runtime Summary `registeredAgentIds` | 反映全局注册表 | 表示系统“已注册”能力，不等于当前主体“已启用”能力 |
+| Runtime Summary `enabledAgentIds` | 反映当前主体在当前环境下真正可用的 Agent | 受 AI capability 和 RBAC 双重影响 |
+
+#### 1.5.1 `admin-copilot` 的最小权限闭包
+
+当前 `admin-copilot` 依赖以下 Tool，因此只有同时满足下列权限的主体才会在 discovery 中看到它：
+
+- `read:User`
+- `read:Role`
+- `read:Config`
+- `export:Report`
+- `read:AiKnowledge`
+
+这意味着，在默认 seed 角色下：
+
+- `super_admin`：满足，且在 AI capability 为 `enabled` 时可见
+- `admin`：当前**不满足**，因为缺少 `export:Report`
+- `editor`：当前**不满足**，因为缺少 `read:Role`、`read:Config`、`read:AiKnowledge`
+- `viewer`：当前**不满足**
+
+#### 1.5.2 当前最小安全集的 discovery 示例
+
+在默认 seed 角色和当前注册表下，discovery 行为应理解为：
+
+| 主体 | `OPENAI_API_KEY` 缺失时 | `OPENAI_API_KEY` 已配置时 |
+|------|------|------|
+| `viewer` | 不暴露 Copilot Agent；不暴露 `run_report_schedule`；可见 `tool_user_directory` | 同左 |
+| `admin` | 不暴露 Copilot Agent；不暴露 `run_report_schedule`；可见 `tool_user_directory` | 同左 |
+| `editor` | 不暴露 Copilot Agent；暴露 `run_report_schedule`；可见 `tool_user_directory` | 同左 |
+| `super_admin` | 不暴露 Copilot Agent（因 AI degraded）；暴露 `run_report_schedule`；可见 `tool_user_directory` | 暴露 `admin-copilot`、`run_report_schedule`、`tool_user_directory` |
+
+约束说明：
+
+- 没有 `OPENAI_API_KEY` 时，Copilot / Agent 面统一处于 `degraded`，即使主体权限足够也不暴露。
+- MCP wrapper、Copilot bridge、runtime summary 必须共享同一 discovery 规则，不能各自维护静态名单。
+- “看得到就能执行；不能执行就不暴露”是当前最小安全集的强约束。
+
 ---
 
 ## 二、Agent 定义规范
@@ -828,6 +880,13 @@ export const mcpServer = new MCPServer({
 })
 ```
 
+当前实现补充说明（2026-04-10）：
+
+- 运行时不会把所有已注册 Agent / Workflow 静态暴露到 MCP。
+- MCP wrapper 必须按当前主体能力动态过滤。
+- 过滤规则与 Copilot bridge、runtime summary 保持一致。
+- 因此，文档中出现的 `ask_*`、`run_*`、`tool_*` 名称表示“目标可暴露形态”，不代表每个登录主体都会在 discovery 中看到这些入口。
+
 ### 5.2 连接外部 MCP 工具
 
 ```typescript
@@ -944,6 +1003,12 @@ export const copilotKitRoute = registerCopilotKit({
   },
 })
 ```
+
+当前实现补充说明（2026-04-10）：
+
+- `agentId` 不能再被理解为“所有管理员的固定默认 Agent”。
+- Copilot bridge 会先计算当前主体真正可用的 `agentIds`。
+- 如果 AI capability 为 `degraded`，或当前主体对任何已注册 Agent 都不满足最小权限闭包，则 bridge 返回降级/拒绝响应，而不是继续暴露一个不可执行的默认 Agent。
 
 ### 7.2 CopilotKit 前端集成
 

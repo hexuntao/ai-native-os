@@ -454,33 +454,52 @@
 
 ### 6.1 核心 Agent 定义
 
-| Agent | 职责 | 工具 | 工作模式 |
-|-------|------|------|----------|
-| **Admin Copilot** | 全局 AI 助手，理解自然语言指令并执行后台操作 | 用户管理、权限查询、数据查询、Excel 导出、通知发送 | 交互式（CopilotKit） |
-| **Data Analyst** | 数据分析与可视化 | SQL 生成、图表生成、趋势分析 | 交互式 + 定时 |
-| **Approval Agent** | 智能审批（报销/请假/权限申请） | 政策检查、金额验证、风险评分 | Human-in-the-Loop |
-| **Anomaly Detector** | 异常检测与告警 | 日志分析、用户行为分析、系统指标监控 | 自动 + 告警 |
-| **Report Generator** | 自动生成业务报表 | 数据聚合、Excel 生成、邮件发送 | 定时 (Trigger.dev) |
+> 当前口径（2026-04-10）：
+> - 下表同时包含“当前已注册最小安全集”和“目标蓝图”
+> - `active` 仅表示已注册到运行时，不代表所有登录主体都一定能在 discovery 中看到
+> - 真正是否可见、可执行，取决于当前主体的 RBAC 能力和 AI runtime capability
+
+| Agent | 当前状态 | 职责 | discovery 约束 | 工作模式 |
+|-------|------|------|------|----------|
+| **Admin Copilot** | active | 全局只读 AI 助手，聚合用户目录、权限画像、运行时配置、知识检索与报表快照 | 仅在 `OPENAI_API_KEY` 已配置且主体同时满足 `read:User`、`read:Role`、`read:Config`、`export:Report`、`read:AiKnowledge` 时暴露 | 交互式（CopilotKit / AG-UI） |
+| **Audit Analyst** | active | 审计与运维分析 Agent，聚合操作日志、AI 审计日志和系统快照 | 当前注册但默认不走公开 Copilot/MCP wrapper 暴露；后续如开放 discovery，必须先明确其主体级暴露策略 | 只读分析 |
+| **Data Analyst** | planned | 数据分析与可视化 | 尚未注册，仍是目标蓝图 | 交互式 + 定时 |
+| **Approval Agent** | planned | 智能审批（报销/请假/权限申请） | 尚未注册，仍是目标蓝图 | Human-in-the-Loop |
+| **Anomaly Detector** | planned | 异常检测与告警 | 尚未注册，仍是目标蓝图 | 自动 + 告警 |
+| **Report Generator** | planned | 自动生成业务报表 | 尚未注册，仍是目标蓝图 | 定时 (Trigger.dev) |
 
 ### 6.2 MCP Server 暴露的工具
 
 后台管理系统本身作为 MCP Server，暴露标准化工具供外部 AI Agent 调用：
 
-每个 Agent 会被自动转换为名为 `ask_<agentIdentifier>` 的工具。每个 Workflow 会被转换为名为 `run_<workflowKey>` 的工具。Workflow 的 `inputSchema` 成为工具的输入 Schema。
+当前实现不是“已注册即暴露”的静态模型，而是：
+
+1. 先由运行时注册表声明系统里存在的 Agent / Workflow / Tool
+2. 再由当前登录主体的 RBAC 能力和 AI runtime capability 决定这次请求真正能看到的 wrapper tool
+
+因此，`ask_<agentIdentifier>`、`run_<workflowKey>`、`tool_<name>` 只是**可能的暴露形态**，不是每个主体都固定可见。
 
 ```
-MCP Server 暴露的工具清单：
-├── ask_admin_copilot          # 询问后台管理 Copilot
-├── ask_data_analyst           # 询问数据分析 Agent
-├── run_approval_flow          # 运行审批工作流
-├── run_report_schedule        # 运行报表生成工作流
-├── tool_user_crud             # 用户 CRUD 操作
-├── tool_permission_query      # 权限查询
-├── tool_data_query            # 结构化数据查询
-├── tool_dict_lookup           # 字典数据查询
-├── tool_log_search            # 日志语义搜索
-└── tool_system_config         # 系统配置读写
+当前最小安全集下的 MCP wrapper：
+├── ask_admin_copilot          # 仅在 AI enabled 且主体满足 Admin Copilot 最小权限闭包时暴露
+├── run_report_schedule        # 仅在主体具备 export:Report 时暴露
+└── tool_user_directory        # 仅在主体具备 read:User 时暴露
 ```
+
+当前默认 seed 角色下的典型行为：
+
+| 主体 | `OPENAI_API_KEY` 缺失时 | `OPENAI_API_KEY` 已配置时 |
+|------|------|------|
+| `viewer` | 仅 `tool_user_directory` | 仅 `tool_user_directory` |
+| `admin` | 仅 `tool_user_directory` | 仅 `tool_user_directory` |
+| `editor` | `tool_user_directory` + `run_report_schedule` | `tool_user_directory` + `run_report_schedule` |
+| `super_admin` | `tool_user_directory` + `run_report_schedule` | `tool_user_directory` + `run_report_schedule` + `ask_admin_copilot` |
+
+约束：
+
+- MCP discovery、Copilot bridge、runtime summary 必须共享同一 discovery 规则。
+- “看得到就能执行；不能执行就不暴露”是当前实现基线。
+- 文档中的目标蓝图工具（如 `ask_data_analyst`、`run_approval_flow`）在对应 Agent / Workflow 真正注册并收敛权限前，不应被视为当前可发现能力。
 
 ### 6.3 典型 Agentic 业务流示例
 
@@ -525,6 +544,12 @@ MCP Server 暴露的工具清单：
 CopilotKit 不是在静态聊天气泡中显示 Mastra 的输出，而是将它们渲染为交互式 React 组件：可编辑、可点击、可协作的。用户可以引导、纠正并与 Agent 共同创作，全部在应用内完成。
 
 通过使用 `@ag-ui/mastra` 的 `registerCopilotKit()` 辅助函数为 CopilotKit 前端创建聊天路由。安装依赖：`@ag-ui/mastra @mastra/client-js @mastra/core @ag-ui/core`。
+
+当前实现补充约束（2026-04-10）：
+
+- Copilot bridge 不会把所有已注册 Agent 静态返回给前端。
+- bridge 会先按当前主体能力计算 `agentIds`，再决定默认 Agent 是否存在。
+- 如果 AI capability 为 `degraded`，或主体对任何已注册 Agent 都不满足最小权限闭包，则后端返回降级/拒绝响应，而不是继续伪装“Copilot 可用”。
 
 ### 7.2 AG-UI 事件流
 

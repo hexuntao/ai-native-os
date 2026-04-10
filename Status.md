@@ -91,13 +91,14 @@ Overall Status: `phase_6_complete_e2e_remediation_open`
 | E2E-S1-T2 | Post-P6 | Align local env template and startup docs | done | E2E-S1-T1 | fresh shell `release:smoke` |
 | E2E-S2-T1 | Post-P6 | Add AI key preflight and degraded runtime exposure | done | E2E-S1-T2 | runtime summary and health degrade |
 | E2E-S2-T2 | Post-P6 | Reconcile MCP and Copilot discovery with executable capability surface | done | E2E-S2-T1 | discovery parity under `viewer/admin/editor/super_admin` |
-| E2E-S2-T3 | Post-P6 | Align AI agent and workflow capability documentation with dynamic discovery rules | ready | E2E-S2-T2 | docs/runtime parity under authenticated principals |
+| E2E-S2-T3 | Post-P6 | Align AI agent and workflow capability documentation with dynamic discovery rules | done | E2E-S2-T2 | docs/runtime parity under authenticated principals |
+| E2E-S3-T1 | Post-P6 | Finalize end-to-end regression script and release-trust hardening | ready | E2E-S2-T3 | final local smoke bundle + release confidence report |
 
 ## 4. Current Ready Queue
 
 Priority order as of 2026-04-10:
 
-- `E2E-S2-T3`
+- `E2E-S3-T1`
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 - `DOC-C1` is closed; `system/users` now serves as the OpenAPI documentation template for later contract surfaces.
 
@@ -199,9 +200,9 @@ Residual follow-up risks:
 
 Follow-up priority after current E2E remediation sprint:
 
-1. AI agent / workflow 文档与动态 discovery 规则对齐
-2. Final E2E regression script and release-trust hardening
-3. Additional CRUD and documentation-template rollout beyond `system/users`
+1. Final E2E regression script and release-trust hardening
+2. Additional CRUD and documentation-template rollout beyond `system/users`
+3. `DOC-C2` rollout for `system/roles` and `system/permissions`
 
 ## 7. QA Recording Template
 
@@ -230,6 +231,25 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### E2E-S2-T3 Align AI agent and workflow capability documentation with dynamic discovery rules
+- Status: done
+- Changed files:
+  - `Status.md`
+  - `docs/ai-agent-design.md`
+  - `docs/architecture.md`
+- Commands:
+  - `pnpm biome check --write docs/ai-agent-design.md docs/architecture.md`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Updated the AI design and architecture documents so MCP wrapper exposure, Copilot bridge discovery, and runtime summary semantics now explicitly follow the same principal-scoped capability filtering rules as the implementation.
+  - Replaced stale static exposure language with the current `minimum-safe` runtime contract, including role-based examples for `viewer/admin/editor/super_admin` and the distinction between registered vs enabled agent surfaces.
+- Unlocked tasks:
+  - `E2E-S3-T1`
+- Notes:
+  - The docs now intentionally describe dynamic discovery as the current baseline; future Agent / Workflow additions must update both the runtime registry and these capability tables together.
 
 ### E2E-S2-T2 Reconcile MCP and Copilot discovery with executable capability surface
 - Status: done
