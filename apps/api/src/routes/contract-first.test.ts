@@ -22,6 +22,13 @@ interface OpenApiDocument {
   paths: Record<string, unknown>
 }
 
+interface OpenApiParameter {
+  description?: string
+  in?: string
+  name?: string
+  schema?: unknown
+}
+
 // 判断任意值是否为可安全读取属性的对象字面量。
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -48,6 +55,62 @@ function resolveOpenApiSchema(document: OpenApiDocument, schema: unknown): Recor
   )
 
   return resolvedSchema
+}
+
+// 从 operation parameter 列表里按名称定位 query 参数。
+function findOperationParameter(
+  operation: Record<string, unknown>,
+  parameterName: string,
+): OpenApiParameter {
+  const parameters = operation.parameters
+
+  assert.ok(Array.isArray(parameters), 'Expected operation parameters to exist')
+
+  const parameter = parameters.find(
+    (candidate) =>
+      isRecord(candidate) && candidate.name === parameterName && candidate.in === 'query',
+  )
+
+  assert.ok(parameter && isRecord(parameter), `Expected query parameter ${parameterName} to exist`)
+
+  return parameter
+}
+
+// 兼容不同 OpenAPI 生成器把 query 参数文档挂在 parameter 或 schema 上的差异。
+function resolveParameterDescription(
+  document: OpenApiDocument,
+  parameter: OpenApiParameter,
+): string | undefined {
+  if (typeof parameter.description === 'string') {
+    return parameter.description
+  }
+
+  if (!parameter.schema) {
+    return undefined
+  }
+
+  const resolvedSchema = resolveOpenApiSchema(document, parameter.schema)
+
+  return typeof resolvedSchema.description === 'string' ? resolvedSchema.description : undefined
+}
+
+// 从分页响应 schema 中提取 `data.items` 对应的列表条目 schema。
+function resolvePaginatedItemSchema(
+  document: OpenApiDocument,
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
+  assert.ok(isRecord(schema.properties), 'Expected paginated schema properties to exist')
+
+  const dataSchema = schema.properties.data
+
+  assert.ok(isRecord(dataSchema), 'Expected paginated data schema to exist')
+
+  const resolvedDataSchema = resolveOpenApiSchema(document, dataSchema)
+  const itemSchema = resolvedDataSchema.items
+
+  assert.ok(itemSchema, 'Expected paginated data schema to expose array items')
+
+  return resolveOpenApiSchema(document, itemSchema)
 }
 
 // 将 Better Auth 响应里的 `Set-Cookie` 头转换为后续请求可复用的 `Cookie` 头。
@@ -252,6 +315,114 @@ test('OpenAPI document exposes rich schema metadata for system user write contra
       isRecord(outputSchema.properties.email) &&
       outputSchema.properties.email.description ===
         '登录邮箱，必须唯一；创建或更新时会同步到 Better Auth 主体。',
+  )
+})
+
+test('OpenAPI document exposes rich schema metadata for system roles and permissions contracts', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+  const rolesPath = payload.paths['/api/v1/system/roles']
+  const permissionsPath = payload.paths['/api/v1/system/permissions']
+
+  assert.ok(rolesPath && isRecord(rolesPath), 'Expected /api/v1/system/roles path to exist')
+  assert.ok(
+    permissionsPath && isRecord(permissionsPath),
+    'Expected /api/v1/system/permissions path to exist',
+  )
+
+  const rolesOperation = rolesPath.get
+  const permissionsOperation = permissionsPath.get
+
+  assert.ok(rolesOperation && isRecord(rolesOperation), 'Expected GET operation for roles')
+  assert.ok(
+    permissionsOperation && isRecord(permissionsOperation),
+    'Expected GET operation for permissions',
+  )
+
+  assert.equal(rolesOperation.summary, '查询角色列表')
+  assert.equal(
+    rolesOperation.description,
+    '分页返回系统角色目录，并附带每个角色当前绑定的用户数量与权限数量，供角色管理界面直接展示。',
+  )
+  assert.equal(permissionsOperation.summary, '查询权限规则列表')
+  assert.equal(
+    permissionsOperation.description,
+    '分页返回权限规则目录，包含资源、动作、条件、字段约束和是否为禁止规则等信息，供权限中心直接消费。',
+  )
+
+  const rolesStatusParameter = findOperationParameter(rolesOperation, 'status')
+  const permissionActionParameter = findOperationParameter(permissionsOperation, 'action')
+  const permissionResourceParameter = findOperationParameter(permissionsOperation, 'resource')
+
+  assert.equal(
+    resolveParameterDescription(payload, rolesStatusParameter),
+    '按角色启用状态过滤；省略时返回全部角色。',
+  )
+  assert.equal(
+    resolveParameterDescription(payload, permissionActionParameter),
+    '按 CASL 动作过滤权限规则；省略时返回所有动作。',
+  )
+  assert.equal(
+    resolveParameterDescription(payload, permissionResourceParameter),
+    '按资源主体过滤权限规则；省略时返回所有资源。',
+  )
+
+  const roleResponses = rolesOperation.responses
+  const permissionResponses = permissionsOperation.responses
+
+  assert.ok(roleResponses && isRecord(roleResponses), 'Expected role response metadata to exist')
+  assert.ok(
+    permissionResponses && isRecord(permissionResponses),
+    'Expected permission response metadata to exist',
+  )
+
+  const roleJsonResponse =
+    isRecord(roleResponses['200']) && isRecord(roleResponses['200'].content)
+      ? roleResponses['200'].content['application/json']
+      : undefined
+  const permissionJsonResponse =
+    isRecord(permissionResponses['200']) && isRecord(permissionResponses['200'].content)
+      ? permissionResponses['200'].content['application/json']
+      : undefined
+
+  assert.ok(roleJsonResponse && isRecord(roleJsonResponse), 'Expected roles JSON response schema')
+  assert.ok(
+    permissionJsonResponse && isRecord(permissionJsonResponse),
+    'Expected permissions JSON response schema',
+  )
+
+  const roleOutputSchema = resolveOpenApiSchema(payload, roleJsonResponse.schema)
+  const permissionOutputSchema = resolveOpenApiSchema(payload, permissionJsonResponse.schema)
+
+  assert.equal(roleOutputSchema.title, 'RoleListResponse')
+  assert.equal(roleOutputSchema.description, '角色管理分页响应，返回角色列表与标准分页信息。')
+  assert.equal(permissionOutputSchema.title, 'PermissionListResponse')
+  assert.equal(permissionOutputSchema.description, '权限规则分页响应，返回规则列表与标准分页信息。')
+
+  const roleEntrySchema = resolvePaginatedItemSchema(payload, roleOutputSchema)
+  const permissionEntrySchema = resolvePaginatedItemSchema(payload, permissionOutputSchema)
+
+  assert.ok(
+    isRecord(roleEntrySchema.properties) &&
+      isRecord(roleEntrySchema.properties.permissionCount) &&
+      roleEntrySchema.properties.permissionCount.description === '当前角色已绑定的权限规则数量。',
+  )
+  assert.ok(
+    isRecord(roleEntrySchema.properties) &&
+      isRecord(roleEntrySchema.properties.userCount) &&
+      roleEntrySchema.properties.userCount.description === '当前绑定该角色的用户数量。',
+  )
+  assert.ok(
+    isRecord(permissionEntrySchema.properties) &&
+      isRecord(permissionEntrySchema.properties.conditions) &&
+      permissionEntrySchema.properties.conditions.description ===
+        'CASL 条件表达式；为空表示无条件放行。',
+  )
+  assert.ok(
+    isRecord(permissionEntrySchema.properties) &&
+      isRecord(permissionEntrySchema.properties.inverted) &&
+      permissionEntrySchema.properties.inverted.description ===
+        '是否为反向规则；`true` 表示禁止规则，`false` 表示允许规则。',
   )
 })
 

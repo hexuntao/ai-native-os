@@ -97,8 +97,9 @@ export const rolesListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/system/roles',
     tags: ['System:Roles'],
-    summary: 'List system roles',
-    description: 'Returns paginated roles with user and permission counts for management views.',
+    summary: '查询角色列表',
+    description:
+      '分页返回系统角色目录，并附带每个角色当前绑定的用户数量与权限数量，供角色管理界面直接展示。',
   })
   .input(listRolesInputSchema)
   .output(roleListResponseSchema)

@@ -93,15 +93,16 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | E2E-S2-T2 | Post-P6 | Reconcile MCP and Copilot discovery with executable capability surface | done | E2E-S2-T1 | discovery parity under `viewer/admin/editor/super_admin` |
 | E2E-S2-T3 | Post-P6 | Align AI agent and workflow capability documentation with dynamic discovery rules | done | E2E-S2-T2 | docs/runtime parity under authenticated principals |
 | E2E-S3-T1 | Post-P6 | Finalize end-to-end regression script and release-trust hardening | done | E2E-S2-T3 | final local smoke bundle + release confidence report |
-| DOC-C2 | Post-P6 | Roll out the OpenAPI documentation template to `system/roles` and `system/permissions` | ready | DOC-C1, E2E-S3-T1 | Scalar schema parity for roles and permissions |
+| DOC-C2 | Post-P6 | Roll out the OpenAPI documentation template to `system/roles` and `system/permissions` | done | DOC-C1, E2E-S3-T1 | Scalar schema parity for roles and permissions |
 
 ## 4. Current Ready Queue
 
 Priority order as of 2026-04-10:
 
-- `DOC-C2`
+- no active ready task
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 - `DOC-C1` is closed; `system/users` now serves as the OpenAPI documentation template for later contract surfaces.
+- `DOC-C2` is closed; `system/roles` and `system/permissions` now align with the same OpenAPI documentation baseline.
 
 Auto-unlock rules:
 
@@ -201,9 +202,9 @@ Residual follow-up risks:
 
 Follow-up priority after current E2E remediation sprint:
 
-1. `DOC-C2` rollout for `system/roles` and `system/permissions`
-2. Additional CRUD and documentation-template rollout beyond `system/users`
-3. Better Auth ↔ RBAC stable principal-bridge hardening
+1. Additional CRUD and documentation-template rollout beyond `system/users`
+2. Better Auth ↔ RBAC stable principal-bridge hardening
+3. External platform credential and live deploy verification
 
 ## 7. QA Recording Template
 
@@ -232,6 +233,28 @@ Use this section format after every task execution:
 - If any QA gate fails, update this file before attempting the fix.
 
 ## 9. Execution Records
+
+### DOC-C2 Roll out the OpenAPI documentation template to `system/roles` and `system/permissions`
+- Status: done
+- Changed files:
+  - `Status.md`
+  - `packages/shared/src/schemas/business-api.ts`
+  - `apps/api/src/routes/system/roles.ts`
+  - `apps/api/src/routes/system/permissions.ts`
+  - `apps/api/src/routes/contract-first.test.ts`
+- Commands:
+  - `pnpm biome check --write packages/shared/src/schemas/business-api.ts apps/api/src/routes/system/roles.ts apps/api/src/routes/system/permissions.ts apps/api/src/routes/contract-first.test.ts`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+- Result:
+  - Promoted the `system/users` OpenAPI documentation pattern into `system/roles` and `system/permissions`, adding field-level Chinese descriptions, examples, response titles, and richer list-contract metadata for Scalar consumers.
+  - Localized the route-level OpenAPI summaries and descriptions for both resources so management semantics are readable directly from the docs instead of exposing thin English placeholder text.
+  - Added contract tests that assert query parameter descriptions, response schema titles, and key field-level metadata for role and permission entries.
+- Unlocked tasks:
+  - none
+- Notes:
+  - `system/users` / `system/roles` / `system/permissions` now share the same documentation baseline; future rollout should target `menus` and AI contract surfaces next.
 
 ### E2E-S3-T1 Finalize end-to-end regression script and release-trust hardening
 - Status: done

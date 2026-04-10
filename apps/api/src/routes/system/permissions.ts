@@ -74,8 +74,9 @@ export const permissionsListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/system/permissions',
     tags: ['System:Permissions'],
-    summary: 'List system permissions',
-    description: 'Returns paginated permission records for the contract-first permission center.',
+    summary: '查询权限规则列表',
+    description:
+      '分页返回权限规则目录，包含资源、动作、条件、字段约束和是否为禁止规则等信息，供权限中心直接消费。',
   })
   .input(listPermissionsInputSchema)
   .output(permissionListResponseSchema)

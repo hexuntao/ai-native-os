@@ -323,42 +323,283 @@ export const deleteUserResultSchema = withOpenApiSchemaDoc(
   },
 )
 
-export const listRolesInputSchema = baseSearchSchema.extend({
-  status: booleanQuerySchema.optional(),
+const roleIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'RoleId',
+  description: '角色主键 UUID，用于唯一标识一个 RBAC 角色。',
+  examples: ['9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001'],
 })
 
-export const roleListItemSchema = z.object({
-  code: z.string(),
-  createdAt: z.string(),
-  description: z.string().nullable(),
-  id: z.string().uuid(),
-  name: z.string(),
-  permissionCount: z.number().int().min(0),
-  sortOrder: z.number().int(),
-  status: z.boolean(),
-  updatedAt: z.string(),
-  userCount: z.number().int().min(0),
+const roleNameFieldSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(50), {
+  title: 'RoleName',
+  description: '角色显示名称，用于后台管理页面和权限分配界面展示。',
+  examples: ['系统管理员'],
 })
 
-export const roleListResponseSchema = paginatedResponseSchema(roleListItemSchema)
+const nullableRoleDescriptionSchema = withOpenApiSchemaDoc(
+  z.string().trim().min(1).max(200).nullable(),
+  {
+    title: 'RoleDescription',
+    description: '角色说明；未填写时返回 `null`。',
+    examples: ['拥有用户、菜单与权限管理能力。'],
+  },
+)
 
-export const listPermissionsInputSchema = baseSearchSchema.extend({
-  action: z.enum(appActions).optional(),
-  resource: z.enum(appSubjects).optional(),
+const roleSortOrderSchema = withOpenApiSchemaDoc(z.number().int(), {
+  title: 'RoleSortOrder',
+  description: '角色排序值，数值越小越靠前。',
+  examples: [10],
 })
 
-export const permissionListItemSchema = z.object({
-  action: z.enum(appActions),
-  conditions: z.record(z.string(), z.unknown()).nullable(),
-  createdAt: z.string(),
-  description: z.string().nullable(),
-  fields: z.array(z.string()).nullable(),
-  id: z.string().uuid(),
-  inverted: z.boolean(),
-  resource: z.enum(appSubjects),
+const roleStatusFieldSchema = withOpenApiSchemaDoc(z.boolean(), {
+  title: 'RoleStatus',
+  description: '角色启用状态，`true` 为启用，`false` 为停用。',
+  examples: [true],
 })
 
-export const permissionListResponseSchema = paginatedResponseSchema(permissionListItemSchema)
+const roleUserCountSchema = withOpenApiSchemaDoc(z.number().int().min(0), {
+  title: 'RoleUserCount',
+  description: '当前绑定该角色的用户数量。',
+  examples: [3],
+})
+
+const rolePermissionCountSchema = withOpenApiSchemaDoc(z.number().int().min(0), {
+  title: 'RolePermissionCount',
+  description: '当前角色已绑定的权限规则数量。',
+  examples: [18],
+})
+
+const appActionFieldSchema = withOpenApiSchemaDoc(z.enum(appActions), {
+  title: 'PermissionAction',
+  description: 'CASL 动作枚举，例如 `read`、`manage`、`export`。',
+  examples: ['read'],
+})
+
+const appSubjectFieldSchema = withOpenApiSchemaDoc(z.enum(appSubjects), {
+  title: 'PermissionResource',
+  description: '权限资源枚举，对应系统中可受控的业务主体。',
+  examples: ['User'],
+})
+
+const permissionIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'PermissionId',
+  description: '权限规则主键 UUID。',
+  examples: ['2f3dc6ce-3c88-4db0-b194-f8506bbf1001'],
+})
+
+const permissionFieldsSchema = withOpenApiSchemaDoc(z.array(z.string()).nullable(), {
+  title: 'PermissionFields',
+  description: '字段级权限约束；为空表示不限制字段维度。',
+  examples: [['email', 'nickname'], null],
+})
+
+const permissionConditionsSchema = withOpenApiSchemaDoc(
+  z.record(z.string(), z.unknown()).nullable(),
+  {
+    title: 'PermissionConditions',
+    description: 'CASL 条件表达式；为空表示无条件放行。',
+    examples: [{ ownerId: '{{currentUserId}}' }, null],
+  },
+)
+
+const permissionInvertedSchema = withOpenApiSchemaDoc(z.boolean(), {
+  title: 'PermissionInverted',
+  description: '是否为反向规则；`true` 表示禁止规则，`false` 表示允许规则。',
+  examples: [false],
+})
+
+export const listRolesInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema.extend({
+    status: withOpenApiSchemaDoc(booleanQuerySchema.optional(), {
+      title: 'RoleStatusFilter',
+      description: '按角色启用状态过滤；省略时返回全部角色。',
+      examples: [true],
+    }),
+  }),
+  {
+    title: 'ListRolesInput',
+    description: '角色管理分页查询参数，支持按角色名称关键词与启停状态筛选。',
+    examples: [
+      {
+        page: 1,
+        pageSize: 10,
+        search: '管理员',
+        status: true,
+      },
+    ],
+  },
+)
+
+export const roleListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    code: withOpenApiSchemaDoc(roleCodeSchema, {
+      title: 'ResolvedRoleCode',
+      description: '角色编码，作为 RBAC 绑定与权限推导的稳定标识。',
+      examples: ['admin'],
+    }),
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'RoleCreatedAt',
+      description: '角色创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-09T09:30:00.000Z'],
+    }),
+    description: nullableRoleDescriptionSchema,
+    id: roleIdSchema,
+    name: roleNameFieldSchema,
+    permissionCount: rolePermissionCountSchema,
+    sortOrder: roleSortOrderSchema,
+    status: roleStatusFieldSchema,
+    updatedAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'RoleUpdatedAt',
+      description: '角色最近更新时间，ISO 8601 字符串。',
+      examples: ['2026-04-09T10:00:00.000Z'],
+    }),
+    userCount: roleUserCountSchema,
+  }),
+  {
+    title: 'RoleEntry',
+    description: '角色列表条目，包含角色基础信息以及用户数、权限数两个管理摘要。',
+    examples: [
+      {
+        id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
+        code: 'admin',
+        name: '系统管理员',
+        description: '拥有用户、菜单与权限管理能力。',
+        sortOrder: 10,
+        status: true,
+        userCount: 3,
+        permissionCount: 18,
+        createdAt: '2026-04-09T09:30:00.000Z',
+        updatedAt: '2026-04-09T10:00:00.000Z',
+      },
+    ],
+  },
+)
+
+export const roleListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(roleListItemSchema),
+  {
+    title: 'RoleListResponse',
+    description: '角色管理分页响应，返回角色列表与标准分页信息。',
+    examples: [
+      {
+        data: [
+          {
+            id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
+            code: 'admin',
+            name: '系统管理员',
+            description: '拥有用户、菜单与权限管理能力。',
+            sortOrder: 10,
+            status: true,
+            userCount: 3,
+            permissionCount: 18,
+            createdAt: '2026-04-09T09:30:00.000Z',
+            updatedAt: '2026-04-09T10:00:00.000Z',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      },
+    ],
+  },
+)
+
+export const listPermissionsInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema.extend({
+    action: withOpenApiSchemaDoc(appActionFieldSchema.optional(), {
+      title: 'PermissionActionFilter',
+      description: '按 CASL 动作过滤权限规则；省略时返回所有动作。',
+      examples: ['read'],
+    }),
+    resource: withOpenApiSchemaDoc(appSubjectFieldSchema.optional(), {
+      title: 'PermissionResourceFilter',
+      description: '按资源主体过滤权限规则；省略时返回所有资源。',
+      examples: ['User'],
+    }),
+  }),
+  {
+    title: 'ListPermissionsInput',
+    description: '权限规则分页查询参数，支持按资源、动作和关键词搜索筛选。',
+    examples: [
+      {
+        page: 1,
+        pageSize: 10,
+        search: 'User',
+        resource: 'User',
+        action: 'read',
+      },
+    ],
+  },
+)
+
+export const permissionListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    action: appActionFieldSchema,
+    conditions: permissionConditionsSchema,
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'PermissionCreatedAt',
+      description: '权限规则创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-09T09:30:00.000Z'],
+    }),
+    description: withOpenApiSchemaDoc(z.string().trim().min(1).max(200).nullable(), {
+      title: 'PermissionDescription',
+      description: '权限规则说明；未填写时返回 `null`。',
+      examples: ['允许管理员读取用户目录。'],
+    }),
+    fields: permissionFieldsSchema,
+    id: permissionIdSchema,
+    inverted: permissionInvertedSchema,
+    resource: appSubjectFieldSchema,
+  }),
+  {
+    title: 'PermissionEntry',
+    description: '权限规则列表条目，表示一条 CASL 资源动作规则及其条件约束。',
+    examples: [
+      {
+        id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
+        resource: 'User',
+        action: 'read',
+        description: '允许管理员读取用户目录。',
+        fields: ['email', 'nickname'],
+        conditions: null,
+        inverted: false,
+        createdAt: '2026-04-09T09:30:00.000Z',
+      },
+    ],
+  },
+)
+
+export const permissionListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(permissionListItemSchema),
+  {
+    title: 'PermissionListResponse',
+    description: '权限规则分页响应，返回规则列表与标准分页信息。',
+    examples: [
+      {
+        data: [
+          {
+            id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
+            resource: 'User',
+            action: 'read',
+            description: '允许管理员读取用户目录。',
+            fields: ['email', 'nickname'],
+            conditions: null,
+            inverted: false,
+            createdAt: '2026-04-09T09:30:00.000Z',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      },
+    ],
+  },
+)
 
 export const listMenusInputSchema = baseSearchSchema.extend({
   status: booleanQuerySchema.optional(),
