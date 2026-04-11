@@ -4,13 +4,16 @@ import test from 'node:test'
 
 import {
   db,
+  defaultMenus,
   listAiEvalRunsByEvalKey,
   listOperationLogsByModule,
+  menus,
   permissions,
   roles,
   userRoles,
   users,
 } from '@ai-native-os/db'
+import type { MenuEntry } from '@ai-native-os/shared'
 import { and, eq, inArray } from 'drizzle-orm'
 
 import { app } from '@/index'
@@ -252,6 +255,9 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
       '/api/v1/system/permissions/:id' in payload.paths,
   )
   assert.ok('/api/v1/system/menus' in payload.paths)
+  assert.ok(
+    '/api/v1/system/menus/{id}' in payload.paths || '/api/v1/system/menus/:id' in payload.paths,
+  )
   assert.ok('/api/v1/system/dicts' in payload.paths)
   assert.ok('/api/v1/system/config' in payload.paths)
   assert.ok('/api/v1/monitor/logs' in payload.paths)
@@ -549,6 +555,82 @@ test('OpenAPI document exposes rich schema metadata for system permission write 
   assert.equal(
     outputSchema.description,
     '权限规则条目，表示一条 CASL 资源动作规则及其条件约束，并附带角色引用数量摘要。',
+  )
+})
+
+test('OpenAPI document exposes rich schema metadata for system menu write contracts', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+  const menusPath = payload.paths['/api/v1/system/menus']
+
+  assert.ok(menusPath && isRecord(menusPath), 'Expected /api/v1/system/menus path to exist')
+
+  const postOperation = menusPath.post
+
+  assert.ok(postOperation && isRecord(postOperation), 'Expected POST operation for system menus')
+  assert.equal(postOperation.summary, '创建菜单')
+  assert.equal(
+    postOperation.description,
+    '创建自定义菜单节点并写入路径、层级和权限绑定元数据；服务端会校验父级存在、路径唯一和权限绑定完整性，并记录审计日志。',
+  )
+
+  const requestBody = postOperation.requestBody
+
+  assert.ok(requestBody && isRecord(requestBody), 'Expected request body metadata to exist')
+
+  const requestContent = requestBody.content
+
+  assert.ok(
+    requestContent && isRecord(requestContent),
+    'Expected request body content map to exist',
+  )
+
+  const jsonContent = requestContent['application/json']
+
+  assert.ok(jsonContent && isRecord(jsonContent), 'Expected JSON request body schema to exist')
+
+  const inputSchema = resolveOpenApiSchema(payload, jsonContent.schema)
+
+  assert.equal(inputSchema.title, 'CreateMenuInput')
+  assert.equal(
+    inputSchema.description,
+    '创建自定义菜单节点；系统会校验父子关系、路径与权限绑定完整性，并拒绝与现有路径冲突的菜单。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.path) &&
+      inputSchema.properties.path.description ===
+        '新菜单路径；目录节点可为空，页面菜单建议填写站内绝对路径。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.parentId) &&
+      inputSchema.properties.parentId.description === '父级菜单 UUID；创建顶级菜单时传 `null`。',
+  )
+  assert.ok(
+    isRecord(inputSchema.properties) &&
+      isRecord(inputSchema.properties.permissionAction) &&
+      inputSchema.properties.permissionAction.description ===
+        '菜单访问所需动作；若配置权限，必须与资源主体成对出现。',
+  )
+
+  const responses = postOperation.responses
+
+  assert.ok(responses && isRecord(responses), 'Expected response metadata to exist')
+
+  const responseJson =
+    isRecord(responses['200']) && isRecord(responses['200'].content)
+      ? responses['200'].content['application/json']
+      : undefined
+
+  assert.ok(responseJson && isRecord(responseJson), 'Expected JSON response schema to exist')
+
+  const outputSchema = resolveOpenApiSchema(payload, responseJson.schema)
+
+  assert.equal(outputSchema.title, 'MenuEntry')
+  assert.equal(
+    outputSchema.description,
+    '菜单条目，描述后台导航节点、其层级关系以及绑定的权限元数据。',
   )
 })
 
@@ -1340,6 +1422,255 @@ test('assigned custom permissions cannot change semantics until roles are unboun
   )
 
   assert.equal(permissionDeleteResponse.status, 200)
+})
+
+test('super_admin can perform full contract-first CRUD on custom system menus', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const systemDirectoryId =
+    defaultMenus.find((menuDefinition) => menuDefinition.path === '/system')?.id ?? null
+
+  assert.ok(systemDirectoryId, 'Expected seeded /system directory to exist')
+
+  const createResponse = await app.request('http://localhost/api/v1/system/menus', {
+    body: JSON.stringify({
+      component: 'system/menu-ops/page',
+      icon: 'layout-grid',
+      name: '菜单编排',
+      parentId: systemDirectoryId,
+      path: `/system/menu-ops-${randomUUID()}`,
+      permissionAction: 'read',
+      permissionResource: 'Menu',
+      sortOrder: 77,
+      status: true,
+      type: 'menu',
+      visible: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: MenuEntry
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.name, '菜单编排')
+  assert.equal(createPayload.json.permissionAction, 'read')
+  assert.equal(createPayload.json.permissionResource, 'Menu')
+
+  const readResponse = await app.request(
+    `http://localhost/api/v1/system/menus/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const readPayload = (await readResponse.json()) as {
+    json: MenuEntry
+  }
+
+  assert.equal(readResponse.status, 200)
+  assert.equal(readPayload.json.id, createPayload.json.id)
+
+  const updateResponse = await app.request(
+    `http://localhost/api/v1/system/menus/${createPayload.json.id}`,
+    {
+      body: JSON.stringify({
+        component: 'system/menu-ops/page',
+        icon: 'layout-grid',
+        id: createPayload.json.id,
+        name: '菜单编排已更新',
+        parentId: systemDirectoryId,
+        path: `${createPayload.json.path}-updated`,
+        permissionAction: 'manage',
+        permissionResource: 'Menu',
+        sortOrder: 78,
+        status: false,
+        type: 'menu',
+        visible: false,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const updatePayload = (await updateResponse.json()) as {
+    json: MenuEntry
+  }
+
+  assert.equal(updateResponse.status, 200)
+  assert.equal(updatePayload.json.name, '菜单编排已更新')
+  assert.equal(updatePayload.json.permissionAction, 'manage')
+  assert.equal(updatePayload.json.visible, false)
+  assert.equal(updatePayload.json.status, false)
+
+  const deleteResponse = await app.request(
+    `http://localhost/api/v1/system/menus/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const deletePayload = (await deleteResponse.json()) as {
+    json: {
+      deleted: boolean
+      id: string
+    }
+  }
+
+  assert.equal(deleteResponse.status, 200)
+  assert.equal(deletePayload.json.deleted, true)
+  assert.equal(deletePayload.json.id, createPayload.json.id)
+
+  const deletedReadResponse = await app.request(
+    `http://localhost/api/v1/system/menus/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+
+  assert.equal(deletedReadResponse.status, 404)
+
+  const systemMenuLogs = await listOperationLogsByModule('system_menus')
+  const targetLogs = systemMenuLogs.filter((log) => log.targetId === createPayload.json.id)
+
+  assert.ok(targetLogs.some((log) => log.action === 'create_menu'))
+  assert.ok(targetLogs.some((log) => log.action === 'update_menu'))
+  assert.ok(targetLogs.some((log) => log.action === 'delete_menu'))
+})
+
+test('viewer cannot create menus through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('viewer')
+  const response = await app.request('http://localhost/api/v1/system/menus', {
+    body: JSON.stringify({
+      component: 'system/restricted-menu/page',
+      icon: 'shield',
+      name: '受限菜单',
+      parentId: null,
+      path: `/system/restricted-menu-${randomUUID()}`,
+      permissionAction: 'read',
+      permissionResource: 'Menu',
+      sortOrder: 12,
+      status: true,
+      type: 'menu',
+      visible: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 403)
+  assert.equal(payload.code, 'FORBIDDEN')
+  assert.match(payload.message, /manage:Menu|manage:all/)
+})
+
+test('seeded menus remain read-only through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const seededMenuId =
+    defaultMenus.find((menuDefinition) => menuDefinition.path === '/system/menus')?.id ?? null
+
+  assert.ok(seededMenuId, 'Expected seeded /system/menus menu to exist')
+
+  const response = await app.request(`http://localhost/api/v1/system/menus/${seededMenuId}`, {
+    headers: authHeaders,
+    method: 'DELETE',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 400)
+  assert.equal(payload.code, 'BAD_REQUEST')
+  assert.match(payload.message, /Seeded menus are read-only/)
+})
+
+test('menus with child nodes cannot be deleted until descendants are removed', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+
+  const createDirectoryResponse = await app.request('http://localhost/api/v1/system/menus', {
+    body: JSON.stringify({
+      component: null,
+      icon: 'folder',
+      name: '测试目录',
+      parentId: null,
+      path: null,
+      permissionAction: null,
+      permissionResource: null,
+      sortOrder: 88,
+      status: true,
+      type: 'directory',
+      visible: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createDirectoryPayload = (await createDirectoryResponse.json()) as {
+    json: MenuEntry
+  }
+
+  assert.equal(createDirectoryResponse.status, 200)
+
+  const createChildResponse = await app.request('http://localhost/api/v1/system/menus', {
+    body: JSON.stringify({
+      component: 'system/testing-child/page',
+      icon: 'dot',
+      name: '测试子菜单',
+      parentId: createDirectoryPayload.json.id,
+      path: `/system/testing-child-${randomUUID()}`,
+      permissionAction: 'read',
+      permissionResource: 'Menu',
+      sortOrder: 1,
+      status: true,
+      type: 'menu',
+      visible: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createChildPayload = (await createChildResponse.json()) as {
+    json: MenuEntry
+  }
+
+  assert.equal(createChildResponse.status, 200)
+
+  const rejectedDeleteResponse = await app.request(
+    `http://localhost/api/v1/system/menus/${createDirectoryPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const rejectedDeletePayload = (await rejectedDeleteResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(rejectedDeleteResponse.status, 400)
+  assert.equal(rejectedDeletePayload.code, 'BAD_REQUEST')
+  assert.match(
+    rejectedDeletePayload.message,
+    /Child menus must be removed before deleting this menu/,
+  )
+
+  await db.delete(menus).where(eq(menus.id, createChildPayload.json.id))
+  await db.delete(menus).where(eq(menus.id, createDirectoryPayload.json.id))
 })
 
 test('viewer cannot create users through the contract-first write route', async () => {

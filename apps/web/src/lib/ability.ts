@@ -178,6 +178,15 @@ export function canManagePermissions(payload: AbilityPayload): boolean {
 }
 
 /**
+ * 判断当前主体是否具备菜单目录写权限，供菜单管理页决定是否暴露 CRUD 表单。
+ */
+export function canManageMenus(payload: AbilityPayload): boolean {
+  const ability = createAbilityFromPayload(payload)
+
+  return ability.can('manage', 'Menu') || ability.can('manage', 'all')
+}
+
+/**
  * 根据当前 ability 过滤导航项，避免未授权页面入口暴露在侧边栏中。
  */
 export function getVisibleNavigationItems(payload: AbilityPayload): NavigationItem[] {

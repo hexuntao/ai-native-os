@@ -931,28 +931,404 @@ export const permissionListResponseSchema = withOpenApiSchemaDoc(
   },
 )
 
-export const listMenusInputSchema = baseSearchSchema.extend({
-  status: booleanQuerySchema.optional(),
-  visible: booleanQuerySchema.optional(),
+const menuIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'MenuId',
+  description: '菜单记录主键，使用 UUID 表示唯一菜单节点。',
+  examples: ['6f8174e8-f5d5-4c0b-b805-75af3384d101'],
 })
 
-export const menuListItemSchema = z.object({
-  component: z.string().nullable(),
-  createdAt: z.string(),
-  icon: z.string().nullable(),
-  id: z.string().uuid(),
-  name: z.string(),
-  parentId: z.string().uuid().nullable(),
-  path: z.string().nullable(),
-  permissionAction: z.enum(appActions).nullable(),
-  permissionResource: z.enum(appSubjects).nullable(),
-  sortOrder: z.number().int(),
-  status: z.boolean(),
-  type: z.string(),
-  visible: z.boolean(),
+const menuParentIdSchema = withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+  title: 'MenuParentId',
+  description: '父级菜单主键；顶级菜单返回 `null`。',
+  examples: ['2d5f0abc-7b89-4d85-a5b7-0f9154c4a110', null],
 })
 
-export const menuListResponseSchema = paginatedResponseSchema(menuListItemSchema)
+const menuNameFieldSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(50), {
+  title: 'MenuName',
+  description: '菜单名称，用于后台导航和菜单管理界面展示。',
+  examples: ['菜单管理'],
+})
+
+const nullableMenuPathSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(200).nullable(), {
+  title: 'MenuPath',
+  description: '菜单路由路径；目录节点可为空，叶子菜单建议使用站内绝对路径，形如 `/system/menus`。',
+  examples: ['/system/menus', null],
+})
+
+const nullableMenuComponentSchema = withOpenApiSchemaDoc(
+  z.string().trim().min(1).max(200).nullable(),
+  {
+    title: 'MenuComponent',
+    description: '菜单关联的前端页面组件标识；目录节点可为空。',
+    examples: ['system/menus/page', null],
+  },
+)
+
+const nullableMenuIconSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(50).nullable(), {
+  title: 'MenuIcon',
+  description: '菜单图标标识，供后台导航渲染图标时使用。',
+  examples: ['menu', 'settings', null],
+})
+
+const menuTypeFieldSchema = withOpenApiSchemaDoc(z.enum(['button', 'directory', 'menu']), {
+  title: 'MenuType',
+  description:
+    '菜单节点类型；`directory` 表示目录，`menu` 表示页面菜单，`button` 表示细粒度动作入口。',
+  examples: ['menu'],
+})
+
+const menuSortOrderSchema = withOpenApiSchemaDoc(z.number().int(), {
+  title: 'MenuSortOrder',
+  description: '菜单排序值；数值越小在同级中越靠前。',
+  examples: [30],
+})
+
+const menuStatusFieldSchema = withOpenApiSchemaDoc(z.boolean(), {
+  title: 'MenuStatus',
+  description: '菜单启用状态；`true` 表示启用，`false` 表示停用。',
+  examples: [true],
+})
+
+const menuVisibleFieldSchema = withOpenApiSchemaDoc(z.boolean(), {
+  title: 'MenuVisible',
+  description: '菜单是否在导航中可见；隐藏菜单仍可作为深链或受控入口存在。',
+  examples: [true],
+})
+
+const nullableMenuPermissionActionSchema = withOpenApiSchemaDoc(z.enum(appActions).nullable(), {
+  title: 'MenuPermissionAction',
+  description: '菜单访问所需的动作权限；未绑定权限时返回 `null`。',
+  examples: ['read', null],
+})
+
+const nullableMenuPermissionResourceSchema = withOpenApiSchemaDoc(z.enum(appSubjects).nullable(), {
+  title: 'MenuPermissionResource',
+  description: '菜单访问所需的资源主体；未绑定权限时返回 `null`。',
+  examples: ['Menu', null],
+})
+
+export const listMenusInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema.extend({
+    status: withOpenApiSchemaDoc(booleanQuerySchema.optional(), {
+      title: 'MenuStatusFilter',
+      description: '按菜单启停状态过滤；省略时返回全部状态。',
+      examples: [true],
+    }),
+    visible: withOpenApiSchemaDoc(booleanQuerySchema.optional(), {
+      title: 'MenuVisibleFilter',
+      description: '按菜单可见性过滤；省略时返回全部可见性。',
+      examples: [true],
+    }),
+  }),
+  {
+    title: 'ListMenusInput',
+    description: '菜单管理分页查询参数，支持按名称、启停状态和可见性筛选。',
+    examples: [
+      {
+        page: 1,
+        pageSize: 10,
+        search: '系统',
+        status: true,
+        visible: true,
+      },
+    ],
+  },
+)
+
+export const menuListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    component: nullableMenuComponentSchema,
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'MenuCreatedAt',
+      description: '菜单创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-10T08:30:00.000Z'],
+    }),
+    icon: nullableMenuIconSchema,
+    id: menuIdSchema,
+    name: menuNameFieldSchema,
+    parentId: menuParentIdSchema,
+    path: nullableMenuPathSchema,
+    permissionAction: nullableMenuPermissionActionSchema,
+    permissionResource: nullableMenuPermissionResourceSchema,
+    sortOrder: menuSortOrderSchema,
+    status: menuStatusFieldSchema,
+    type: menuTypeFieldSchema,
+    visible: menuVisibleFieldSchema,
+  }),
+  {
+    title: 'MenuEntry',
+    description: '菜单条目，描述后台导航节点、其层级关系以及绑定的权限元数据。',
+    examples: [
+      {
+        id: '6f8174e8-f5d5-4c0b-b805-75af3384d101',
+        parentId: '2d5f0abc-7b89-4d85-a5b7-0f9154c4a110',
+        name: '菜单管理',
+        path: '/system/menus',
+        component: 'system/menus/page',
+        icon: 'menu',
+        sortOrder: 3,
+        type: 'menu',
+        permissionAction: 'read',
+        permissionResource: 'Menu',
+        visible: true,
+        status: true,
+        createdAt: '2026-04-10T08:30:00.000Z',
+      },
+    ],
+  },
+)
+
+export const menuEntrySchema = menuListItemSchema
+
+export const getMenuByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: menuIdSchema,
+  }),
+  {
+    title: 'GetMenuByIdInput',
+    description: '按菜单 UUID 读取单个菜单节点详情。',
+    examples: [
+      {
+        id: '6f8174e8-f5d5-4c0b-b805-75af3384d101',
+      },
+    ],
+  },
+)
+
+export const createMenuInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    component: withOpenApiSchemaDoc(nullableMenuComponentSchema.default(null), {
+      title: 'CreateMenuComponent',
+      description: '新菜单关联的前端组件标识；目录节点可为空。',
+      examples: ['system/menus/page', null],
+      default: null,
+    }),
+    icon: withOpenApiSchemaDoc(nullableMenuIconSchema.default(null), {
+      title: 'CreateMenuIcon',
+      description: '新菜单图标标识；未填写时默认 `null`。',
+      examples: ['menu', null],
+      default: null,
+    }),
+    name: withOpenApiSchemaDoc(menuNameFieldSchema, {
+      title: 'CreateMenuName',
+      description: '新菜单名称。',
+      examples: ['菜单管理'],
+    }),
+    parentId: withOpenApiSchemaDoc(menuParentIdSchema.default(null), {
+      title: 'CreateMenuParentId',
+      description: '父级菜单 UUID；创建顶级菜单时传 `null`。',
+      examples: ['2d5f0abc-7b89-4d85-a5b7-0f9154c4a110', null],
+      default: null,
+    }),
+    path: withOpenApiSchemaDoc(nullableMenuPathSchema.default(null), {
+      title: 'CreateMenuPath',
+      description: '新菜单路径；目录节点可为空，页面菜单建议填写站内绝对路径。',
+      examples: ['/system/menus', null],
+      default: null,
+    }),
+    permissionAction: withOpenApiSchemaDoc(nullableMenuPermissionActionSchema.default(null), {
+      title: 'CreateMenuPermissionAction',
+      description: '菜单访问所需动作；若配置权限，必须与资源主体成对出现。',
+      examples: ['read', null],
+      default: null,
+    }),
+    permissionResource: withOpenApiSchemaDoc(nullableMenuPermissionResourceSchema.default(null), {
+      title: 'CreateMenuPermissionResource',
+      description: '菜单访问所需资源主体；若配置权限，必须与动作成对出现。',
+      examples: ['Menu', null],
+      default: null,
+    }),
+    sortOrder: withOpenApiSchemaDoc(z.coerce.number().int().min(-9999).max(9999), {
+      title: 'CreateMenuSortOrder',
+      description: '新菜单排序值；数值越小越靠前。',
+      examples: [30],
+    }),
+    status: withOpenApiSchemaDoc(menuStatusFieldSchema.default(true), {
+      title: 'CreateMenuStatus',
+      description: '新菜单启用状态；默认 `true`。',
+      examples: [true],
+      default: true,
+    }),
+    type: withOpenApiSchemaDoc(menuTypeFieldSchema, {
+      title: 'CreateMenuType',
+      description: '新菜单节点类型。',
+      examples: ['menu'],
+    }),
+    visible: withOpenApiSchemaDoc(menuVisibleFieldSchema.default(true), {
+      title: 'CreateMenuVisible',
+      description: '新菜单是否在导航中可见；默认 `true`。',
+      examples: [true],
+      default: true,
+    }),
+  }),
+  {
+    title: 'CreateMenuInput',
+    description:
+      '创建自定义菜单节点；系统会校验父子关系、路径与权限绑定完整性，并拒绝与现有路径冲突的菜单。',
+    examples: [
+      {
+        name: '菜单管理',
+        parentId: '2d5f0abc-7b89-4d85-a5b7-0f9154c4a110',
+        path: '/system/menus',
+        component: 'system/menus/page',
+        icon: 'menu',
+        sortOrder: 3,
+        type: 'menu',
+        permissionAction: 'read',
+        permissionResource: 'Menu',
+        visible: true,
+        status: true,
+      },
+    ],
+  },
+)
+
+export const updateMenuInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    component: withOpenApiSchemaDoc(nullableMenuComponentSchema.default(null), {
+      title: 'UpdateMenuComponent',
+      description: '更新后的前端组件标识；目录节点可为空。',
+      examples: ['system/menus/page', null],
+      default: null,
+    }),
+    icon: withOpenApiSchemaDoc(nullableMenuIconSchema.default(null), {
+      title: 'UpdateMenuIcon',
+      description: '更新后的图标标识；未填写时归一化为 `null`。',
+      examples: ['menu', null],
+      default: null,
+    }),
+    id: menuIdSchema,
+    name: withOpenApiSchemaDoc(menuNameFieldSchema, {
+      title: 'UpdateMenuName',
+      description: '更新后的菜单名称。',
+      examples: ['菜单管理'],
+    }),
+    parentId: withOpenApiSchemaDoc(menuParentIdSchema.default(null), {
+      title: 'UpdateMenuParentId',
+      description: '更新后的父级菜单 UUID；顶级菜单传 `null`。',
+      examples: ['2d5f0abc-7b89-4d85-a5b7-0f9154c4a110', null],
+      default: null,
+    }),
+    path: withOpenApiSchemaDoc(nullableMenuPathSchema.default(null), {
+      title: 'UpdateMenuPath',
+      description: '更新后的菜单路径；目录节点可为空。',
+      examples: ['/system/menus', null],
+      default: null,
+    }),
+    permissionAction: withOpenApiSchemaDoc(nullableMenuPermissionActionSchema.default(null), {
+      title: 'UpdateMenuPermissionAction',
+      description: '更新后的权限动作；若配置权限，必须与资源主体成对出现。',
+      examples: ['read', null],
+      default: null,
+    }),
+    permissionResource: withOpenApiSchemaDoc(nullableMenuPermissionResourceSchema.default(null), {
+      title: 'UpdateMenuPermissionResource',
+      description: '更新后的权限资源主体；若配置权限，必须与动作成对出现。',
+      examples: ['Menu', null],
+      default: null,
+    }),
+    sortOrder: withOpenApiSchemaDoc(z.coerce.number().int().min(-9999).max(9999), {
+      title: 'UpdateMenuSortOrder',
+      description: '更新后的排序值；数值越小越靠前。',
+      examples: [30],
+    }),
+    status: menuStatusFieldSchema,
+    type: menuTypeFieldSchema,
+    visible: menuVisibleFieldSchema,
+  }),
+  {
+    title: 'UpdateMenuInput',
+    description:
+      '更新自定义菜单节点；系统保留菜单会被拒绝修改，并校验父子关系不成环、路径不冲突、权限绑定完整。',
+    examples: [
+      {
+        id: '6f8174e8-f5d5-4c0b-b805-75af3384d101',
+        name: '菜单管理',
+        parentId: '2d5f0abc-7b89-4d85-a5b7-0f9154c4a110',
+        path: '/system/menus',
+        component: 'system/menus/page',
+        icon: 'menu',
+        sortOrder: 4,
+        type: 'menu',
+        permissionAction: 'read',
+        permissionResource: 'Menu',
+        visible: true,
+        status: true,
+      },
+    ],
+  },
+)
+
+export const deleteMenuInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: menuIdSchema,
+  }),
+  {
+    title: 'DeleteMenuInput',
+    description: '删除菜单节点的请求参数，按菜单 UUID 指定目标。',
+    examples: [
+      {
+        id: '6f8174e8-f5d5-4c0b-b805-75af3384d101',
+      },
+    ],
+  },
+)
+
+export const deleteMenuResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    deleted: withOpenApiSchemaDoc(z.literal(true), {
+      title: 'DeleteMenuSuccessFlag',
+      description: '菜单删除成功标志，固定为 `true`。',
+      examples: [true],
+    }),
+    id: menuIdSchema,
+  }),
+  {
+    title: 'DeleteMenuResult',
+    description: '菜单删除成功后的标准响应。',
+    examples: [
+      {
+        deleted: true,
+        id: '6f8174e8-f5d5-4c0b-b805-75af3384d101',
+      },
+    ],
+  },
+)
+
+export const menuListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(menuListItemSchema),
+  {
+    title: 'MenuListResponse',
+    description: '菜单管理分页响应，返回菜单节点列表与标准分页信息。',
+    examples: [
+      {
+        data: [
+          {
+            id: '6f8174e8-f5d5-4c0b-b805-75af3384d101',
+            parentId: '2d5f0abc-7b89-4d85-a5b7-0f9154c4a110',
+            name: '菜单管理',
+            path: '/system/menus',
+            component: 'system/menus/page',
+            icon: 'menu',
+            sortOrder: 3,
+            type: 'menu',
+            permissionAction: 'read',
+            permissionResource: 'Menu',
+            visible: true,
+            status: true,
+            createdAt: '2026-04-10T08:30:00.000Z',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      },
+    ],
+  },
+)
 
 // 系统字典 contract-first skeleton。
 export const dictEntrySchema = z.object({
@@ -1213,7 +1589,13 @@ export type PermissionEntry = z.infer<typeof permissionEntrySchema>
 export type PermissionListResponse = z.infer<typeof permissionListResponseSchema>
 export type DeletePermissionResult = z.infer<typeof deletePermissionResultSchema>
 export type ListMenusInput = z.infer<typeof listMenusInputSchema>
+export type GetMenuByIdInput = z.infer<typeof getMenuByIdInputSchema>
+export type CreateMenuInput = z.infer<typeof createMenuInputSchema>
+export type UpdateMenuInput = z.infer<typeof updateMenuInputSchema>
+export type DeleteMenuInput = z.infer<typeof deleteMenuInputSchema>
+export type MenuEntry = z.infer<typeof menuEntrySchema>
 export type MenuListResponse = z.infer<typeof menuListResponseSchema>
+export type DeleteMenuResult = z.infer<typeof deleteMenuResultSchema>
 export type ListDictsInput = z.infer<typeof listDictsInputSchema>
 export type DictListResponse = z.infer<typeof dictListResponseSchema>
 export type ListConfigsInput = z.infer<typeof listConfigsInputSchema>

@@ -16,7 +16,13 @@ import { aiAuditLogsProcedure } from './system/ai-audit-logs'
 import { aiToolCatalogProcedure } from './system/ai-tool-catalog'
 import { configListProcedure } from './system/config'
 import { dictsListProcedure } from './system/dicts'
-import { menusListProcedure } from './system/menus'
+import {
+  menusCreateProcedure,
+  menusDeleteProcedure,
+  menusGetByIdProcedure,
+  menusListProcedure,
+  menusUpdateProcedure,
+} from './system/menus'
 import { permissionAdminCheckProcedure } from './system/permission-admin-check'
 import {
   permissionsCreateProcedure,
@@ -78,7 +84,13 @@ export const appRouter = {
     },
     config: configListProcedure,
     dicts: dictsListProcedure,
-    menus: menusListProcedure,
+    menus: {
+      create: menusCreateProcedure,
+      delete: menusDeleteProcedure,
+      getById: menusGetByIdProcedure,
+      list: menusListProcedure,
+      update: menusUpdateProcedure,
+    },
     'permission-admin-check': permissionAdminCheckProcedure,
     ping: pingProcedure,
     permissions: {

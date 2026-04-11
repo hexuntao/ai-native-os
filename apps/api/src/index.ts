@@ -8,17 +8,21 @@ import {
   aiFeedbackListResponseSchema,
   attachPromptEvalEvidenceInputSchema,
   createAiFeedbackInputSchema,
+  createMenuInputSchema,
   createPermissionInputSchema,
   createPromptVersionInputSchema,
   createRoleInputSchema,
   createUserInputSchema,
   currentPermissionsResponseSchema,
+  deleteMenuInputSchema,
+  deleteMenuResultSchema,
   deletePermissionInputSchema,
   deletePermissionResultSchema,
   deleteRoleInputSchema,
   deleteRoleResultSchema,
   deleteUserInputSchema,
   deleteUserResultSchema,
+  getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
   getRoleByIdInputSchema,
   getUserByIdInputSchema,
@@ -34,6 +38,7 @@ import {
   listPermissionsInputSchema,
   listRolesInputSchema,
   listUsersInputSchema,
+  menuEntrySchema,
   menuListResponseSchema,
   onlineUserListResponseSchema,
   operationLogListResponseSchema,
@@ -46,6 +51,7 @@ import {
   roleListResponseSchema,
   rollbackPromptVersionInputSchema,
   serializedAbilityResponseSchema,
+  updateMenuInputSchema,
   updatePermissionInputSchema,
   updateRoleInputSchema,
   updateUserInputSchema,
@@ -98,7 +104,13 @@ import {
 } from '@/routes/ai/prompts'
 import { listMonitorLogs } from '@/routes/monitor/logs'
 import { listOnlineUsers } from '@/routes/monitor/online'
-import { listMenus } from '@/routes/system/menus'
+import {
+  createMenuEntry,
+  deleteMenuEntry,
+  getMenuById,
+  listMenus,
+  updateMenuEntry,
+} from '@/routes/system/menus'
 import {
   createPermissionEntry,
   deletePermissionEntry,
@@ -186,6 +198,10 @@ const contractFirstReadRequirements = {
 >
 
 const contractFirstWriteRequirements = {
+  menus: [
+    { action: 'manage', subject: 'Menu' },
+    { action: 'manage', subject: 'all' },
+  ],
   permissions: [
     { action: 'manage', subject: 'Permission' },
     { action: 'manage', subject: 'all' },
@@ -767,6 +783,68 @@ app.get('/api/v1/system/menus', (c) =>
     menuListResponseSchema,
     contractFirstReadRequirements.menus,
     listMenus,
+  ),
+)
+
+app.get('/api/v1/system/menus/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getMenuByIdInputSchema,
+    menuEntrySchema,
+    contractFirstReadRequirements.menus,
+    getMenuById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/system/menus', (c) =>
+  handleContractFirstPost(
+    c,
+    createMenuInputSchema,
+    menuEntrySchema,
+    contractFirstWriteRequirements.menus,
+    async (input, context) =>
+      createMenuEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.put('/api/v1/system/menus/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    updateMenuInputSchema,
+    menuEntrySchema,
+    contractFirstWriteRequirements.menus,
+    async (input, context) =>
+      updateMenuEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext, requestJson) => ({
+      ...(typeof requestJson === 'object' && requestJson !== null ? requestJson : {}),
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.delete('/api/v1/system/menus/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    deleteMenuInputSchema,
+    deleteMenuResultSchema,
+    contractFirstWriteRequirements.menus,
+    async (input, context) =>
+      deleteMenuEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
   ),
 )
 

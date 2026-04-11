@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  canManageMenus,
   canManagePermissions,
   canManageRoles,
   canManageUserDirectory,
@@ -24,6 +25,7 @@ test('viewer ability payload only exposes read surfaces', () => {
   assert.equal(canManageUserDirectory(payload), false)
   assert.equal(canManageRoles(payload), false)
   assert.equal(canManagePermissions(payload), false)
+  assert.equal(canManageMenus(payload), false)
 })
 
 test('manage user permission exposes user directory write capability', () => {
@@ -39,6 +41,7 @@ test('manage user permission exposes user directory write capability', () => {
   assert.equal(canManageUserDirectory(payload), true)
   assert.equal(canManageRoles(payload), false)
   assert.equal(canManagePermissions(payload), false)
+  assert.equal(canManageMenus(payload), false)
 })
 
 test('manage role permission exposes role directory write capability', () => {
@@ -53,6 +56,7 @@ test('manage role permission exposes role directory write capability', () => {
 
   assert.equal(canManageRoles(payload), true)
   assert.equal(canManagePermissions(payload), false)
+  assert.equal(canManageMenus(payload), false)
 })
 
 test('manage permission permission exposes permission center write capability', () => {
@@ -66,4 +70,17 @@ test('manage permission permission exposes permission center write capability', 
   })
 
   assert.equal(canManagePermissions(payload), true)
+})
+
+test('manage menu permission exposes navigation registry write capability', () => {
+  const payload = parseSerializedAbilityPayload({
+    roleCodes: ['admin'],
+    rules: [
+      { action: 'manage', subject: 'Menu' },
+      { action: 'read', subject: 'Role' },
+    ],
+    userId: 'eb95c2ce-9db2-4ae8-80b4-123456789abc',
+  })
+
+  assert.equal(canManageMenus(payload), true)
 })
