@@ -1,8 +1,30 @@
 import { z } from 'zod'
 
-const aiKnowledgeMetadataValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
+import { withOpenApiSchemaDoc } from './openapi-doc'
 
-export const aiKnowledgeMetadataSchema = z.record(z.string(), aiKnowledgeMetadataValueSchema)
+const aiKnowledgeMetadataValueSchema = withOpenApiSchemaDoc(
+  z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  {
+    title: 'AiKnowledgeMetadataValue',
+    description: '知识库元数据值，支持字符串、数值、布尔值和空值。',
+    examples: ['finance', 3, true, null],
+  },
+)
+
+export const aiKnowledgeMetadataSchema = withOpenApiSchemaDoc(
+  z.record(z.string(), aiKnowledgeMetadataValueSchema),
+  {
+    title: 'AiKnowledgeMetadata',
+    description: '知识文档元数据键值对，用于保存来源标签、业务域、版本等附加信息。',
+    examples: [
+      {
+        category: 'finance',
+        department: '财务部',
+        isPublic: false,
+      },
+    ],
+  },
+)
 
 export const knowledgeChunkConfigSchema = z.object({
   chunkOverlap: z.number().int().min(0).max(512).default(64),

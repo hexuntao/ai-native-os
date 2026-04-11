@@ -106,8 +106,8 @@ export const aiFeedbackListProcedure = requireAnyPermission(aiFeedbackPermission
     method: 'GET',
     path: '/api/v1/ai/feedback',
     tags: ['AI:Feedback'],
-    summary: 'List AI feedback entries',
-    description: 'Returns paginated AI feedback and human override records.',
+    summary: '分页查询 AI 反馈记录',
+    description: '返回 AI 反馈、人工接管记录和动作统计汇总，供监控与治理面板使用。',
   })
   .input(listAiFeedbackInputSchema)
   .output(aiFeedbackListResponseSchema)
@@ -118,8 +118,8 @@ export const aiFeedbackCreateProcedure = requireAnyPermission(aiFeedbackPermissi
     method: 'POST',
     path: '/api/v1/ai/feedback',
     tags: ['AI:Feedback'],
-    summary: 'Create AI feedback entry',
-    description: 'Persists operator feedback for an AI audit log and tracks human overrides.',
+    summary: '提交 AI 反馈记录',
+    description: '向指定 AI 审计日志写入反馈或人工接管结果，并同步记录操作审计日志。',
   })
   .input(createAiFeedbackInputSchema)
   .output(aiFeedbackEntrySchema)

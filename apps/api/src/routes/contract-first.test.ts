@@ -705,6 +705,138 @@ test('OpenAPI document exposes rich schema metadata for system role write contra
   )
 })
 
+test('OpenAPI document exposes rich schema metadata for AI contract surfaces', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+
+  const knowledgePath = payload.paths['/api/v1/ai/knowledge']
+  assert.ok(knowledgePath && isRecord(knowledgePath), 'Expected /api/v1/ai/knowledge path to exist')
+
+  const knowledgeGet = knowledgePath.get
+  assert.ok(knowledgeGet && isRecord(knowledgeGet), 'Expected GET operation for ai knowledge')
+  assert.equal(knowledgeGet.summary, '分页查询知识库文档')
+  assert.equal(
+    knowledgeGet.description,
+    '按文档维度聚合 pgvector chunk 记录，返回 AI 知识库管理页使用的知识摘要列表。',
+  )
+
+  const knowledgeResponses = knowledgeGet.responses
+  assert.ok(knowledgeResponses && isRecord(knowledgeResponses), 'Expected AI knowledge responses')
+  const knowledgeJson =
+    isRecord(knowledgeResponses['200']) && isRecord(knowledgeResponses['200'].content)
+      ? knowledgeResponses['200'].content['application/json']
+      : undefined
+  assert.ok(knowledgeJson && isRecord(knowledgeJson), 'Expected AI knowledge JSON response schema')
+  const knowledgeOutputSchema = resolveOpenApiSchema(payload, knowledgeJson.schema)
+  assert.equal(knowledgeOutputSchema.title, 'KnowledgeListResponse')
+  assert.equal(
+    knowledgeOutputSchema.description,
+    '知识库分页响应，返回文档级摘要列表与标准分页信息。',
+  )
+
+  const feedbackPath = payload.paths['/api/v1/ai/feedback']
+  assert.ok(feedbackPath && isRecord(feedbackPath), 'Expected /api/v1/ai/feedback path to exist')
+
+  const feedbackPost = feedbackPath.post
+  assert.ok(feedbackPost && isRecord(feedbackPost), 'Expected POST operation for ai feedback')
+  assert.equal(feedbackPost.summary, '提交 AI 反馈记录')
+  assert.equal(
+    feedbackPost.description,
+    '向指定 AI 审计日志写入反馈或人工接管结果，并同步记录操作审计日志。',
+  )
+
+  const feedbackRequestBody = feedbackPost.requestBody
+  assert.ok(
+    feedbackRequestBody && isRecord(feedbackRequestBody),
+    'Expected AI feedback request body metadata',
+  )
+  const feedbackRequestContent = feedbackRequestBody.content
+  assert.ok(
+    feedbackRequestContent && isRecord(feedbackRequestContent),
+    'Expected AI feedback request content map',
+  )
+  const feedbackJson = feedbackRequestContent['application/json']
+  assert.ok(feedbackJson && isRecord(feedbackJson), 'Expected AI feedback JSON request body')
+  const feedbackInputSchema = resolveOpenApiSchema(payload, feedbackJson.schema)
+  assert.equal(feedbackInputSchema.title, 'CreateAiFeedbackInput')
+  assert.equal(
+    feedbackInputSchema.description,
+    '提交一次 AI 反馈或人工接管结果，并绑定到指定 AI 审计日志。',
+  )
+  assert.ok(
+    isRecord(feedbackInputSchema.properties) &&
+      isRecord(feedbackInputSchema.properties.correction) &&
+      feedbackInputSchema.properties.correction.description ===
+        '人工修正文案；当 `userAction` 为 `edited` 或 `overridden` 时必填，用于记录人工替代结果。',
+  )
+
+  const promptsPath = payload.paths['/api/v1/ai/prompts']
+  assert.ok(promptsPath && isRecord(promptsPath), 'Expected /api/v1/ai/prompts path to exist')
+
+  const promptsPost = promptsPath.post
+  assert.ok(promptsPost && isRecord(promptsPost), 'Expected POST operation for ai prompts')
+  assert.equal(promptsPost.summary, '创建 Prompt 草稿版本')
+  assert.equal(
+    promptsPost.description,
+    '创建新的 Prompt 治理草稿版本，供后续评测、激活和回滚流程使用。',
+  )
+
+  const promptsRequestBody = promptsPost.requestBody
+  assert.ok(
+    promptsRequestBody && isRecord(promptsRequestBody),
+    'Expected AI prompts request body metadata',
+  )
+  const promptsRequestContent = promptsRequestBody.content
+  assert.ok(
+    promptsRequestContent && isRecord(promptsRequestContent),
+    'Expected AI prompts request content map',
+  )
+  const promptsJson = promptsRequestContent['application/json']
+  assert.ok(promptsJson && isRecord(promptsJson), 'Expected AI prompts JSON request body')
+  const promptsInputSchema = resolveOpenApiSchema(payload, promptsJson.schema)
+  assert.equal(promptsInputSchema.title, 'CreatePromptVersionInput')
+  assert.equal(
+    promptsInputSchema.description,
+    '创建新的 Prompt 草稿版本，供后续评测、激活或回滚治理流程使用。',
+  )
+  assert.ok(
+    isRecord(promptsInputSchema.properties) &&
+      isRecord(promptsInputSchema.properties.releasePolicy) &&
+      promptsInputSchema.properties.releasePolicy.description ===
+        '新版本发布门禁策略；未传时使用默认阈值。',
+  )
+
+  const auditPath = payload.paths['/api/v1/ai/audit']
+  assert.ok(auditPath && isRecord(auditPath), 'Expected /api/v1/ai/audit path to exist')
+
+  const auditGet = auditPath.get
+  assert.ok(auditGet && isRecord(auditGet), 'Expected GET operation for ai audit')
+  assert.equal(auditGet.summary, '分页查询 AI 审计日志')
+  assert.equal(auditGet.description, '返回 AI Tool 调用审计轨迹、反馈汇总和主体权限上下文。')
+
+  const evalsPath = payload.paths['/api/v1/ai/evals']
+  assert.ok(evalsPath && isRecord(evalsPath), 'Expected /api/v1/ai/evals path to exist')
+
+  const evalsGet = evalsPath.get
+  assert.ok(evalsGet && isRecord(evalsGet), 'Expected GET operation for ai evals')
+  assert.equal(evalsGet.summary, '分页查询 AI 评测目录')
+  assert.equal(evalsGet.description, '返回已注册的评测套件、最近实验结果和当前评测运行环境汇总。')
+
+  const evalsResponses = evalsGet.responses
+  assert.ok(evalsResponses && isRecord(evalsResponses), 'Expected AI evals responses')
+  const evalsJson =
+    isRecord(evalsResponses['200']) && isRecord(evalsResponses['200'].content)
+      ? evalsResponses['200'].content['application/json']
+      : undefined
+  assert.ok(evalsJson && isRecord(evalsJson), 'Expected AI evals JSON response schema')
+  const evalsOutputSchema = resolveOpenApiSchema(payload, evalsJson.schema)
+  assert.equal(evalsOutputSchema.title, 'AiEvalListResponse')
+  assert.equal(
+    evalsOutputSchema.description,
+    'AI 评测目录分页响应，返回评测条目、分页信息和环境汇总。',
+  )
+})
+
 test('viewer can consume the contract-first system and monitor read skeleton routes', async () => {
   const authHeaders = await createSessionForRole('viewer')
   const [

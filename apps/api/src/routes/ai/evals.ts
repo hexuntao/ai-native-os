@@ -50,8 +50,8 @@ export const aiEvalsListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/ai/evals',
     tags: ['AI:Evals'],
-    summary: 'List AI evaluation runs',
-    description: 'Returns registered eval suites with persisted experiment summaries.',
+    summary: '分页查询 AI 评测目录',
+    description: '返回已注册的评测套件、最近实验结果和当前评测运行环境汇总。',
   })
   .input(listAiEvalsInputSchema)
   .output(aiEvalListResponseSchema)

@@ -75,8 +75,8 @@ export const aiAuditListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/ai/audit',
     tags: ['AI:Audit'],
-    summary: 'List AI audit log entries',
-    description: 'Returns paginated AI tool audit logs under the documented AI API namespace.',
+    summary: '分页查询 AI 审计日志',
+    description: '返回 AI Tool 调用审计轨迹、反馈汇总和主体权限上下文。',
   })
   .input(listAiAuditLogsInputSchema)
   .output(aiAuditListResponseSchema)

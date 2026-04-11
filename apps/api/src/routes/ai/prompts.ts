@@ -212,8 +212,8 @@ export const aiPromptsListProcedure = requireAnyPermission(promptReadPermissions
     method: 'GET',
     path: '/api/v1/ai/prompts',
     tags: ['AI:Prompts'],
-    summary: 'List AI prompt versions',
-    description: 'Returns prompt version records together with release-gate readiness summary.',
+    summary: '分页查询 Prompt 版本',
+    description: '返回 Prompt 治理版本列表、发布门禁状态和汇总信息。',
   })
   .input(promptVersionListInputSchema)
   .output(promptVersionListResponseSchema)
@@ -224,8 +224,8 @@ export const aiPromptsCreateProcedure = requireAnyPermission(promptWritePermissi
     method: 'POST',
     path: '/api/v1/ai/prompts',
     tags: ['AI:Prompts'],
-    summary: 'Create AI prompt version',
-    description: 'Creates a new prompt draft version for governance and evaluation.',
+    summary: '创建 Prompt 草稿版本',
+    description: '创建新的 Prompt 治理草稿版本，供后续评测、激活和回滚流程使用。',
   })
   .input(createPromptVersionInputSchema)
   .output(promptVersionEntrySchema)
@@ -242,9 +242,8 @@ export const aiPromptsAttachEvidenceProcedure = requireAnyPermission(promptWrite
     method: 'POST',
     path: '/api/v1/ai/prompts/attach-evidence',
     tags: ['AI:Prompts'],
-    summary: 'Attach eval evidence to prompt version',
-    description:
-      'Binds a completed eval run to a prompt version so release gates can be evaluated.',
+    summary: '绑定 Prompt 评测证据',
+    description: '把已完成的评测运行绑定到 Prompt 版本，供发布门禁判断是否可激活。',
   })
   .input(attachPromptEvalEvidenceInputSchema)
   .output(promptVersionEntrySchema)
@@ -261,9 +260,8 @@ export const aiPromptsActivateProcedure = requireAnyPermission(promptWritePermis
     method: 'POST',
     path: '/api/v1/ai/prompts/activate',
     tags: ['AI:Prompts'],
-    summary: 'Activate AI prompt version',
-    description:
-      'Activates a prompt version only when its attached eval evidence satisfies release policy thresholds.',
+    summary: '激活 Prompt 版本',
+    description: '仅当绑定评测证据满足发布策略阈值时，才允许激活指定 Prompt 版本。',
   })
   .input(activatePromptVersionInputSchema)
   .output(promptVersionEntrySchema)
@@ -280,9 +278,8 @@ export const aiPromptsRollbackProcedure = requireAnyPermission(promptWritePermis
     method: 'POST',
     path: '/api/v1/ai/prompts/rollback',
     tags: ['AI:Prompts'],
-    summary: 'Rollback AI prompt version',
-    description:
-      'Rolls back an active prompt to an earlier releasable version and records rollback lineage.',
+    summary: '回滚 Prompt 版本',
+    description: '将当前 Prompt 回滚到较早的可发布版本，并记录回滚链路。',
   })
   .input(rollbackPromptVersionInputSchema)
   .output(promptVersionEntrySchema)

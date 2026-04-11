@@ -94,6 +94,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | E2E-S2-T3 | Post-P6 | Align AI agent and workflow capability documentation with dynamic discovery rules | done | E2E-S2-T2 | docs/runtime parity under authenticated principals |
 | E2E-S3-T1 | Post-P6 | Finalize end-to-end regression script and release-trust hardening | done | E2E-S2-T3 | final local smoke bundle + release confidence report |
 | DOC-C2 | Post-P6 | Roll out the OpenAPI documentation template to `system/roles` and `system/permissions` | done | DOC-C1, E2E-S3-T1 | Scalar schema parity for roles and permissions |
+| DOC-C3 | Post-P6 | Roll out the OpenAPI documentation template to AI contract surfaces | done | DOC-C2, CRD-C3 | lint + typecheck + test + build |
 | CRD-C1 | Post-P6 | Deliver `system/roles` full CRUD vertical with audit-safe web forms and contract-first OpenAPI | done | DOC-C2 | lint + typecheck + test + build |
 | CRD-C2 | Post-P6 | Deliver `system/permissions` full CRUD vertical with seeded-permission guardrails and contract-first OpenAPI | done | CRD-C1 | lint + typecheck + test + build |
 | CRD-C3 | Post-P6 | Deliver `system/menus` full CRUD vertical with parent-chain guardrails and contract-first OpenAPI | done | CRD-C2 | `pnpm infra:up` + `pnpm db:migrate` + lint + typecheck + test + build |
@@ -106,10 +107,11 @@ Priority order as of 2026-04-11:
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 - `DOC-C1` is closed; `system/users` now serves as the OpenAPI documentation template for later contract surfaces.
 - `DOC-C2` is closed; `system/roles` and `system/permissions` now align with the same OpenAPI documentation baseline.
+- `DOC-C3` is closed; `ai/knowledge`、`ai/evals`、`ai/feedback`、`ai/audit`、`ai/prompts` 已对齐同等级 OpenAPI 文档质量。
 - `CRD-C1` is closed; `system/roles` now exposes full CRUD, audited write forms, and protected seeded-role guardrails.
 - `CRD-C2` is closed; `system/permissions` now exposes full CRUD, audited write forms, and protected seeded-permission guardrails.
 - `CRD-C3` is closed; `system/menus` now exposes full CRUD, audited write forms, and protected parent-chain guardrails.
-- the next recommended backlog item is AI contract surfaces.
+- the next recommended backlog item is AI write surfaces and governance-specific command contracts.
 
 Auto-unlock rules:
 
@@ -209,7 +211,7 @@ Residual follow-up risks:
 
 Follow-up priority after current E2E remediation sprint:
 
-1. Additional CRUD and documentation-template rollout beyond `system/users`, `system/roles`, `system/permissions`, and `system/menus`
+1. Additional CRUD and documentation-template rollout beyond `system/users`, `system/roles`, `system/permissions`, `system/menus`, and current AI contract surfaces
 2. Better Auth ↔ RBAC stable principal-bridge hardening
 3. External platform credential and live deploy verification
 

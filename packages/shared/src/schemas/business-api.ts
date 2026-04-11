@@ -1445,63 +1445,413 @@ export const serverSummarySchema = z.object({
   }),
 })
 
-export const listKnowledgeInputSchema = baseSearchSchema.extend({
-  sourceType: z.string().trim().min(1).max(50).optional(),
-})
-
-export const knowledgeListItemSchema = z.object({
-  chunkCount: z.number().int().min(0),
-  documentId: z.string().uuid(),
-  lastIndexedAt: z.string(),
-  metadata: aiKnowledgeMetadataSchema,
-  sourceType: z.string(),
-  sourceUri: z.string().nullable(),
-  title: z.string(),
-})
-
-export const knowledgeListResponseSchema = paginatedResponseSchema(knowledgeListItemSchema)
-
-export const listAiAuditLogsInputSchema = queryPaginationSchema.extend({
-  status: z.enum(['error', 'forbidden', 'success']).optional(),
-  toolId: z.string().trim().min(1).max(100).optional(),
-})
-
-export const aiAuditListResponseSchema = paginatedResponseSchema(aiAuditLogEntrySchema)
-
-export const listAiFeedbackInputSchema = queryPaginationSchema.extend({
-  accepted: booleanQuerySchema.optional(),
-  auditLogId: z.string().uuid().optional(),
-  search: z.string().trim().min(1).max(100).optional(),
-  userAction: aiFeedbackUserActionSchema.optional(),
-})
-
-export const aiFeedbackListResponseSchema = paginatedResponseSchema(aiFeedbackEntrySchema).extend({
-  summary: aiFeedbackSummarySchema,
-})
-
-export const listAiEvalsInputSchema = queryPaginationSchema
-
-export const aiEvalListItemSchema = z.object({
-  backing: z.literal('mastra'),
-  datasetSize: z.number().int().min(0),
-  id: z.string(),
-  lastRunAverageScore: z.number().min(0).max(1).nullable(),
-  lastRunAt: z.string().nullable(),
-  lastRunStatus: aiEvalRunStatusSchema.nullable(),
-  name: z.string(),
-  notes: z.string(),
-  scorerCount: z.number().int().min(0),
-  status: z.enum(['not_configured', 'registered']),
-})
-
-export const aiEvalListResponseSchema = paginatedResponseSchema(aiEvalListItemSchema).extend({
-  summary: z.object({
-    configured: z.boolean(),
-    reason: z.string(),
-    totalDatasets: z.number().int().min(0),
-    totalExperiments: z.number().int().min(0),
+export const listKnowledgeInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema.extend({
+    sourceType: withOpenApiSchemaDoc(z.string().trim().min(1).max(50).optional(), {
+      title: 'KnowledgeSourceTypeFilter',
+      description: '按知识来源类型过滤，例如 `manual`、`document`、`web`。',
+      examples: ['manual'],
+    }),
   }),
+  {
+    title: 'ListKnowledgeInput',
+    description: '知识库文档分页查询参数，支持按标题/内容关键词和来源类型筛选。',
+    examples: [
+      {
+        page: 1,
+        pageSize: 10,
+        search: '财务',
+        sourceType: 'manual',
+      },
+    ],
+  },
+)
+
+export const knowledgeListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    chunkCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'KnowledgeChunkCount',
+      description: '当前文档已切分并索引的 chunk 数量。',
+      examples: [4],
+    }),
+    documentId: withOpenApiSchemaDoc(z.string().uuid(), {
+      title: 'KnowledgeDocumentId',
+      description: '知识文档主键 UUID。',
+      examples: ['f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001'],
+    }),
+    lastIndexedAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'KnowledgeLastIndexedAt',
+      description: '最近一次索引时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T06:00:00.000Z'],
+    }),
+    metadata: aiKnowledgeMetadataSchema,
+    sourceType: withOpenApiSchemaDoc(z.string(), {
+      title: 'KnowledgeSourceType',
+      description: '知识来源类型，例如人工录入、导入文档或外部抓取。',
+      examples: ['manual'],
+    }),
+    sourceUri: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'KnowledgeSourceUri',
+      description: '知识原始来源地址；没有外部地址时为 `null`。',
+      examples: ['https://internal.example.com/wiki/finance'],
+    }),
+    title: withOpenApiSchemaDoc(z.string(), {
+      title: 'KnowledgeTitle',
+      description: '知识文档标题。',
+      examples: ['财务审批制度 2026 版'],
+    }),
+  }),
+  {
+    title: 'KnowledgeListItem',
+    description: '知识库文档级摘要条目，由 chunk 存储聚合而成。',
+    examples: [
+      {
+        chunkCount: 4,
+        documentId: 'f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001',
+        lastIndexedAt: '2026-04-11T06:00:00.000Z',
+        metadata: {
+          category: 'finance',
+          year: 2026,
+        },
+        sourceType: 'manual',
+        sourceUri: null,
+        title: '财务审批制度 2026 版',
+      },
+    ],
+  },
+)
+
+export const knowledgeListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(knowledgeListItemSchema),
+  {
+    title: 'KnowledgeListResponse',
+    description: '知识库分页响应，返回文档级摘要列表与标准分页信息。',
+    examples: [
+      {
+        data: [
+          {
+            chunkCount: 4,
+            documentId: 'f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001',
+            lastIndexedAt: '2026-04-11T06:00:00.000Z',
+            metadata: {
+              category: 'finance',
+              year: 2026,
+            },
+            sourceType: 'manual',
+            sourceUri: null,
+            title: '财务审批制度 2026 版',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      },
+    ],
+  },
+)
+
+export const listAiAuditLogsInputSchema = withOpenApiSchemaDoc(
+  queryPaginationSchema.extend({
+    status: withOpenApiSchemaDoc(z.enum(['error', 'forbidden', 'success']).optional(), {
+      title: 'AiAuditStatusFilter',
+      description: '按 AI 调用执行状态过滤审计日志。',
+      examples: ['success'],
+    }),
+    toolId: withOpenApiSchemaDoc(z.string().trim().min(1).max(100).optional(), {
+      title: 'AiAuditToolIdFilter',
+      description: '按 Tool 标识过滤 AI 审计日志。',
+      examples: ['tool_user_directory'],
+    }),
+  }),
+  {
+    title: 'ListAiAuditLogsInput',
+    description: 'AI 审计日志分页查询参数，支持按 Tool 和执行状态筛选。',
+    examples: [
+      {
+        page: 1,
+        pageSize: 10,
+        status: 'success',
+        toolId: 'tool_user_directory',
+      },
+    ],
+  },
+)
+
+export const aiAuditListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(aiAuditLogEntrySchema),
+  {
+    title: 'AiAuditListResponse',
+    description: 'AI 审计日志分页响应，返回 Tool 调用轨迹与反馈汇总。',
+    examples: [
+      {
+        data: [
+          {
+            action: 'read',
+            actorAuthUserId: 'auth_user_01',
+            actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            createdAt: '2026-04-11T03:00:00.000Z',
+            errorMessage: null,
+            feedbackCount: 2,
+            humanOverride: false,
+            id: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+            latestFeedbackAt: '2026-04-11T03:15:00.000Z',
+            latestUserAction: 'accepted',
+            requestId: 'req_01',
+            roleCodes: ['super_admin'],
+            status: 'success',
+            subject: 'User',
+            toolId: 'tool_user_directory',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      },
+    ],
+  },
+)
+
+export const listAiFeedbackInputSchema = withOpenApiSchemaDoc(
+  queryPaginationSchema.extend({
+    accepted: withOpenApiSchemaDoc(booleanQuerySchema.optional(), {
+      title: 'AiFeedbackAcceptedFilter',
+      description: '按最终是否采纳 AI 结果过滤反馈列表。',
+      examples: [false],
+    }),
+    auditLogId: withOpenApiSchemaDoc(z.string().uuid().optional(), {
+      title: 'AiFeedbackAuditLogFilter',
+      description: '按 AI 审计日志 UUID 过滤反馈。',
+      examples: ['f2c4f471-0f3a-4b6d-9d7a-31968e812001'],
+    }),
+    search: withOpenApiSchemaDoc(z.string().trim().min(1).max(100).optional(), {
+      title: 'AiFeedbackSearch',
+      description: '按反馈文本或修正文案关键词检索。',
+      examples: ['财务'],
+    }),
+    userAction: withOpenApiSchemaDoc(aiFeedbackUserActionSchema.optional(), {
+      title: 'AiFeedbackUserActionFilter',
+      description: '按用户最终动作过滤反馈列表。',
+      examples: ['overridden'],
+    }),
+  }),
+  {
+    title: 'ListAiFeedbackInput',
+    description: 'AI 反馈分页查询参数，支持按采纳状态、动作类型、审计日志和关键词筛选。',
+    examples: [
+      {
+        page: 1,
+        pageSize: 10,
+        accepted: false,
+        userAction: 'overridden',
+      },
+    ],
+  },
+)
+
+export const aiFeedbackListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(aiFeedbackEntrySchema).extend({
+    summary: aiFeedbackSummarySchema,
+  }),
+  {
+    title: 'AiFeedbackListResponse',
+    description: 'AI 反馈分页响应，返回反馈条目、分页信息和动作汇总。',
+    examples: [
+      {
+        data: [
+          {
+            accepted: false,
+            actorAuthUserId: 'auth_user_01',
+            actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            auditLogId: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+            correction: '请改为仅导出财务部用户，并隐藏手机号字段。',
+            createdAt: '2026-04-11T02:30:00.000Z',
+            feedbackText: '原始导出范围过大。',
+            id: 'e476f380-9504-42fb-9f5b-d5ed214df001',
+            userAction: 'overridden',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+        summary: {
+          accepted: 4,
+          edited: 2,
+          humanOverrideCount: 1,
+          overridden: 1,
+          rejected: 3,
+        },
+      },
+    ],
+  },
+)
+
+export const listAiEvalsInputSchema = withOpenApiSchemaDoc(queryPaginationSchema, {
+  title: 'ListAiEvalsInput',
+  description: 'AI 评测目录分页查询参数。',
+  examples: [
+    {
+      page: 1,
+      pageSize: 10,
+    },
+  ],
 })
+
+export const aiEvalListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    backing: withOpenApiSchemaDoc(z.literal('mastra'), {
+      title: 'AiEvalBacking',
+      description: '当前评测目录的底层执行引擎。',
+      examples: ['mastra'],
+    }),
+    datasetSize: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalDatasetSize',
+      description: '当前评测绑定的数据集样本数。',
+      examples: [12],
+    }),
+    id: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalId',
+      description: '评测目录标识符。',
+      examples: ['admin-copilot-regression'],
+    }),
+    lastRunAverageScore: withOpenApiSchemaDoc(z.number().min(0).max(1).nullable(), {
+      title: 'AiEvalLastRunAverageScore',
+      description: '最近一次运行的平均分；未运行时为 `null`。',
+      examples: [0.91],
+    }),
+    lastRunAt: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'AiEvalLastRunAt',
+      description: '最近一次评测运行时间；未运行时为 `null`。',
+      examples: ['2026-04-11T04:30:00.000Z'],
+    }),
+    lastRunStatus: withOpenApiSchemaDoc(aiEvalRunStatusSchema.nullable(), {
+      title: 'AiEvalLastRunStatus',
+      description: '最近一次评测运行状态；未运行时为 `null`。',
+      examples: ['completed'],
+    }),
+    name: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalName',
+      description: '评测目录显示名称。',
+      examples: ['Admin Copilot Regression'],
+    }),
+    notes: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalNotes',
+      description: '评测目录说明文本。',
+      examples: ['覆盖后台问答和报表工作流回归样本。'],
+    }),
+    scorerCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalScorerCount',
+      description: '当前评测注册的评分器数量。',
+      examples: [3],
+    }),
+    status: withOpenApiSchemaDoc(z.enum(['not_configured', 'registered']), {
+      title: 'AiEvalCatalogStatus',
+      description: '评测目录状态，表示已注册或未完成配置。',
+      examples: ['registered'],
+    }),
+  }),
+  {
+    title: 'AiEvalListItem',
+    description: 'AI 评测目录条目，包含最近运行结果与目录元信息。',
+    examples: [
+      {
+        backing: 'mastra',
+        datasetSize: 12,
+        id: 'admin-copilot-regression',
+        lastRunAverageScore: 0.91,
+        lastRunAt: '2026-04-11T04:30:00.000Z',
+        lastRunStatus: 'completed',
+        name: 'Admin Copilot Regression',
+        notes: '覆盖后台问答和报表工作流回归样本。',
+        scorerCount: 3,
+        status: 'registered',
+      },
+    ],
+  },
+)
+
+export const aiEvalListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(aiEvalListItemSchema).extend({
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        configured: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'AiEvalConfigured',
+          description: '当前运行时是否已正确配置评测执行环境。',
+          examples: [true],
+        }),
+        reason: withOpenApiSchemaDoc(z.string(), {
+          title: 'AiEvalSummaryReason',
+          description: '评测目录汇总说明，例如降级原因或配置状态说明。',
+          examples: ['Mastra eval runner is configured.'],
+        }),
+        totalDatasets: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'AiEvalTotalDatasets',
+          description: '当前注册评测目录对应的数据集总数。',
+          examples: [4],
+        }),
+        totalExperiments: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'AiEvalTotalExperiments',
+          description: '当前已持久化的评测实验总数。',
+          examples: [7],
+        }),
+      }),
+      {
+        title: 'AiEvalListSummary',
+        description: 'AI 评测目录附带的整体汇总信息。',
+        examples: [
+          {
+            configured: true,
+            reason: 'Mastra eval runner is configured.',
+            totalDatasets: 4,
+            totalExperiments: 7,
+          },
+        ],
+      },
+    ),
+  }),
+  {
+    title: 'AiEvalListResponse',
+    description: 'AI 评测目录分页响应，返回评测条目、分页信息和环境汇总。',
+    examples: [
+      {
+        data: [
+          {
+            backing: 'mastra',
+            datasetSize: 12,
+            id: 'admin-copilot-regression',
+            lastRunAverageScore: 0.91,
+            lastRunAt: '2026-04-11T04:30:00.000Z',
+            lastRunStatus: 'completed',
+            name: 'Admin Copilot Regression',
+            notes: '覆盖后台问答和报表工作流回归样本。',
+            scorerCount: 3,
+            status: 'registered',
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+        summary: {
+          configured: true,
+          reason: 'Mastra eval runner is configured.',
+          totalDatasets: 4,
+          totalExperiments: 7,
+        },
+      },
+    ],
+  },
+)
 
 // 工具发现 contract-first skeleton。
 export const toolGenKindSchema = z.enum(['agent', 'copilot', 'prompt'])

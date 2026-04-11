@@ -101,8 +101,8 @@ export const aiKnowledgeListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/ai/knowledge',
     tags: ['AI:Knowledge'],
-    summary: 'List indexed knowledge documents',
-    description: 'Aggregates chunk-based pgvector rows into document summaries for admin views.',
+    summary: '分页查询知识库文档',
+    description: '按文档维度聚合 pgvector chunk 记录，返回 AI 知识库管理页使用的知识摘要列表。',
   })
   .input(listKnowledgeInputSchema)
   .output(knowledgeListResponseSchema)
