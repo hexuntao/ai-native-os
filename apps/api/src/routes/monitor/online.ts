@@ -106,8 +106,8 @@ export const monitorOnlineListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/monitor/online',
     tags: ['Monitor:Online'],
-    summary: 'List online sessions',
-    description: 'Returns active Better Auth sessions together with mapped RBAC role information.',
+    summary: '分页查询在线会话',
+    description: '返回当前活跃 Better Auth 会话，并补充映射后的 RBAC 用户与角色信息。',
   })
   .input(listOnlineUsersInputSchema)
   .output(onlineUserListResponseSchema)

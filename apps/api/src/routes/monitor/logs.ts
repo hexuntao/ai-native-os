@@ -69,8 +69,8 @@ export const monitorLogsListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/monitor/logs',
     tags: ['Monitor:Logs'],
-    summary: 'List operation logs',
-    description: 'Returns paginated operation logs for monitor and audit views.',
+    summary: '分页查询操作日志',
+    description: '返回监控与审计页面使用的操作日志分页结果，支持按模块、状态和关键词筛选。',
   })
   .input(listOperationLogsInputSchema)
   .output(operationLogListResponseSchema)

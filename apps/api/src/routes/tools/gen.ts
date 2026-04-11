@@ -123,9 +123,8 @@ export const toolGenListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/tools/gen',
     tags: ['Tools:Gen'],
-    summary: 'List generation-capable AI surfaces',
-    description:
-      'Returns the currently wired generation-capable agent and prompt-governance surfaces.',
+    summary: '分页查询生成能力入口',
+    description: '返回当前已接线的 Copilot、Agent 与 Prompt 治理入口目录。',
   })
   .input(listToolGenInputSchema)
   .output(toolGenListResponseSchema)

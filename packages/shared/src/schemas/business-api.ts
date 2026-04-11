@@ -1331,119 +1331,608 @@ export const menuListResponseSchema = withOpenApiSchemaDoc(
 )
 
 // 系统字典 contract-first skeleton。
-export const dictEntrySchema = z.object({
-  label: z.string(),
-  sortOrder: z.number().int().min(0),
-  value: z.string(),
-})
+export const dictEntrySchema = withOpenApiSchemaDoc(
+  z.object({
+    label: withOpenApiSchemaDoc(z.string(), {
+      title: 'DictEntryLabel',
+      description: '字典项显示名称。',
+      examples: ['read'],
+    }),
+    sortOrder: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'DictEntrySortOrder',
+      description: '字典项排序值。',
+      examples: [1],
+    }),
+    value: withOpenApiSchemaDoc(z.string(), {
+      title: 'DictEntryValue',
+      description: '字典项稳定值。',
+      examples: ['read'],
+    }),
+  }),
+  {
+    title: 'DictEntry',
+    description: '系统字典项条目。',
+    examples: [{ label: 'read', sortOrder: 1, value: 'read' }],
+  },
+)
 
-export const listDictsInputSchema = baseSearchSchema
-  .extend({
-    source: z.enum(['runtime', 'seed']).optional(),
-    status: booleanQuerySchema.optional(),
-  })
-  .default({
-    page: 1,
-    pageSize: 10,
-  })
+export const listDictsInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema
+    .extend({
+      source: withOpenApiSchemaDoc(z.enum(['runtime', 'seed']).optional(), {
+        title: 'DictSourceFilter',
+        description: '按字典来源过滤；`seed` 表示种子字典，`runtime` 表示运行时字典。',
+        examples: ['seed'],
+      }),
+      status: withOpenApiSchemaDoc(booleanQuerySchema.optional(), {
+        title: 'DictStatusFilter',
+        description: '按字典启用状态过滤。',
+        examples: [true],
+      }),
+    })
+    .default({
+      page: 1,
+      pageSize: 10,
+    }),
+  {
+    title: 'ListDictsInput',
+    description: '系统字典分页查询参数。',
+    examples: [{ page: 1, pageSize: 10, source: 'seed', status: true }],
+    default: { page: 1, pageSize: 10 },
+  },
+)
 
-export const dictListItemSchema = z.object({
-  code: z.string(),
-  createdAt: z.string(),
-  description: z.string().nullable(),
-  entries: z.array(dictEntrySchema),
-  entryCount: z.number().int().min(0),
-  id: z.string(),
-  name: z.string(),
-  source: z.enum(['runtime', 'seed']),
-  status: z.boolean(),
-  updatedAt: z.string(),
-})
+export const dictListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    code: withOpenApiSchemaDoc(z.string(), {
+      title: 'DictCode',
+      description: '字典稳定编码。',
+      examples: ['ability_actions'],
+    }),
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'DictCreatedAt',
+      description: '字典创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-02T00:00:00.000Z'],
+    }),
+    description: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'DictDescription',
+      description: '字典说明；未填写时为 `null`。',
+      examples: ['系统内置 CASL 动作集合。'],
+    }),
+    entries: withOpenApiSchemaDoc(z.array(dictEntrySchema), {
+      title: 'DictEntries',
+      description: '当前字典包含的条目列表。',
+      examples: [[{ label: 'read', sortOrder: 1, value: 'read' }]],
+    }),
+    entryCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'DictEntryCount',
+      description: '字典条目数量。',
+      examples: [4],
+    }),
+    id: withOpenApiSchemaDoc(z.string(), {
+      title: 'DictId',
+      description: '字典稳定标识。',
+      examples: ['dict:ability-actions'],
+    }),
+    name: withOpenApiSchemaDoc(z.string(), {
+      title: 'DictName',
+      description: '字典显示名称。',
+      examples: ['权限动作'],
+    }),
+    source: withOpenApiSchemaDoc(z.enum(['runtime', 'seed']), {
+      title: 'DictSource',
+      description: '字典来源。',
+      examples: ['seed'],
+    }),
+    status: withOpenApiSchemaDoc(z.boolean(), {
+      title: 'DictStatus',
+      description: '字典启用状态。',
+      examples: [true],
+    }),
+    updatedAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'DictUpdatedAt',
+      description: '字典更新时间，ISO 8601 字符串。',
+      examples: ['2026-04-02T00:00:00.000Z'],
+    }),
+  }),
+  {
+    title: 'DictListItem',
+    description: '系统字典条目，包含元信息和全部字典项。',
+    examples: [
+      {
+        code: 'ability_actions',
+        createdAt: '2026-04-02T00:00:00.000Z',
+        description: '系统内置 CASL 动作集合。',
+        entries: [{ label: 'read', sortOrder: 1, value: 'read' }],
+        entryCount: 4,
+        id: 'dict:ability-actions',
+        name: '权限动作',
+        source: 'seed',
+        status: true,
+        updatedAt: '2026-04-02T00:00:00.000Z',
+      },
+    ],
+  },
+)
 
-export const dictListResponseSchema = paginatedResponseSchema(dictListItemSchema)
+export const dictListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(dictListItemSchema),
+  {
+    title: 'DictListResponse',
+    description: '系统字典分页响应。',
+    examples: [
+      {
+        data: [
+          {
+            code: 'ability_actions',
+            createdAt: '2026-04-02T00:00:00.000Z',
+            description: '系统内置 CASL 动作集合。',
+            entries: [{ label: 'read', sortOrder: 1, value: 'read' }],
+            entryCount: 4,
+            id: 'dict:ability-actions',
+            name: '权限动作',
+            source: 'seed',
+            status: true,
+            updatedAt: '2026-04-02T00:00:00.000Z',
+          },
+        ],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+      },
+    ],
+  },
+)
 
 // 系统配置 contract-first skeleton。
-export const configScopeSchema = z.enum(['ai', 'application', 'deploy', 'security'])
+export const configScopeSchema = withOpenApiSchemaDoc(
+  z.enum(['ai', 'application', 'deploy', 'security']),
+  {
+    title: 'ConfigScope',
+    description: '运行时配置所属域。',
+    examples: ['security'],
+  },
+)
 
-export const listConfigsInputSchema = baseSearchSchema
-  .extend({
-    scope: configScopeSchema.optional(),
-  })
-  .default({
-    page: 1,
-    pageSize: 10,
-  })
+export const listConfigsInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema
+    .extend({
+      scope: withOpenApiSchemaDoc(configScopeSchema.optional(), {
+        title: 'ConfigScopeFilter',
+        description: '按配置作用域过滤。',
+        examples: ['security'],
+      }),
+    })
+    .default({
+      page: 1,
+      pageSize: 10,
+    }),
+  {
+    title: 'ListConfigsInput',
+    description: '系统运行时配置分页查询参数。',
+    examples: [{ page: 1, pageSize: 10, scope: 'security' }],
+    default: { page: 1, pageSize: 10 },
+  },
+)
 
-export const configListItemSchema = z.object({
-  description: z.string(),
-  key: z.string(),
-  mutable: z.boolean(),
-  scope: configScopeSchema,
-  source: z.enum(['env', 'runtime', 'static']),
-  updatedAt: z.string(),
-  value: z.string(),
-})
-
-export const configListResponseSchema = paginatedResponseSchema(configListItemSchema)
-
-export const listOperationLogsInputSchema = baseSearchSchema.extend({
-  module: z.string().trim().min(1).max(100).optional(),
-  status: z.enum(['error', 'success']).optional(),
-})
-
-export const operationLogListItemSchema = z.object({
-  action: z.string(),
-  createdAt: z.string(),
-  detail: z.string(),
-  errorMessage: z.string().nullable(),
-  id: z.string().uuid(),
-  module: z.string(),
-  operatorId: z.string().uuid(),
-  requestId: z.string().nullable(),
-  status: z.string(),
-  targetId: z.string().uuid().nullable(),
-})
-
-export const operationLogListResponseSchema = paginatedResponseSchema(operationLogListItemSchema)
-
-export const listOnlineUsersInputSchema = baseSearchSchema
-
-export const onlineUserListItemSchema = z.object({
-  createdAt: z.string(),
-  email: z.string().email(),
-  expiresAt: z.string(),
-  ipAddress: z.string().nullable(),
-  name: z.string(),
-  rbacUserId: z.string().uuid().nullable(),
-  roleCodes: z.array(z.string()),
-  sessionId: z.string(),
-  userAgent: z.string().nullable(),
-  userId: z.string(),
-})
-
-export const onlineUserListResponseSchema = paginatedResponseSchema(onlineUserListItemSchema)
-
-export const serverSummarySchema = z.object({
-  environment: z.object({
-    nodeEnv: z.string(),
-    port: z.number().int(),
+export const configListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    description: withOpenApiSchemaDoc(z.string(), {
+      title: 'ConfigDescription',
+      description: '配置项用途说明。',
+      examples: ['API 基础限流模式与通用配额。'],
+    }),
+    key: withOpenApiSchemaDoc(z.string(), {
+      title: 'ConfigKey',
+      description: '配置项稳定键名。',
+      examples: ['security.rate_limit'],
+    }),
+    mutable: withOpenApiSchemaDoc(z.boolean(), {
+      title: 'ConfigMutable',
+      description: '该配置是否允许通过管理面修改。',
+      examples: [false],
+    }),
+    scope: configScopeSchema,
+    source: withOpenApiSchemaDoc(z.enum(['env', 'runtime', 'static']), {
+      title: 'ConfigSource',
+      description: '配置项来源。',
+      examples: ['runtime'],
+    }),
+    updatedAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'ConfigUpdatedAt',
+      description: '配置摘要最近更新时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T06:30:00.000Z'],
+    }),
+    value: withOpenApiSchemaDoc(z.string(), {
+      title: 'ConfigValue',
+      description: '脱敏后的配置值或状态摘要。',
+      examples: ['enabled:120/60000ms'],
+    }),
   }),
-  health: z.object({
-    api: z.literal('ok'),
-    ai: aiRuntimeCapabilitySchema,
-    database: dependencyHealthStatusSchema,
-    redis: dependencyHealthStatusSchema,
-    status: z.enum(['degraded', 'ok']),
-    telemetry: telemetryHealthSchema,
+  {
+    title: 'ConfigListItem',
+    description: '系统运行时配置摘要条目，仅返回可安全暴露的非敏感信息。',
+    examples: [
+      {
+        description: 'API 基础限流模式与通用配额。',
+        key: 'security.rate_limit',
+        mutable: false,
+        scope: 'security',
+        source: 'runtime',
+        updatedAt: '2026-04-11T06:30:00.000Z',
+        value: 'enabled:120/60000ms',
+      },
+    ],
+  },
+)
+
+export const configListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(configListItemSchema),
+  {
+    title: 'ConfigListResponse',
+    description: '系统配置分页响应。',
+    examples: [
+      {
+        data: [
+          {
+            description: 'API 基础限流模式与通用配额。',
+            key: 'security.rate_limit',
+            mutable: false,
+            scope: 'security',
+            source: 'runtime',
+            updatedAt: '2026-04-11T06:30:00.000Z',
+            value: 'enabled:120/60000ms',
+          },
+        ],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+      },
+    ],
+  },
+)
+
+export const listOperationLogsInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema.extend({
+    module: withOpenApiSchemaDoc(z.string().trim().min(1).max(100).optional(), {
+      title: 'OperationLogModuleFilter',
+      description: '按模块名过滤操作日志。',
+      examples: ['system_users'],
+    }),
+    status: withOpenApiSchemaDoc(z.enum(['error', 'success']).optional(), {
+      title: 'OperationLogStatusFilter',
+      description: '按操作结果状态过滤操作日志。',
+      examples: ['success'],
+    }),
   }),
-  runtime: z.object({
-    agentCount: z.number().int().min(0),
-    enabledAgentCount: z.number().int().min(0),
-    runtimeStage: z.enum(['agents_ready', 'tools_only', 'workflows_ready']),
-    toolCount: z.number().int().min(0),
-    workflowCount: z.number().int().min(0),
+  {
+    title: 'ListOperationLogsInput',
+    description: '操作日志分页查询参数。',
+    examples: [{ page: 1, pageSize: 10, module: 'system_users', status: 'success' }],
+  },
+)
+
+export const operationLogListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    action: withOpenApiSchemaDoc(z.string(), {
+      title: 'OperationLogAction',
+      description: '操作动作标识。',
+      examples: ['create_user'],
+    }),
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'OperationLogCreatedAt',
+      description: '日志创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T06:30:00.000Z'],
+    }),
+    detail: withOpenApiSchemaDoc(z.string(), {
+      title: 'OperationLogDetail',
+      description: '操作详情描述。',
+      examples: ['Created user alice_admin.'],
+    }),
+    errorMessage: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'OperationLogErrorMessage',
+      description: '操作失败时的错误消息；成功时为 `null`。',
+      examples: [null],
+    }),
+    id: withOpenApiSchemaDoc(z.string().uuid(), {
+      title: 'OperationLogId',
+      description: '操作日志主键 UUID。',
+      examples: ['9c29d02d-a283-42f6-a6b3-a61bd59b1001'],
+    }),
+    module: withOpenApiSchemaDoc(z.string(), {
+      title: 'OperationLogModule',
+      description: '日志所属模块。',
+      examples: ['system_users'],
+    }),
+    operatorId: withOpenApiSchemaDoc(z.string().uuid(), {
+      title: 'OperationLogOperatorId',
+      description: '触发操作的 RBAC 用户 ID。',
+      examples: ['8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001'],
+    }),
+    requestId: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'OperationLogRequestId',
+      description: '关联请求 ID；无请求上下文时为 `null`。',
+      examples: ['req_01'],
+    }),
+    status: withOpenApiSchemaDoc(z.string(), {
+      title: 'OperationLogStatus',
+      description: '操作结果状态。',
+      examples: ['success'],
+    }),
+    targetId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+      title: 'OperationLogTargetId',
+      description: '操作目标资源 UUID；无目标时为 `null`。',
+      examples: ['5ce76d62-d8d4-4c61-ae2d-4b63135d1001'],
+    }),
   }),
+  {
+    title: 'OperationLogListItem',
+    description: '单条操作日志条目。',
+    examples: [
+      {
+        action: 'create_user',
+        createdAt: '2026-04-11T06:30:00.000Z',
+        detail: 'Created user alice_admin.',
+        errorMessage: null,
+        id: '9c29d02d-a283-42f6-a6b3-a61bd59b1001',
+        module: 'system_users',
+        operatorId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        requestId: 'req_01',
+        status: 'success',
+        targetId: '5ce76d62-d8d4-4c61-ae2d-4b63135d1001',
+      },
+    ],
+  },
+)
+
+export const operationLogListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(operationLogListItemSchema),
+  {
+    title: 'OperationLogListResponse',
+    description: '操作日志分页响应。',
+    examples: [
+      {
+        data: [
+          {
+            action: 'create_user',
+            createdAt: '2026-04-11T06:30:00.000Z',
+            detail: 'Created user alice_admin.',
+            errorMessage: null,
+            id: '9c29d02d-a283-42f6-a6b3-a61bd59b1001',
+            module: 'system_users',
+            operatorId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            requestId: 'req_01',
+            status: 'success',
+            targetId: '5ce76d62-d8d4-4c61-ae2d-4b63135d1001',
+          },
+        ],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+      },
+    ],
+  },
+)
+
+export const listOnlineUsersInputSchema = withOpenApiSchemaDoc(baseSearchSchema, {
+  title: 'ListOnlineUsersInput',
+  description: '在线会话分页查询参数，支持按邮箱或用户名关键词检索。',
+  examples: [{ page: 1, pageSize: 10, search: 'admin' }],
 })
+
+export const onlineUserListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'OnlineSessionCreatedAt',
+      description: '会话创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T06:30:00.000Z'],
+    }),
+    email: withOpenApiSchemaDoc(z.string().email(), {
+      title: 'OnlineSessionEmail',
+      description: '登录主体邮箱。',
+      examples: ['admin@ai-native-os.local'],
+    }),
+    expiresAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'OnlineSessionExpiresAt',
+      description: '会话过期时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T08:30:00.000Z'],
+    }),
+    ipAddress: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'OnlineSessionIpAddress',
+      description: '会话 IP 地址；未记录时为 `null`。',
+      examples: ['127.0.0.1'],
+    }),
+    name: withOpenApiSchemaDoc(z.string(), {
+      title: 'OnlineSessionUserName',
+      description: 'Better Auth 用户显示名。',
+      examples: ['super_admin'],
+    }),
+    rbacUserId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+      title: 'OnlineSessionRbacUserId',
+      description: '映射到应用 RBAC 用户的 UUID；未映射时为 `null`。',
+      examples: ['8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001'],
+    }),
+    roleCodes: withOpenApiSchemaDoc(z.array(z.string()), {
+      title: 'OnlineSessionRoleCodes',
+      description: '当前会话映射到的角色编码列表。',
+      examples: [['super_admin']],
+    }),
+    sessionId: withOpenApiSchemaDoc(z.string(), {
+      title: 'OnlineSessionId',
+      description: 'Better Auth 会话 ID。',
+      examples: ['sess_01'],
+    }),
+    userAgent: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'OnlineSessionUserAgent',
+      description: '会话 User-Agent；未记录时为 `null`。',
+      examples: ['Mozilla/5.0'],
+    }),
+    userId: withOpenApiSchemaDoc(z.string(), {
+      title: 'OnlineSessionAuthUserId',
+      description: 'Better Auth 用户 ID。',
+      examples: ['auth_user_01'],
+    }),
+  }),
+  {
+    title: 'OnlineUserListItem',
+    description: '在线会话条目，聚合了 Better Auth 会话与 RBAC 角色信息。',
+    examples: [
+      {
+        createdAt: '2026-04-11T06:30:00.000Z',
+        email: 'admin@ai-native-os.local',
+        expiresAt: '2026-04-11T08:30:00.000Z',
+        ipAddress: '127.0.0.1',
+        name: 'super_admin',
+        rbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        roleCodes: ['super_admin'],
+        sessionId: 'sess_01',
+        userAgent: 'Mozilla/5.0',
+        userId: 'auth_user_01',
+      },
+    ],
+  },
+)
+
+export const onlineUserListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(onlineUserListItemSchema),
+  {
+    title: 'OnlineUserListResponse',
+    description: '在线会话分页响应。',
+    examples: [
+      {
+        data: [
+          {
+            createdAt: '2026-04-11T06:30:00.000Z',
+            email: 'admin@ai-native-os.local',
+            expiresAt: '2026-04-11T08:30:00.000Z',
+            ipAddress: '127.0.0.1',
+            name: 'super_admin',
+            rbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            roleCodes: ['super_admin'],
+            sessionId: 'sess_01',
+            userAgent: 'Mozilla/5.0',
+            userId: 'auth_user_01',
+          },
+        ],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+      },
+    ],
+  },
+)
+
+export const serverSummarySchema = withOpenApiSchemaDoc(
+  z.object({
+    environment: withOpenApiSchemaDoc(
+      z.object({
+        nodeEnv: withOpenApiSchemaDoc(z.string(), {
+          title: 'ServerSummaryNodeEnv',
+          description: '当前 API 进程运行环境。',
+          examples: ['development'],
+        }),
+        port: withOpenApiSchemaDoc(z.number().int(), {
+          title: 'ServerSummaryPort',
+          description: '当前 API 进程监听端口。',
+          examples: [3001],
+        }),
+      }),
+      {
+        title: 'ServerSummaryEnvironment',
+        description: '服务端环境摘要。',
+      },
+    ),
+    health: withOpenApiSchemaDoc(
+      z.object({
+        api: withOpenApiSchemaDoc(z.literal('ok'), {
+          title: 'ServerSummaryApiHealth',
+          description: 'API 进程健康状态常量。',
+          examples: ['ok'],
+        }),
+        ai: aiRuntimeCapabilitySchema,
+        database: dependencyHealthStatusSchema,
+        redis: dependencyHealthStatusSchema,
+        status: withOpenApiSchemaDoc(z.enum(['degraded', 'ok']), {
+          title: 'ServerSummaryHealthStatus',
+          description: '整体健康状态。',
+          examples: ['ok'],
+        }),
+        telemetry: telemetryHealthSchema,
+      }),
+      {
+        title: 'ServerSummaryHealth',
+        description: '服务端健康检查摘要。',
+      },
+    ),
+    runtime: withOpenApiSchemaDoc(
+      z.object({
+        agentCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ServerSummaryAgentCount',
+          description: '当前已注册 Agent 数量。',
+          examples: [2],
+        }),
+        enabledAgentCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ServerSummaryEnabledAgentCount',
+          description: '当前主体可用 Agent 数量。',
+          examples: [1],
+        }),
+        runtimeStage: withOpenApiSchemaDoc(
+          z.enum(['agents_ready', 'tools_only', 'workflows_ready']),
+          {
+            title: 'ServerSummaryRuntimeStage',
+            description: 'Mastra 当前运行阶段。',
+            examples: ['workflows_ready'],
+          },
+        ),
+        toolCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ServerSummaryToolCount',
+          description: '当前已注册 Tool 数量。',
+          examples: [3],
+        }),
+        workflowCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ServerSummaryWorkflowCount',
+          description: '当前已注册 Workflow 数量。',
+          examples: [1],
+        }),
+      }),
+      {
+        title: 'ServerSummaryRuntime',
+        description: 'Mastra 运行时摘要。',
+      },
+    ),
+  }),
+  {
+    title: 'ServerSummary',
+    description: '监控页使用的服务端运行时总览。',
+    examples: [
+      {
+        environment: {
+          nodeEnv: 'development',
+          port: 3001,
+        },
+        health: {
+          api: 'ok',
+          ai: {
+            copilot: 'degraded',
+            defaultModel: 'gpt-4.1-mini',
+            embeddingProvider: 'deterministic-local',
+            openaiApiKeyConfigured: false,
+            reason: 'OPENAI_API_KEY is not configured.',
+            remoteEmbeddings: 'degraded',
+            status: 'degraded',
+            unavailableSurfaces: ['copilot', 'agents'],
+          },
+          database: 'ok',
+          redis: 'ok',
+          status: 'ok',
+          telemetry: {
+            openTelemetry: 'unknown',
+            sentry: 'unknown',
+          },
+        },
+        runtime: {
+          agentCount: 2,
+          enabledAgentCount: 1,
+          runtimeStage: 'workflows_ready',
+          toolCount: 3,
+          workflowCount: 1,
+        },
+      },
+    ],
+  },
+)
 
 export const listKnowledgeInputSchema = withOpenApiSchemaDoc(
   baseSearchSchema.extend({
@@ -1854,65 +2343,274 @@ export const aiEvalListResponseSchema = withOpenApiSchemaDoc(
 )
 
 // 工具发现 contract-first skeleton。
-export const toolGenKindSchema = z.enum(['agent', 'copilot', 'prompt'])
-export const toolGenStatusSchema = z.enum(['available', 'planned'])
-
-export const listToolGenInputSchema = baseSearchSchema
-  .extend({
-    kind: toolGenKindSchema.optional(),
-    status: toolGenStatusSchema.optional(),
-  })
-  .default({
-    page: 1,
-    pageSize: 10,
-  })
-
-export const toolGenListItemSchema = z.object({
-  backing: z.enum(['copilotkit', 'mastra-agent', 'prompt-governance']),
-  description: z.string(),
-  id: z.string(),
-  kind: toolGenKindSchema,
-  name: z.string(),
-  routePath: z.string().nullable(),
-  status: toolGenStatusSchema,
+export const toolGenKindSchema = withOpenApiSchemaDoc(z.enum(['agent', 'copilot', 'prompt']), {
+  title: 'ToolGenKind',
+  description: '生成类入口类型。',
+  examples: ['agent', 'copilot', 'prompt'],
+})
+export const toolGenStatusSchema = withOpenApiSchemaDoc(z.enum(['available', 'planned']), {
+  title: 'ToolGenStatus',
+  description: '生成类入口状态。',
+  examples: ['available', 'planned'],
 })
 
-export const toolGenListResponseSchema = paginatedResponseSchema(toolGenListItemSchema).extend({
-  summary: z.object({
-    availableCount: z.number().int().min(0),
-    plannedCount: z.number().int().min(0),
+export const listToolGenInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema
+    .extend({
+      kind: withOpenApiSchemaDoc(toolGenKindSchema.optional(), {
+        title: 'ToolGenKindFilter',
+        description: '按生成入口类型过滤。',
+        examples: ['copilot'],
+      }),
+      status: withOpenApiSchemaDoc(toolGenStatusSchema.optional(), {
+        title: 'ToolGenStatusFilter',
+        description: '按生成入口状态过滤。',
+        examples: ['available'],
+      }),
+    })
+    .default({
+      page: 1,
+      pageSize: 10,
+    }),
+  {
+    title: 'ListToolGenInput',
+    description: '生成能力目录分页查询参数。',
+    examples: [{ page: 1, pageSize: 10, kind: 'copilot', status: 'available' }],
+    default: { page: 1, pageSize: 10 },
+  },
+)
+
+export const toolGenListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    backing: withOpenApiSchemaDoc(z.enum(['copilotkit', 'mastra-agent', 'prompt-governance']), {
+      title: 'ToolGenBacking',
+      description: '当前入口背后的实际实现层。',
+      examples: ['copilotkit'],
+    }),
+    description: withOpenApiSchemaDoc(z.string(), {
+      title: 'ToolGenDescription',
+      description: '生成入口用途说明。',
+      examples: ['面向后台管理员的只读 Copilot 入口。'],
+    }),
+    id: withOpenApiSchemaDoc(z.string(), {
+      title: 'ToolGenId',
+      description: '生成入口稳定标识。',
+      examples: ['admin-copilot'],
+    }),
+    kind: toolGenKindSchema,
+    name: withOpenApiSchemaDoc(z.string(), {
+      title: 'ToolGenName',
+      description: '生成入口显示名称。',
+      examples: ['Admin Copilot'],
+    }),
+    routePath: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'ToolGenRoutePath',
+      description: '对应入口路径；没有直接入口时为 `null`。',
+      examples: ['/mastra/agents/admin-copilot'],
+    }),
+    status: toolGenStatusSchema,
   }),
-})
+  {
+    title: 'ToolGenListItem',
+    description: '生成能力目录条目。',
+    examples: [
+      {
+        backing: 'copilotkit',
+        description: '面向后台管理员的只读 Copilot 入口。',
+        id: 'admin-copilot',
+        kind: 'copilot',
+        name: 'Admin Copilot',
+        routePath: '/mastra/agents/admin-copilot',
+        status: 'available',
+      },
+    ],
+  },
+)
 
-export const toolJobModeSchema = z.enum(['manual', 'scheduled'])
-
-export const listToolJobsInputSchema = baseSearchSchema
-  .extend({
-    mode: toolJobModeSchema.optional(),
-  })
-  .default({
-    page: 1,
-    pageSize: 10,
-  })
-
-export const toolJobListItemSchema = z.object({
-  description: z.string(),
-  id: z.string(),
-  mode: toolJobModeSchema,
-  name: z.string(),
-  schedule: z.string().nullable(),
-  status: z.enum(['registered', 'scheduled']),
-  triggerConfigPath: z.string(),
-  workflowId: z.string().nullable(),
-})
-
-export const toolJobsListResponseSchema = paginatedResponseSchema(toolJobListItemSchema).extend({
-  summary: z.object({
-    registeredCount: z.number().int().min(0),
-    scheduledCount: z.number().int().min(0),
-    workflowLinkedCount: z.number().int().min(0),
+export const toolGenListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(toolGenListItemSchema).extend({
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        availableCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ToolGenAvailableCount',
+          description: '当前筛选结果中可用入口数量。',
+          examples: [2],
+        }),
+        plannedCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ToolGenPlannedCount',
+          description: '当前筛选结果中规划中入口数量。',
+          examples: [1],
+        }),
+      }),
+      {
+        title: 'ToolGenListSummary',
+        description: '生成能力目录汇总信息。',
+      },
+    ),
   }),
+  {
+    title: 'ToolGenListResponse',
+    description: '生成能力目录分页响应。',
+    examples: [
+      {
+        data: [
+          {
+            backing: 'copilotkit',
+            description: '面向后台管理员的只读 Copilot 入口。',
+            id: 'admin-copilot',
+            kind: 'copilot',
+            name: 'Admin Copilot',
+            routePath: '/mastra/agents/admin-copilot',
+            status: 'available',
+          },
+        ],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+        summary: {
+          availableCount: 1,
+          plannedCount: 0,
+        },
+      },
+    ],
+  },
+)
+
+export const toolJobModeSchema = withOpenApiSchemaDoc(z.enum(['manual', 'scheduled']), {
+  title: 'ToolJobMode',
+  description: '任务执行模式。',
+  examples: ['manual', 'scheduled'],
 })
+
+export const listToolJobsInputSchema = withOpenApiSchemaDoc(
+  baseSearchSchema
+    .extend({
+      mode: withOpenApiSchemaDoc(toolJobModeSchema.optional(), {
+        title: 'ToolJobModeFilter',
+        description: '按任务执行模式过滤。',
+        examples: ['scheduled'],
+      }),
+    })
+    .default({
+      page: 1,
+      pageSize: 10,
+    }),
+  {
+    title: 'ListToolJobsInput',
+    description: '任务调度目录分页查询参数。',
+    examples: [{ page: 1, pageSize: 10, mode: 'scheduled' }],
+    default: { page: 1, pageSize: 10 },
+  },
+)
+
+export const toolJobListItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    description: withOpenApiSchemaDoc(z.string(), {
+      title: 'ToolJobDescription',
+      description: '任务目录条目说明。',
+      examples: ['定时生成报表并写入审计日志。'],
+    }),
+    id: withOpenApiSchemaDoc(z.string(), {
+      title: 'ToolJobId',
+      description: '任务标识。',
+      examples: ['report-schedule'],
+    }),
+    mode: toolJobModeSchema,
+    name: withOpenApiSchemaDoc(z.string(), {
+      title: 'ToolJobName',
+      description: '任务显示名称。',
+      examples: ['Report Schedule'],
+    }),
+    schedule: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'ToolJobSchedule',
+      description: '定时任务表达式；手动任务为 `null`。',
+      examples: ['0 8 * * *'],
+    }),
+    status: withOpenApiSchemaDoc(z.enum(['registered', 'scheduled']), {
+      title: 'ToolJobStatus',
+      description: '任务目录状态。',
+      examples: ['scheduled'],
+    }),
+    triggerConfigPath: withOpenApiSchemaDoc(z.string(), {
+      title: 'ToolJobTriggerConfigPath',
+      description: 'Trigger.dev 配置文件路径。',
+      examples: ['apps/jobs/trigger.config.ts'],
+    }),
+    workflowId: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'ToolJobWorkflowId',
+      description: '若当前任务绑定已注册 Workflow，则返回对应 Workflow ID；否则为 `null`。',
+      examples: ['report-schedule'],
+    }),
+  }),
+  {
+    title: 'ToolJobListItem',
+    description: '任务调度目录条目。',
+    examples: [
+      {
+        description: '定时生成报表并写入审计日志。',
+        id: 'report-schedule',
+        mode: 'scheduled',
+        name: 'Report Schedule',
+        schedule: '0 8 * * *',
+        status: 'scheduled',
+        triggerConfigPath: 'apps/jobs/trigger.config.ts',
+        workflowId: 'report-schedule',
+      },
+    ],
+  },
+)
+
+export const toolJobsListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(toolJobListItemSchema).extend({
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        registeredCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ToolJobRegisteredCount',
+          description: '任务目录总数。',
+          examples: [2],
+        }),
+        scheduledCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ToolJobScheduledCount',
+          description: '定时任务数量。',
+          examples: [1],
+        }),
+        workflowLinkedCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'ToolJobWorkflowLinkedCount',
+          description: '已绑定 Workflow 的任务数量。',
+          examples: [1],
+        }),
+      }),
+      {
+        title: 'ToolJobsListSummary',
+        description: '任务调度目录汇总信息。',
+      },
+    ),
+  }),
+  {
+    title: 'ToolJobsListResponse',
+    description: '任务调度目录分页响应。',
+    examples: [
+      {
+        data: [
+          {
+            description: '定时生成报表并写入审计日志。',
+            id: 'report-schedule',
+            mode: 'scheduled',
+            name: 'Report Schedule',
+            schedule: '0 8 * * *',
+            status: 'scheduled',
+            triggerConfigPath: 'apps/jobs/trigger.config.ts',
+            workflowId: 'report-schedule',
+          },
+        ],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+        summary: {
+          registeredCount: 1,
+          scheduledCount: 1,
+          workflowLinkedCount: 1,
+        },
+      },
+    ],
+  },
+)
 
 export type ListUsersInput = z.infer<typeof listUsersInputSchema>
 export type GetUserByIdInput = z.infer<typeof getUserByIdInputSchema>

@@ -132,9 +132,8 @@ export const dictsListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/system/dicts',
     tags: ['System:Dicts'],
-    summary: 'List system dictionaries',
-    description:
-      'Returns the minimal contract-first dictionary catalog used by system management views.',
+    summary: '分页查询系统字典',
+    description: '返回系统管理页使用的最小真实字典目录，而不是前端私有 mock 数据。',
   })
   .input(listDictsInputSchema)
   .output(dictListResponseSchema)

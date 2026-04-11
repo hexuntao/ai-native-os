@@ -136,8 +136,8 @@ export const configListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/system/config',
     tags: ['System:Config'],
-    summary: 'List system runtime config summary',
-    description: 'Returns a redacted runtime configuration summary for admin configuration views.',
+    summary: '分页查询系统配置摘要',
+    description: '返回可安全暴露给后台配置页的运行时配置摘要，不包含任何 secret 原文。',
   })
   .input(listConfigsInputSchema)
   .output(configListResponseSchema)

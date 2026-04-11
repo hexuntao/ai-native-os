@@ -17,8 +17,8 @@ export const monitorServerSummaryProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/monitor/server',
     tags: ['Monitor:Server'],
-    summary: 'Get server runtime summary',
-    description: 'Returns current API health and Mastra runtime summary for monitor dashboards.',
+    summary: '读取服务端运行时摘要',
+    description: '返回 API 健康状态、遥测状态和 Mastra 运行时摘要，供监控页展示。',
   })
   .output(serverSummarySchema)
   .handler(async () => {

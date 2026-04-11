@@ -7,9 +7,8 @@ export const currentPermissionsProcedure = protectedProcedure
     method: 'GET',
     path: '/api/v1/system/permissions/current',
     tags: ['System:Permissions'],
-    summary: 'Get current RBAC permission rules',
-    description:
-      'Returns the current authenticated principal roles and normalized permission rules.',
+    summary: '读取当前主体权限规则',
+    description: '返回当前登录主体的角色编码和归一化 RBAC 权限规则列表。',
   })
   .output(currentPermissionsResponseSchema)
   .handler(({ context }) => ({

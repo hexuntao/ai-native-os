@@ -837,6 +837,132 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   )
 })
 
+test('OpenAPI document exposes rich schema metadata for monitor, tools, and system helper surfaces', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+
+  const logsPath = payload.paths['/api/v1/monitor/logs']
+  assert.ok(logsPath && isRecord(logsPath), 'Expected /api/v1/monitor/logs path to exist')
+  const logsGet = logsPath.get
+  assert.ok(logsGet && isRecord(logsGet), 'Expected GET operation for monitor logs')
+  assert.equal(logsGet.summary, '分页查询操作日志')
+  assert.equal(
+    logsGet.description,
+    '返回监控与审计页面使用的操作日志分页结果，支持按模块、状态和关键词筛选。',
+  )
+  const logsResponses = logsGet.responses
+  const logsJson =
+    logsResponses &&
+    isRecord(logsResponses) &&
+    isRecord(logsResponses['200']) &&
+    isRecord(logsResponses['200'].content)
+      ? logsResponses['200'].content['application/json']
+      : undefined
+  assert.ok(logsJson && isRecord(logsJson), 'Expected monitor logs JSON response schema')
+  const logsOutputSchema = resolveOpenApiSchema(payload, logsJson.schema)
+  assert.equal(logsOutputSchema.title, 'OperationLogListResponse')
+
+  const onlinePath = payload.paths['/api/v1/monitor/online']
+  assert.ok(onlinePath && isRecord(onlinePath), 'Expected /api/v1/monitor/online path to exist')
+  const onlineGet = onlinePath.get
+  assert.ok(onlineGet && isRecord(onlineGet), 'Expected GET operation for monitor online')
+  assert.equal(onlineGet.summary, '分页查询在线会话')
+
+  const serverPath = payload.paths['/api/v1/monitor/server']
+  assert.ok(serverPath && isRecord(serverPath), 'Expected /api/v1/monitor/server path to exist')
+  const serverGet = serverPath.get
+  assert.ok(serverGet && isRecord(serverGet), 'Expected GET operation for monitor server')
+  assert.equal(serverGet.summary, '读取服务端运行时摘要')
+  const serverResponses = serverGet.responses
+  const serverJson =
+    serverResponses &&
+    isRecord(serverResponses) &&
+    isRecord(serverResponses['200']) &&
+    isRecord(serverResponses['200'].content)
+      ? serverResponses['200'].content['application/json']
+      : undefined
+  assert.ok(serverJson && isRecord(serverJson), 'Expected monitor server JSON response schema')
+  const serverOutputSchema = resolveOpenApiSchema(payload, serverJson.schema)
+  assert.equal(serverOutputSchema.title, 'ServerSummary')
+
+  const genPath = payload.paths['/api/v1/tools/gen']
+  assert.ok(genPath && isRecord(genPath), 'Expected /api/v1/tools/gen path to exist')
+  const genGet = genPath.get
+  assert.ok(genGet && isRecord(genGet), 'Expected GET operation for tools gen')
+  assert.equal(genGet.summary, '分页查询生成能力入口')
+  const genResponses = genGet.responses
+  const genJson =
+    genResponses &&
+    isRecord(genResponses) &&
+    isRecord(genResponses['200']) &&
+    isRecord(genResponses['200'].content)
+      ? genResponses['200'].content['application/json']
+      : undefined
+  assert.ok(genJson && isRecord(genJson), 'Expected tools gen JSON response schema')
+  const genOutputSchema = resolveOpenApiSchema(payload, genJson.schema)
+  assert.equal(genOutputSchema.title, 'ToolGenListResponse')
+
+  const jobsPath = payload.paths['/api/v1/tools/jobs']
+  assert.ok(jobsPath && isRecord(jobsPath), 'Expected /api/v1/tools/jobs path to exist')
+  const jobsGet = jobsPath.get
+  assert.ok(jobsGet && isRecord(jobsGet), 'Expected GET operation for tools jobs')
+  assert.equal(jobsGet.summary, '分页查询任务调度目录')
+  const jobsResponses = jobsGet.responses
+  const jobsJson =
+    jobsResponses &&
+    isRecord(jobsResponses) &&
+    isRecord(jobsResponses['200']) &&
+    isRecord(jobsResponses['200'].content)
+      ? jobsResponses['200'].content['application/json']
+      : undefined
+  assert.ok(jobsJson && isRecord(jobsJson), 'Expected tools jobs JSON response schema')
+  const jobsOutputSchema = resolveOpenApiSchema(payload, jobsJson.schema)
+  assert.equal(jobsOutputSchema.title, 'ToolJobsListResponse')
+
+  const sessionPath = payload.paths['/api/v1/system/session']
+  assert.ok(sessionPath && isRecord(sessionPath), 'Expected /api/v1/system/session path to exist')
+  const sessionGet = sessionPath.get
+  assert.ok(sessionGet && isRecord(sessionGet), 'Expected GET operation for system session')
+  assert.equal(sessionGet.summary, '读取当前认证会话')
+  const sessionResponses = sessionGet.responses
+  const sessionJson =
+    sessionResponses &&
+    isRecord(sessionResponses) &&
+    isRecord(sessionResponses['200']) &&
+    isRecord(sessionResponses['200'].content)
+      ? sessionResponses['200'].content['application/json']
+      : undefined
+  assert.ok(sessionJson && isRecord(sessionJson), 'Expected system session JSON response schema')
+  const sessionOutputSchema = resolveOpenApiSchema(payload, sessionJson.schema)
+  assert.equal(sessionOutputSchema.title, 'SessionResponse')
+
+  const aiToolCatalogPath = payload.paths['/api/v1/system/ai/tools/catalog']
+  assert.ok(
+    aiToolCatalogPath && isRecord(aiToolCatalogPath),
+    'Expected /api/v1/system/ai/tools/catalog path to exist',
+  )
+  const aiToolCatalogGet = aiToolCatalogPath.get
+  assert.ok(
+    aiToolCatalogGet && isRecord(aiToolCatalogGet),
+    'Expected GET operation for ai tool catalog',
+  )
+  assert.equal(aiToolCatalogGet.summary, '读取 AI Tool 目录')
+  const aiToolCatalogResponses = aiToolCatalogGet.responses
+  const aiToolCatalogJson =
+    aiToolCatalogResponses &&
+    isRecord(aiToolCatalogResponses) &&
+    isRecord(aiToolCatalogResponses['200']) &&
+    isRecord(aiToolCatalogResponses['200'].content)
+      ? aiToolCatalogResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    aiToolCatalogJson && isRecord(aiToolCatalogJson),
+    'Expected ai tool catalog JSON response schema',
+  )
+  const aiToolCatalogOutputSchema = resolveOpenApiSchema(payload, aiToolCatalogJson.schema)
+  assert.equal(aiToolCatalogOutputSchema.title, 'AiToolCatalogResponse')
+})
+
 test('viewer can consume the contract-first system and monitor read skeleton routes', async () => {
   const authHeaders = await createSessionForRole('viewer')
   const [

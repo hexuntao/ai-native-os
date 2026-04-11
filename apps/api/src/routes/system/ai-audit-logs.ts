@@ -8,8 +8,8 @@ export const aiAuditLogsProcedure = requirePermission('read', 'AiAuditLog')
     method: 'GET',
     path: '/api/v1/system/ai/audit-logs/recent',
     tags: ['System:AI'],
-    summary: 'List recent AI audit log entries',
-    description: 'Returns recent AI tool execution audits for administrators.',
+    summary: '读取最近 AI 审计日志',
+    description: '返回最近一批 AI Tool 执行审计日志，供 system 辅助入口快速概览。',
   })
   .output(aiAuditLogListResponseSchema)
   .handler(async () => {

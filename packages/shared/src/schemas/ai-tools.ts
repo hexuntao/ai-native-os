@@ -30,15 +30,64 @@ export const aiToolPermissionSchema = withOpenApiSchemaDoc(
 )
 
 export const aiToolCatalogItemSchema = z.object({
-  description: z.string(),
-  enabled: z.boolean(),
-  id: z.string(),
+  description: withOpenApiSchemaDoc(z.string(), {
+    title: 'AiToolCatalogItemDescription',
+    description: 'Tool 的用途说明。',
+    examples: ['查询后台用户目录，并返回受权限约束的结果。'],
+  }),
+  enabled: withOpenApiSchemaDoc(z.boolean(), {
+    title: 'AiToolCatalogItemEnabled',
+    description: '当前主体在本次请求上下文中是否可用该 Tool。',
+    examples: [true],
+  }),
+  id: withOpenApiSchemaDoc(z.string(), {
+    title: 'AiToolCatalogItemId',
+    description: 'Tool 唯一标识符。',
+    examples: ['tool_user_directory'],
+  }),
   permission: aiToolPermissionSchema,
 })
 
-export const aiToolCatalogResponseSchema = z.object({
-  tools: z.array(aiToolCatalogItemSchema),
-})
+export const aiToolCatalogResponseSchema = withOpenApiSchemaDoc(
+  z.object({
+    tools: withOpenApiSchemaDoc(z.array(aiToolCatalogItemSchema), {
+      title: 'AiToolCatalogItems',
+      description: '当前运行时已注册的 Tool 列表及其 RBAC 可用性。',
+      examples: [
+        [
+          {
+            description: '查询后台用户目录，并返回受权限约束的结果。',
+            enabled: true,
+            id: 'tool_user_directory',
+            permission: {
+              action: 'read',
+              subject: 'User',
+            },
+          },
+        ],
+      ],
+    }),
+  }),
+  {
+    title: 'AiToolCatalogResponse',
+    description: 'AI Tool 目录响应，供后台管理页判断当前主体可见的 Tool 能力。',
+    examples: [
+      {
+        tools: [
+          {
+            description: '查询后台用户目录，并返回受权限约束的结果。',
+            enabled: true,
+            id: 'tool_user_directory',
+            permission: {
+              action: 'read',
+              subject: 'User',
+            },
+          },
+        ],
+      },
+    ],
+  },
+)
 
 export const aiAuditLogEntrySchema = withOpenApiSchemaDoc(
   z.object({
@@ -143,6 +192,59 @@ export const aiAuditLogEntrySchema = withOpenApiSchemaDoc(
   },
 )
 
-export const aiAuditLogListResponseSchema = z.object({
-  logs: z.array(aiAuditLogEntrySchema),
-})
+export const aiAuditLogListResponseSchema = withOpenApiSchemaDoc(
+  z.object({
+    logs: withOpenApiSchemaDoc(z.array(aiAuditLogEntrySchema), {
+      title: 'AiAuditLogListItems',
+      description: '最近 AI 审计日志列表。',
+      examples: [
+        [
+          {
+            action: 'read',
+            actorAuthUserId: 'auth_user_01',
+            actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            createdAt: '2026-04-11T03:00:00.000Z',
+            errorMessage: null,
+            feedbackCount: 2,
+            humanOverride: false,
+            id: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+            latestFeedbackAt: '2026-04-11T03:15:00.000Z',
+            latestUserAction: 'accepted',
+            requestId: 'req_01',
+            roleCodes: ['super_admin'],
+            status: 'success',
+            subject: 'User',
+            toolId: 'tool_user_directory',
+          },
+        ],
+      ],
+    }),
+  }),
+  {
+    title: 'AiAuditLogListResponse',
+    description: '最近 AI 审计日志响应，用于 system 辅助入口的快速概览。',
+    examples: [
+      {
+        logs: [
+          {
+            action: 'read',
+            actorAuthUserId: 'auth_user_01',
+            actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            createdAt: '2026-04-11T03:00:00.000Z',
+            errorMessage: null,
+            feedbackCount: 2,
+            humanOverride: false,
+            id: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+            latestFeedbackAt: '2026-04-11T03:15:00.000Z',
+            latestUserAction: 'accepted',
+            requestId: 'req_01',
+            roleCodes: ['super_admin'],
+            status: 'success',
+            subject: 'User',
+            toolId: 'tool_user_directory',
+          },
+        ],
+      },
+    ],
+  },
+)

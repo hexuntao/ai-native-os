@@ -8,9 +8,8 @@ export const aiToolCatalogProcedure = protectedProcedure
     method: 'GET',
     path: '/api/v1/system/ai/tools/catalog',
     tags: ['System:AI'],
-    summary: 'List AI runtime tools and their current RBAC availability',
-    description:
-      'Returns the registered Mastra tool catalog and whether the current user can use each tool.',
+    summary: '读取 AI Tool 目录',
+    description: '返回当前已注册的 Mastra Tool 目录，以及当前主体在本次请求上下文中的可用性。',
   })
   .output(aiToolCatalogResponseSchema)
   .handler(({ context }) => ({

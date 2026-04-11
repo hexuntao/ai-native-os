@@ -80,8 +80,8 @@ export const toolJobsListProcedure = requireAnyPermission([
     method: 'GET',
     path: '/api/v1/tools/jobs',
     tags: ['Tools:Jobs'],
-    summary: 'List orchestration and job surfaces',
-    description: 'Returns the registered Trigger.dev task catalog and linked workflow metadata.',
+    summary: '分页查询任务调度目录',
+    description: '返回已注册的 Trigger.dev 任务目录及其 Workflow 关联元数据。',
   })
   .input(listToolJobsInputSchema)
   .output(toolJobsListResponseSchema)
