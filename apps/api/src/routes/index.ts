@@ -1,7 +1,13 @@
 import { aiAuditListProcedure } from './ai/audit'
 import { aiEvalsListProcedure } from './ai/evals'
 import { aiFeedbackCreateProcedure, aiFeedbackListProcedure } from './ai/feedback'
-import { aiKnowledgeListProcedure } from './ai/knowledge'
+import {
+  aiKnowledgeCreateProcedure,
+  aiKnowledgeDeleteProcedure,
+  aiKnowledgeGetByIdProcedure,
+  aiKnowledgeListProcedure,
+  aiKnowledgeUpdateProcedure,
+} from './ai/knowledge'
 import {
   aiPromptsActivateProcedure,
   aiPromptsAttachEvidenceProcedure,
@@ -59,7 +65,13 @@ export const appRouter = {
       create: aiFeedbackCreateProcedure,
       list: aiFeedbackListProcedure,
     },
-    knowledge: aiKnowledgeListProcedure,
+    knowledge: {
+      create: aiKnowledgeCreateProcedure,
+      delete: aiKnowledgeDeleteProcedure,
+      getById: aiKnowledgeGetByIdProcedure,
+      list: aiKnowledgeListProcedure,
+      update: aiKnowledgeUpdateProcedure,
+    },
     prompts: {
       activate: aiPromptsActivateProcedure,
       'attach-evidence': aiPromptsAttachEvidenceProcedure,

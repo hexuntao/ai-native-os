@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  canManageKnowledge,
   canManageMenus,
   canManagePermissions,
   canManageRoles,
@@ -26,6 +27,7 @@ test('viewer ability payload only exposes read surfaces', () => {
   assert.equal(canManageRoles(payload), false)
   assert.equal(canManagePermissions(payload), false)
   assert.equal(canManageMenus(payload), false)
+  assert.equal(canManageKnowledge(payload), false)
 })
 
 test('manage user permission exposes user directory write capability', () => {
@@ -57,6 +59,7 @@ test('manage role permission exposes role directory write capability', () => {
   assert.equal(canManageRoles(payload), true)
   assert.equal(canManagePermissions(payload), false)
   assert.equal(canManageMenus(payload), false)
+  assert.equal(canManageKnowledge(payload), false)
 })
 
 test('manage permission permission exposes permission center write capability', () => {
@@ -83,4 +86,17 @@ test('manage menu permission exposes navigation registry write capability', () =
   })
 
   assert.equal(canManageMenus(payload), true)
+})
+
+test('manage ai knowledge permission exposes knowledge vault write capability', () => {
+  const payload = parseSerializedAbilityPayload({
+    roleCodes: ['admin'],
+    rules: [
+      { action: 'manage', subject: 'AiKnowledge' },
+      { action: 'read', subject: 'AiAuditLog' },
+    ],
+    userId: 'fb95c2ce-9db2-4ae8-80b4-123456789abc',
+  })
+
+  assert.equal(canManageKnowledge(payload), true)
 })

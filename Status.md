@@ -99,6 +99,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | CRD-C1 | Post-P6 | Deliver `system/roles` full CRUD vertical with audit-safe web forms and contract-first OpenAPI | done | DOC-C2 | lint + typecheck + test + build |
 | CRD-C2 | Post-P6 | Deliver `system/permissions` full CRUD vertical with seeded-permission guardrails and contract-first OpenAPI | done | CRD-C1 | lint + typecheck + test + build |
 | CRD-C3 | Post-P6 | Deliver `system/menus` full CRUD vertical with parent-chain guardrails and contract-first OpenAPI | done | CRD-C2 | `pnpm infra:up` + `pnpm db:migrate` + lint + typecheck + test + build |
+| CRD-C4 | Post-P6 | Deliver `ai/knowledge` full document-level CRUD vertical with audited reindex semantics and contract-first OpenAPI | done | DOC-C3, DOC-C4 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -113,7 +114,8 @@ Priority order as of 2026-04-11:
 - `CRD-C1` is closed; `system/roles` now exposes full CRUD, audited write forms, and protected seeded-role guardrails.
 - `CRD-C2` is closed; `system/permissions` now exposes full CRUD, audited write forms, and protected seeded-permission guardrails.
 - `CRD-C3` is closed; `system/menus` now exposes full CRUD, audited write forms, and protected parent-chain guardrails.
-- the next recommended backlog item is `CRD-C4`: elevate `ai/knowledge` to a fuller resource surface, then continue governance-specific command contracts for `ai/evals`、`ai/feedback`、`ai/audit`、`ai/prompts`.
+- `CRD-C4` is closed; `ai/knowledge` now exposes document-level CRUD, audited reindex semantics, and the same contract-first OpenAPI baseline.
+- the next recommended backlog item is governance-specific command contracts for `ai/evals`、`ai/feedback`、`ai/audit`、`ai/prompts`.
 
 Auto-unlock rules:
 

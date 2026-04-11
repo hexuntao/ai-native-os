@@ -120,6 +120,23 @@ export async function listKnowledgeChunksByDocumentId(
 }
 
 /**
+ * 删除单个知识文档的全部 chunk 记录，并返回实际移除的分块数量。
+ */
+export async function deleteKnowledgeDocumentById(
+  documentId: string,
+  database: Database = db,
+): Promise<number> {
+  const deletedRows = await database
+    .delete(aiKnowledge)
+    .where(eq(aiKnowledge.documentId, documentId))
+    .returning({
+      id: aiKnowledge.id,
+    })
+
+  return deletedRows.length
+}
+
+/**
  * 使用 pgvector 的 cosine distance 执行语义检索。
  */
 export async function semanticSearchKnowledge(

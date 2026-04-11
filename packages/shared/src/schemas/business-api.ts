@@ -1956,6 +1956,207 @@ export const listKnowledgeInputSchema = withOpenApiSchemaDoc(
   },
 )
 
+const knowledgeDocumentIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'KnowledgeDocumentId',
+  description: '知识文档主键 UUID，用于定位单个知识文档资源。',
+  examples: ['f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001'],
+})
+
+const knowledgeTitleFieldSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(255), {
+  title: 'KnowledgeTitleField',
+  description: '知识文档标题，用于后台管理检索与检索结果展示。',
+  examples: ['财务审批制度 2026 版'],
+})
+
+const knowledgeSourceTypeFieldSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(50), {
+  title: 'KnowledgeSourceTypeField',
+  description: '知识来源类型，例如 `manual`、`document`、`policy`、`web`。',
+  examples: ['manual'],
+})
+
+const knowledgeSourceUriFieldSchema = withOpenApiSchemaDoc(
+  z.preprocess((value) => {
+    if (typeof value !== 'string') {
+      return value
+    }
+
+    const trimmedValue = value.trim()
+
+    return trimmedValue.length === 0 ? null : trimmedValue
+  }, z.string().trim().max(500).nullable()),
+  {
+    title: 'KnowledgeSourceUriField',
+    description: '知识原始来源地址；没有外部来源地址时为 `null`。',
+    examples: ['https://internal.example.com/wiki/finance'],
+  },
+)
+
+const knowledgeContentFieldSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(100_000), {
+  title: 'KnowledgeContent',
+  description:
+    '知识文档完整正文。创建和更新都会基于该全文重新切分 chunk 并生成 embedding，不支持只提交增量片段。',
+  examples: ['第一条：财务审批需由部门负责人初审，金额超过十万元时进入复核流程。'],
+})
+
+const knowledgeChunkSizeFieldSchema = withOpenApiSchemaDoc(
+  z.number().int().min(128).max(2048).default(512),
+  {
+    title: 'KnowledgeChunkSize',
+    description: '切分知识文档时每个 chunk 的目标字符窗口大小。',
+    examples: [512],
+    default: 512,
+  },
+)
+
+const knowledgeChunkOverlapFieldSchema = withOpenApiSchemaDoc(
+  z.number().int().min(0).max(512).default(64),
+  {
+    title: 'KnowledgeChunkOverlap',
+    description: '相邻 chunk 之间保留的重叠字符数，用于减少语义断裂。',
+    examples: [64],
+    default: 64,
+  },
+)
+
+const optionalKnowledgeDocumentIdSchema = withOpenApiSchemaDoc(z.string().uuid().optional(), {
+  title: 'OptionalKnowledgeDocumentId',
+  description: '可选知识文档主键；创建时省略表示由系统生成稳定 UUID。',
+  examples: ['f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001'],
+})
+
+export const getKnowledgeByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: knowledgeDocumentIdSchema,
+  }),
+  {
+    title: 'GetKnowledgeByIdInput',
+    description: '读取单个知识文档详情所需的路径参数。',
+    examples: [
+      {
+        id: 'f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001',
+      },
+    ],
+  },
+)
+
+export const createKnowledgeInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    chunkOverlap: knowledgeChunkOverlapFieldSchema,
+    chunkSize: knowledgeChunkSizeFieldSchema,
+    content: knowledgeContentFieldSchema,
+    documentId: optionalKnowledgeDocumentIdSchema,
+    metadata: aiKnowledgeMetadataSchema.default({}),
+    sourceType: knowledgeSourceTypeFieldSchema,
+    sourceUri: knowledgeSourceUriFieldSchema.default(null),
+    title: knowledgeTitleFieldSchema,
+  }),
+  {
+    title: 'CreateKnowledgeInput',
+    description:
+      '创建知识文档的请求体。服务端会对全文执行 chunking、embedding，并将整文档写入向量索引。',
+    examples: [
+      {
+        chunkOverlap: 64,
+        chunkSize: 512,
+        content: '第一条：财务审批需由部门负责人初审，金额超过十万元时进入复核流程。',
+        metadata: {
+          category: 'finance',
+          year: 2026,
+        },
+        sourceType: 'manual',
+        sourceUri: null,
+        title: '财务审批制度 2026 版',
+      },
+    ],
+  },
+)
+
+export const updateKnowledgeInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    chunkOverlap: knowledgeChunkOverlapFieldSchema,
+    chunkSize: knowledgeChunkSizeFieldSchema,
+    content: knowledgeContentFieldSchema,
+    id: knowledgeDocumentIdSchema,
+    metadata: aiKnowledgeMetadataSchema.default({}),
+    sourceType: knowledgeSourceTypeFieldSchema,
+    sourceUri: knowledgeSourceUriFieldSchema.default(null),
+    title: knowledgeTitleFieldSchema,
+  }),
+  {
+    title: 'UpdateKnowledgeInput',
+    description:
+      '更新知识文档的请求体。更新语义为“提交完整新正文并重建整文档索引”，不会对旧 chunk 做局部 patch。',
+    examples: [
+      {
+        chunkOverlap: 64,
+        chunkSize: 512,
+        content:
+          '第一条：财务审批需由部门负责人初审，金额超过十万元时进入复核流程。第二条：报销单需附原始票据。',
+        id: 'f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001',
+        metadata: {
+          category: 'finance',
+          version: '2026.2',
+        },
+        sourceType: 'manual',
+        sourceUri: null,
+        title: '财务审批制度 2026 版（修订）',
+      },
+    ],
+  },
+)
+
+export const deleteKnowledgeInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: knowledgeDocumentIdSchema,
+  }),
+  {
+    title: 'DeleteKnowledgeInput',
+    description: '删除知识文档所需的路径参数。',
+    examples: [
+      {
+        id: 'f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001',
+      },
+    ],
+  },
+)
+
+export const knowledgeChunkSummarySchema = withOpenApiSchemaDoc(
+  z.object({
+    chunkIndex: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'KnowledgeChunkIndex',
+      description: 'chunk 在当前文档中的顺序索引。',
+      examples: [0],
+    }),
+    contentPreview: withOpenApiSchemaDoc(z.string().min(1), {
+      title: 'KnowledgeChunkPreview',
+      description: 'chunk 内容预览，用于详情页快速查看已索引内容切片。',
+      examples: ['第一条：财务审批需由部门负责人初审，金额超过十万元时进入复核流程。'],
+    }),
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'KnowledgeChunkCreatedAt',
+      description: 'chunk 入库时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T06:00:00.000Z'],
+    }),
+    tokenCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'KnowledgeChunkTokenCount',
+      description: '当前 chunk 的估算 token 数量。',
+      examples: [38],
+    }),
+  }),
+  {
+    title: 'KnowledgeChunkSummary',
+    description: '知识文档详情中返回的 chunk 摘要条目。',
+    examples: [
+      {
+        chunkIndex: 0,
+        contentPreview: '第一条：财务审批需由部门负责人初审，金额超过十万元时进入复核流程。',
+        createdAt: '2026-04-11T06:00:00.000Z',
+        tokenCount: 38,
+      },
+    ],
+  },
+)
+
 export const knowledgeListItemSchema = withOpenApiSchemaDoc(
   z.object({
     chunkCount: withOpenApiSchemaDoc(z.number().int().min(0), {
@@ -2010,6 +2211,57 @@ export const knowledgeListItemSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const knowledgeEntrySchema = withOpenApiSchemaDoc(
+  z.object({
+    chunkCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'KnowledgeEntryChunkCount',
+      description: '当前知识文档已索引的 chunk 总数。',
+      examples: [4],
+    }),
+    chunks: withOpenApiSchemaDoc(z.array(knowledgeChunkSummarySchema), {
+      title: 'KnowledgeEntryChunks',
+      description: '知识文档当前已索引的 chunk 摘要列表。',
+    }),
+    documentId: knowledgeDocumentIdSchema,
+    lastIndexedAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'KnowledgeEntryLastIndexedAt',
+      description: '最近一次成功索引时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T06:00:00.000Z'],
+    }),
+    metadata: aiKnowledgeMetadataSchema,
+    sourceType: knowledgeSourceTypeFieldSchema,
+    sourceUri: knowledgeSourceUriFieldSchema,
+    title: knowledgeTitleFieldSchema,
+  }),
+  {
+    title: 'KnowledgeEntry',
+    description:
+      '单个知识文档详情，包含文档级摘要和 chunk 预览。注意：该详情不会回放完整原文，只返回索引后的稳定摘要。',
+    examples: [
+      {
+        chunkCount: 4,
+        chunks: [
+          {
+            chunkIndex: 0,
+            contentPreview: '第一条：财务审批需由部门负责人初审，金额超过十万元时进入复核流程。',
+            createdAt: '2026-04-11T06:00:00.000Z',
+            tokenCount: 38,
+          },
+        ],
+        documentId: 'f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001',
+        lastIndexedAt: '2026-04-11T06:00:00.000Z',
+        metadata: {
+          category: 'finance',
+          year: 2026,
+        },
+        sourceType: 'manual',
+        sourceUri: null,
+        title: '财务审批制度 2026 版',
+      },
+    ],
+  },
+)
+
 export const knowledgeListResponseSchema = withOpenApiSchemaDoc(
   paginatedResponseSchema(knowledgeListItemSchema),
   {
@@ -2037,6 +2289,33 @@ export const knowledgeListResponseSchema = withOpenApiSchemaDoc(
           total: 1,
           totalPages: 1,
         },
+      },
+    ],
+  },
+)
+
+export const deleteKnowledgeResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    deleted: withOpenApiSchemaDoc(z.boolean(), {
+      title: 'KnowledgeDeletedFlag',
+      description: '是否成功删除该知识文档。',
+      examples: [true],
+    }),
+    id: knowledgeDocumentIdSchema,
+    removedChunkCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'KnowledgeRemovedChunkCount',
+      description: '本次删除操作清理掉的 chunk 数量。',
+      examples: [4],
+    }),
+  }),
+  {
+    title: 'DeleteKnowledgeResult',
+    description: '知识文档删除结果。',
+    examples: [
+      {
+        deleted: true,
+        id: 'f1cf1bb3-6b79-4e52-bef1-3ab0d9e25001',
+        removedChunkCount: 4,
       },
     ],
   },
@@ -2654,7 +2933,13 @@ export type ListOnlineUsersInput = z.infer<typeof listOnlineUsersInputSchema>
 export type OnlineUserListResponse = z.infer<typeof onlineUserListResponseSchema>
 export type ServerSummary = z.infer<typeof serverSummarySchema>
 export type ListKnowledgeInput = z.infer<typeof listKnowledgeInputSchema>
+export type GetKnowledgeByIdInput = z.infer<typeof getKnowledgeByIdInputSchema>
+export type CreateKnowledgeInput = z.infer<typeof createKnowledgeInputSchema>
+export type UpdateKnowledgeInput = z.infer<typeof updateKnowledgeInputSchema>
+export type DeleteKnowledgeInput = z.infer<typeof deleteKnowledgeInputSchema>
+export type KnowledgeEntry = z.infer<typeof knowledgeEntrySchema>
 export type KnowledgeListResponse = z.infer<typeof knowledgeListResponseSchema>
+export type DeleteKnowledgeResult = z.infer<typeof deleteKnowledgeResultSchema>
 export type ListAiAuditLogsInput = z.infer<typeof listAiAuditLogsInputSchema>
 export type AiAuditListResponse = z.infer<typeof aiAuditListResponseSchema>
 export type ListAiFeedbackInput = z.infer<typeof listAiFeedbackInputSchema>

@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   db,
   defaultMenus,
+  listAiAuditLogsByToolId,
   listAiEvalRunsByEvalKey,
   listOperationLogsByModule,
   menus,
@@ -733,6 +734,85 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
     knowledgeOutputSchema.description,
     '知识库分页响应，返回文档级摘要列表与标准分页信息。',
   )
+
+  const knowledgePost = knowledgePath.post
+  assert.ok(knowledgePost && isRecord(knowledgePost), 'Expected POST operation for ai knowledge')
+  assert.equal(knowledgePost.summary, '创建知识文档并建立索引')
+  const knowledgePostRequestBody = knowledgePost.requestBody
+  assert.ok(
+    knowledgePostRequestBody && isRecord(knowledgePostRequestBody),
+    'Expected AI knowledge create request body metadata',
+  )
+  const knowledgePostContent = knowledgePostRequestBody.content
+  assert.ok(
+    knowledgePostContent && isRecord(knowledgePostContent),
+    'Expected AI knowledge create request content map',
+  )
+  const knowledgePostJson = knowledgePostContent['application/json']
+  assert.ok(
+    knowledgePostJson && isRecord(knowledgePostJson),
+    'Expected AI knowledge create JSON request body',
+  )
+  const knowledgeCreateInputSchema = resolveOpenApiSchema(payload, knowledgePostJson.schema)
+  assert.equal(knowledgeCreateInputSchema.title, 'CreateKnowledgeInput')
+
+  const knowledgeByIdPath =
+    payload.paths['/api/v1/ai/knowledge/:id'] ?? payload.paths['/api/v1/ai/knowledge/{id}']
+  assert.ok(
+    knowledgeByIdPath && isRecord(knowledgeByIdPath),
+    'Expected /api/v1/ai/knowledge/:id path to exist',
+  )
+  const knowledgeByIdGet = knowledgeByIdPath.get
+  assert.ok(
+    knowledgeByIdGet && isRecord(knowledgeByIdGet),
+    'Expected GET operation for ai knowledge detail',
+  )
+  assert.equal(knowledgeByIdGet.summary, '读取单个知识文档详情')
+  const knowledgeByIdResponses = knowledgeByIdGet.responses
+  const knowledgeByIdJson =
+    knowledgeByIdResponses &&
+    isRecord(knowledgeByIdResponses) &&
+    isRecord(knowledgeByIdResponses['200']) &&
+    isRecord(knowledgeByIdResponses['200'].content)
+      ? knowledgeByIdResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    knowledgeByIdJson && isRecord(knowledgeByIdJson),
+    'Expected AI knowledge detail JSON response schema',
+  )
+  const knowledgeEntryOutputSchema = resolveOpenApiSchema(payload, knowledgeByIdJson.schema)
+  assert.equal(knowledgeEntryOutputSchema.title, 'KnowledgeEntry')
+
+  const knowledgeByIdPut = knowledgeByIdPath.put
+  assert.ok(
+    knowledgeByIdPut && isRecord(knowledgeByIdPut),
+    'Expected PUT operation for ai knowledge detail',
+  )
+  assert.equal(knowledgeByIdPut.summary, '重建单个知识文档索引')
+  const knowledgePutRequestBody = knowledgeByIdPut.requestBody
+  assert.ok(
+    knowledgePutRequestBody && isRecord(knowledgePutRequestBody),
+    'Expected AI knowledge update request body metadata',
+  )
+  const knowledgePutContent = knowledgePutRequestBody.content
+  assert.ok(
+    knowledgePutContent && isRecord(knowledgePutContent),
+    'Expected AI knowledge update request content map',
+  )
+  const knowledgePutJson = knowledgePutContent['application/json']
+  assert.ok(
+    knowledgePutJson && isRecord(knowledgePutJson),
+    'Expected AI knowledge update JSON request body',
+  )
+  const knowledgeUpdateInputSchema = resolveOpenApiSchema(payload, knowledgePutJson.schema)
+  assert.equal(knowledgeUpdateInputSchema.title, 'UpdateKnowledgeInput')
+
+  const knowledgeByIdDelete = knowledgeByIdPath.delete
+  assert.ok(
+    knowledgeByIdDelete && isRecord(knowledgeByIdDelete),
+    'Expected DELETE operation for ai knowledge detail',
+  )
+  assert.equal(knowledgeByIdDelete.summary, '删除单个知识文档')
 
   const feedbackPath = payload.paths['/api/v1/ai/feedback']
   assert.ok(feedbackPath && isRecord(feedbackPath), 'Expected /api/v1/ai/feedback path to exist')
@@ -2145,6 +2225,170 @@ test('AI contract routes expose knowledge, evals, and audit logs for administrat
   assert.ok(promptsPayload.json.summary.activeCount >= 0)
   assert.ok(promptsPayload.json.summary.draftCount >= 0)
   assert.ok(promptsPayload.json.summary.releaseReadyCount >= 0)
+})
+
+test('admin can perform full contract-first CRUD on ai knowledge documents', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const knowledgeSuffix = randomUUID().slice(0, 8)
+  const createResponse = await app.request('http://localhost/api/v1/ai/knowledge', {
+    body: JSON.stringify({
+      chunkOverlap: 32,
+      chunkSize: 256,
+      content:
+        '第一条：财务审批需由部门负责人初审。第二条：金额超过十万元时进入复核流程。第三条：报销单需附原始票据。',
+      metadata: {
+        category: 'finance',
+        version: 'draft',
+      },
+      sourceType: 'manual',
+      sourceUri: null,
+      title: `知识合同文档 ${knowledgeSuffix}`,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      chunkCount: number
+      chunks: Array<{ chunkIndex: number }>
+      documentId: string
+      metadata: { category: string; version: string }
+      title: string
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.title, `知识合同文档 ${knowledgeSuffix}`)
+  assert.equal(createPayload.json.metadata.category, 'finance')
+  assert.ok(createPayload.json.chunkCount >= 1)
+  assert.ok(createPayload.json.chunks.length >= 1)
+
+  const getResponse = await app.request(
+    `http://localhost/api/v1/ai/knowledge/${createPayload.json.documentId}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const getPayload = (await getResponse.json()) as {
+    json: {
+      chunkCount: number
+      chunks: Array<{ contentPreview: string }>
+      documentId: string
+      title: string
+    }
+  }
+
+  assert.equal(getResponse.status, 200)
+  assert.equal(getPayload.json.documentId, createPayload.json.documentId)
+  assert.equal(getPayload.json.title, `知识合同文档 ${knowledgeSuffix}`)
+  assert.ok(getPayload.json.chunkCount >= 1)
+  assert.ok(getPayload.json.chunks[0]?.contentPreview.includes('财务审批'))
+
+  const updateResponse = await app.request(
+    `http://localhost/api/v1/ai/knowledge/${createPayload.json.documentId}`,
+    {
+      body: JSON.stringify({
+        chunkOverlap: 48,
+        chunkSize: 384,
+        content:
+          '第一条：财务审批需由部门负责人初审。第二条：金额超过十五万元时进入复核流程。第三条：报销单需附原始票据和审批邮件。',
+        metadata: {
+          category: 'finance',
+          version: 'v2',
+        },
+        sourceType: 'manual',
+        sourceUri: 'https://internal.example.com/wiki/finance-v2',
+        title: `知识合同文档 ${knowledgeSuffix}（修订）`,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const updatePayload = (await updateResponse.json()) as {
+    json: {
+      chunkCount: number
+      documentId: string
+      metadata: { category: string; version: string }
+      sourceUri: string | null
+      title: string
+    }
+  }
+
+  assert.equal(updateResponse.status, 200)
+  assert.equal(updatePayload.json.documentId, createPayload.json.documentId)
+  assert.equal(updatePayload.json.title, `知识合同文档 ${knowledgeSuffix}（修订）`)
+  assert.equal(updatePayload.json.metadata.version, 'v2')
+  assert.equal(updatePayload.json.sourceUri, 'https://internal.example.com/wiki/finance-v2')
+  assert.ok(updatePayload.json.chunkCount >= 1)
+
+  const deleteResponse = await app.request(
+    `http://localhost/api/v1/ai/knowledge/${createPayload.json.documentId}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const deletePayload = (await deleteResponse.json()) as {
+    json: {
+      deleted: boolean
+      id: string
+      removedChunkCount: number
+    }
+  }
+
+  assert.equal(deleteResponse.status, 200)
+  assert.equal(deletePayload.json.deleted, true)
+  assert.equal(deletePayload.json.id, createPayload.json.documentId)
+  assert.ok(deletePayload.json.removedChunkCount >= 1)
+
+  const deletedReadResponse = await app.request(
+    `http://localhost/api/v1/ai/knowledge/${createPayload.json.documentId}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const deletedReadPayload = (await deletedReadResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(deletedReadResponse.status, 404)
+  assert.equal(deletedReadPayload.code, 'NOT_FOUND')
+  assert.match(deletedReadPayload.message, /Knowledge document not found/)
+
+  const knowledgeOperationLogs = await listOperationLogsByModule('ai_knowledge')
+  const targetKnowledgeLogs = knowledgeOperationLogs.filter(
+    (log) => log.targetId === createPayload.json.documentId,
+  )
+
+  assert.ok(targetKnowledgeLogs.some((log) => log.action === 'update_document_index'))
+  assert.ok(targetKnowledgeLogs.some((log) => log.action === 'delete_document_index'))
+
+  const indexingAuditLogs = await listAiAuditLogsByToolId('task:rag-indexing')
+  const deleteAuditLogs = await listAiAuditLogsByToolId('contract:ai-knowledge')
+
+  assert.ok(
+    indexingAuditLogs.some(
+      (log) =>
+        isRecord(log.output) &&
+        log.output.documentId === createPayload.json.documentId &&
+        log.status === 'success',
+    ),
+  )
+  assert.ok(
+    deleteAuditLogs.some(
+      (log) =>
+        isRecord(log.output) &&
+        log.output.documentId === createPayload.json.documentId &&
+        log.status === 'success',
+    ),
+  )
 })
 
 test('prompt governance activation requires eval evidence before release', async () => {

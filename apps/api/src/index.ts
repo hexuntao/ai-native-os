@@ -8,12 +8,15 @@ import {
   aiFeedbackListResponseSchema,
   attachPromptEvalEvidenceInputSchema,
   createAiFeedbackInputSchema,
+  createKnowledgeInputSchema,
   createMenuInputSchema,
   createPermissionInputSchema,
   createPromptVersionInputSchema,
   createRoleInputSchema,
   createUserInputSchema,
   currentPermissionsResponseSchema,
+  deleteKnowledgeInputSchema,
+  deleteKnowledgeResultSchema,
   deleteMenuInputSchema,
   deleteMenuResultSchema,
   deletePermissionInputSchema,
@@ -22,11 +25,13 @@ import {
   deleteRoleResultSchema,
   deleteUserInputSchema,
   deleteUserResultSchema,
+  getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
   getRoleByIdInputSchema,
   getUserByIdInputSchema,
   healthResponseSchema,
+  knowledgeEntrySchema,
   knowledgeListResponseSchema,
   listAiAuditLogsInputSchema,
   listAiEvalsInputSchema,
@@ -51,6 +56,7 @@ import {
   roleListResponseSchema,
   rollbackPromptVersionInputSchema,
   serializedAbilityResponseSchema,
+  updateKnowledgeInputSchema,
   updateMenuInputSchema,
   updatePermissionInputSchema,
   updateRoleInputSchema,
@@ -94,7 +100,13 @@ import { appRouter } from '@/routes'
 import { listAiAuditLogs } from '@/routes/ai/audit'
 import { listAiEvals } from '@/routes/ai/evals'
 import { createFeedback, listFeedback } from '@/routes/ai/feedback'
-import { listKnowledge } from '@/routes/ai/knowledge'
+import {
+  createKnowledgeEntry,
+  deleteKnowledgeEntry,
+  getKnowledgeById,
+  listKnowledge,
+  updateKnowledgeEntry,
+} from '@/routes/ai/knowledge'
 import {
   activatePromptVersionEntry,
   attachPromptVersionEvalEvidence,
@@ -198,6 +210,10 @@ const contractFirstReadRequirements = {
 >
 
 const contractFirstWriteRequirements = {
+  aiKnowledge: [
+    { action: 'manage', subject: 'AiKnowledge' },
+    { action: 'manage', subject: 'all' },
+  ],
   menus: [
     { action: 'manage', subject: 'Menu' },
     { action: 'manage', subject: 'all' },
@@ -875,6 +891,56 @@ app.get('/api/v1/ai/knowledge', (c) =>
     knowledgeListResponseSchema,
     contractFirstReadRequirements.aiKnowledge,
     listKnowledge,
+  ),
+)
+
+app.get('/api/v1/ai/knowledge/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getKnowledgeByIdInputSchema,
+    knowledgeEntrySchema,
+    contractFirstReadRequirements.aiKnowledge,
+    getKnowledgeById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/ai/knowledge', (c) =>
+  handleContractFirstPost(
+    c,
+    createKnowledgeInputSchema,
+    knowledgeEntrySchema,
+    contractFirstWriteRequirements.aiKnowledge,
+    async (input, context) => createKnowledgeEntry(input, context),
+  ),
+)
+
+app.put('/api/v1/ai/knowledge/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    updateKnowledgeInputSchema,
+    knowledgeEntrySchema,
+    contractFirstWriteRequirements.aiKnowledge,
+    async (input, context) => updateKnowledgeEntry(input, context),
+    (requestContext, requestJson) => ({
+      ...(typeof requestJson === 'object' && requestJson !== null ? requestJson : {}),
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.delete('/api/v1/ai/knowledge/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    deleteKnowledgeInputSchema,
+    deleteKnowledgeResultSchema,
+    contractFirstWriteRequirements.aiKnowledge,
+    async (input, context) => deleteKnowledgeEntry(input, context),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
   ),
 )
 
