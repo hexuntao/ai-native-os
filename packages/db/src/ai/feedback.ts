@@ -165,6 +165,22 @@ export async function listAiFeedbackByAuditLogId(
 }
 
 /**
+ * 按主键读取单条 AI 反馈记录，供治理详情页和 API 详情接口复用。
+ */
+export async function getAiFeedbackById(
+  feedbackId: string,
+  database: Database = db,
+): Promise<AiFeedbackRecord | null> {
+  const [row] = await database
+    .select()
+    .from(aiFeedback)
+    .where(eq(aiFeedback.id, feedbackId))
+    .limit(1)
+
+  return row ? mapAiFeedbackRow(row) : null
+}
+
+/**
  * 读取分页 AI 反馈列表，并附带基础 override 统计。
  */
 export async function listAiFeedback(

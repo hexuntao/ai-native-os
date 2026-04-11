@@ -2348,6 +2348,98 @@ export const listAiAuditLogsInputSchema = withOpenApiSchemaDoc(
   },
 )
 
+const aiAuditLogIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'AiAuditLogIdParam',
+  description: 'AI 审计日志主键 UUID，用于读取单条审计明细。',
+  examples: ['f2c4f471-0f3a-4b6d-9d7a-31968e812001'],
+})
+
+const aiFeedbackIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'AiFeedbackIdParam',
+  description: 'AI 反馈记录主键 UUID，用于读取单条反馈明细。',
+  examples: ['e476f380-9504-42fb-9f5b-d5ed214df001'],
+})
+
+export const getAiAuditLogByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: aiAuditLogIdSchema,
+  }),
+  {
+    title: 'GetAiAuditLogByIdInput',
+    description: '读取单条 AI 审计日志详情所需的路径参数。',
+    examples: [
+      {
+        id: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+      },
+    ],
+  },
+)
+
+export const aiAuditRequestInfoSchema = withOpenApiSchemaDoc(
+  z.record(z.string(), z.string()).nullable(),
+  {
+    title: 'AiAuditRequestInfo',
+    description: 'AI 调用关联的请求上下文字段，用于排障和链路追踪；没有上下文时为 `null`。',
+    examples: [
+      {
+        requestId: 'req_01',
+        sourceType: 'manual',
+      },
+      null,
+    ],
+  },
+)
+
+export const aiAuditDetailSchema = withOpenApiSchemaDoc(
+  aiAuditLogEntrySchema.extend({
+    feedback: withOpenApiSchemaDoc(z.array(aiFeedbackEntrySchema), {
+      title: 'AiAuditFeedbackEntries',
+      description: '关联到当前 AI 审计日志的全部反馈记录，按时间倒序返回。',
+    }),
+    requestInfo: aiAuditRequestInfoSchema,
+  }),
+  {
+    title: 'AiAuditDetail',
+    description: '单条 AI 审计日志详情，补充反馈列表与请求上下文，供治理页回放完整处置链路。',
+    examples: [
+      {
+        action: 'read',
+        actorAuthUserId: 'auth_user_01',
+        actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        createdAt: '2026-04-11T03:00:00.000Z',
+        errorMessage: null,
+        feedback: [
+          {
+            accepted: false,
+            actorAuthUserId: 'auth_user_01',
+            actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            auditLogId: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+            correction: '请改为仅导出财务部用户，并隐藏手机号字段。',
+            createdAt: '2026-04-11T03:15:00.000Z',
+            feedbackText: '原始导出范围过大。',
+            id: 'e476f380-9504-42fb-9f5b-d5ed214df001',
+            userAction: 'overridden',
+          },
+        ],
+        feedbackCount: 1,
+        humanOverride: true,
+        id: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+        latestFeedbackAt: '2026-04-11T03:15:00.000Z',
+        latestUserAction: 'overridden',
+        requestId: 'req_01',
+        requestInfo: {
+          requestId: 'req_01',
+          sourceType: 'manual',
+        },
+        roleCodes: ['super_admin'],
+        status: 'success',
+        subject: 'User',
+        toolId: 'tool_user_directory',
+      },
+    ],
+  },
+)
+
 export const aiAuditListResponseSchema = withOpenApiSchemaDoc(
   paginatedResponseSchema(aiAuditLogEntrySchema),
   {
@@ -2416,6 +2508,97 @@ export const listAiFeedbackInputSchema = withOpenApiSchemaDoc(
         page: 1,
         pageSize: 10,
         accepted: false,
+        userAction: 'overridden',
+      },
+    ],
+  },
+)
+
+export const getAiFeedbackByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: aiFeedbackIdSchema,
+  }),
+  {
+    title: 'GetAiFeedbackByIdInput',
+    description: '读取单条 AI 反馈详情所需的路径参数。',
+    examples: [
+      {
+        id: 'e476f380-9504-42fb-9f5b-d5ed214df001',
+      },
+    ],
+  },
+)
+
+export const aiFeedbackAuditSummarySchema = withOpenApiSchemaDoc(
+  z.object({
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiFeedbackAuditCreatedAt',
+      description: '关联 AI 审计日志的创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T03:00:00.000Z'],
+    }),
+    id: aiAuditLogIdSchema,
+    requestId: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'AiFeedbackAuditRequestId',
+      description: '关联 AI 审计日志对应的请求 ID；没有时为 `null`。',
+      examples: ['req_01'],
+    }),
+    status: withOpenApiSchemaDoc(z.enum(['error', 'forbidden', 'success']), {
+      title: 'AiFeedbackAuditStatus',
+      description: '关联 AI 审计日志的执行状态。',
+      examples: ['success'],
+    }),
+    subject: withOpenApiSchemaDoc(z.enum(appSubjects), {
+      title: 'AiFeedbackAuditSubject',
+      description: '关联 AI 审计日志作用到的业务主体。',
+      examples: ['User'],
+    }),
+    toolId: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiFeedbackAuditToolId',
+      description: '关联 AI 审计日志对应的 Tool 标识。',
+      examples: ['tool_user_directory'],
+    }),
+  }),
+  {
+    title: 'AiFeedbackAuditSummary',
+    description: '反馈详情附带的 AI 审计日志摘要，用于说明该反馈作用于哪一次 AI 调用。',
+    examples: [
+      {
+        createdAt: '2026-04-11T03:00:00.000Z',
+        id: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+        requestId: 'req_01',
+        status: 'success',
+        subject: 'User',
+        toolId: 'tool_user_directory',
+      },
+    ],
+  },
+)
+
+export const aiFeedbackDetailSchema = withOpenApiSchemaDoc(
+  aiFeedbackEntrySchema.extend({
+    auditLog: aiFeedbackAuditSummarySchema,
+  }),
+  {
+    title: 'AiFeedbackDetail',
+    description: '单条 AI 反馈详情，补充其所关联 AI 审计日志的最小上下文摘要。',
+    examples: [
+      {
+        accepted: false,
+        actorAuthUserId: 'auth_user_01',
+        actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        auditLog: {
+          createdAt: '2026-04-11T03:00:00.000Z',
+          id: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+          requestId: 'req_01',
+          status: 'success',
+          subject: 'User',
+          toolId: 'tool_user_directory',
+        },
+        auditLogId: 'f2c4f471-0f3a-4b6d-9d7a-31968e812001',
+        correction: '请改为仅导出财务部用户，并隐藏手机号字段。',
+        createdAt: '2026-04-11T03:15:00.000Z',
+        feedbackText: '原始导出范围过大。',
+        id: 'e476f380-9504-42fb-9f5b-d5ed214df001',
         userAction: 'overridden',
       },
     ],
@@ -2941,8 +3124,12 @@ export type KnowledgeEntry = z.infer<typeof knowledgeEntrySchema>
 export type KnowledgeListResponse = z.infer<typeof knowledgeListResponseSchema>
 export type DeleteKnowledgeResult = z.infer<typeof deleteKnowledgeResultSchema>
 export type ListAiAuditLogsInput = z.infer<typeof listAiAuditLogsInputSchema>
+export type GetAiAuditLogByIdInput = z.infer<typeof getAiAuditLogByIdInputSchema>
+export type AiAuditDetail = z.infer<typeof aiAuditDetailSchema>
 export type AiAuditListResponse = z.infer<typeof aiAuditListResponseSchema>
 export type ListAiFeedbackInput = z.infer<typeof listAiFeedbackInputSchema>
+export type GetAiFeedbackByIdInput = z.infer<typeof getAiFeedbackByIdInputSchema>
+export type AiFeedbackDetail = z.infer<typeof aiFeedbackDetailSchema>
 export type AiFeedbackListResponse = z.infer<typeof aiFeedbackListResponseSchema>
 export type ListAiEvalsInput = z.infer<typeof listAiEvalsInputSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>

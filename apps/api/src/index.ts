@@ -2,8 +2,10 @@ import {
   type AppActions,
   type AppSubjects,
   activatePromptVersionInputSchema,
+  aiAuditDetailSchema,
   aiAuditListResponseSchema,
   aiEvalListResponseSchema,
+  aiFeedbackDetailSchema,
   aiFeedbackEntrySchema,
   aiFeedbackListResponseSchema,
   attachPromptEvalEvidenceInputSchema,
@@ -25,6 +27,8 @@ import {
   deleteRoleResultSchema,
   deleteUserInputSchema,
   deleteUserResultSchema,
+  getAiAuditLogByIdInputSchema,
+  getAiFeedbackByIdInputSchema,
   getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
@@ -97,9 +101,9 @@ import {
 } from '@/middleware/rate-limit'
 import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
-import { listAiAuditLogs } from '@/routes/ai/audit'
+import { getAiAuditLogDetail, listAiAuditLogs } from '@/routes/ai/audit'
 import { listAiEvals } from '@/routes/ai/evals'
-import { createFeedback, listFeedback } from '@/routes/ai/feedback'
+import { createFeedback, getFeedbackById, listFeedback } from '@/routes/ai/feedback'
 import {
   createKnowledgeEntry,
   deleteKnowledgeEntry,
@@ -964,6 +968,19 @@ app.get('/api/v1/ai/audit', (c) =>
   ),
 )
 
+app.get('/api/v1/ai/audit/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getAiAuditLogByIdInputSchema,
+    aiAuditDetailSchema,
+    contractFirstReadRequirements.aiAudit,
+    getAiAuditLogDetail,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
 app.get('/api/v1/ai/feedback', (c) =>
   handleContractFirstGet(
     c,
@@ -971,6 +988,19 @@ app.get('/api/v1/ai/feedback', (c) =>
     aiFeedbackListResponseSchema,
     contractFirstReadRequirements.aiFeedback,
     listFeedback,
+  ),
+)
+
+app.get('/api/v1/ai/feedback/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getAiFeedbackByIdInputSchema,
+    aiFeedbackDetailSchema,
+    contractFirstReadRequirements.aiFeedback,
+    getFeedbackById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
   ),
 )
 

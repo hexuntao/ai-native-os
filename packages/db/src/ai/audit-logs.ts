@@ -109,6 +109,22 @@ export async function listRecentAiAuditLogs(
   return rows.map(mapAuditLogRow)
 }
 
+/**
+ * 按主键读取单条 AI 审计日志，供治理详情页和 API 详情接口复用。
+ */
+export async function getAiAuditLogById(
+  auditLogId: string,
+  database: Database = db,
+): Promise<AiAuditLogRecord | null> {
+  const [row] = await database
+    .select()
+    .from(aiAuditLogs)
+    .where(eq(aiAuditLogs.id, auditLogId))
+    .limit(1)
+
+  return row ? mapAuditLogRow(row) : null
+}
+
 export async function listAiAuditLogsByToolId(
   toolId: string,
   database: Database = db,

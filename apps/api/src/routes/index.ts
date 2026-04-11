@@ -1,6 +1,10 @@
-import { aiAuditListProcedure } from './ai/audit'
+import { aiAuditGetByIdProcedure, aiAuditListProcedure } from './ai/audit'
 import { aiEvalsListProcedure } from './ai/evals'
-import { aiFeedbackCreateProcedure, aiFeedbackListProcedure } from './ai/feedback'
+import {
+  aiFeedbackCreateProcedure,
+  aiFeedbackGetByIdProcedure,
+  aiFeedbackListProcedure,
+} from './ai/feedback'
 import {
   aiKnowledgeCreateProcedure,
   aiKnowledgeDeleteProcedure,
@@ -59,10 +63,14 @@ import { toolJobsListProcedure } from './tools/jobs'
 
 export const appRouter = {
   ai: {
-    audit: aiAuditListProcedure,
+    audit: {
+      getById: aiAuditGetByIdProcedure,
+      list: aiAuditListProcedure,
+    },
     evals: aiEvalsListProcedure,
     feedback: {
       create: aiFeedbackCreateProcedure,
+      getById: aiFeedbackGetByIdProcedure,
       list: aiFeedbackListProcedure,
     },
     knowledge: {

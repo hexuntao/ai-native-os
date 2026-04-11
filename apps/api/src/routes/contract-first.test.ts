@@ -13,6 +13,7 @@ import {
   roles,
   userRoles,
   users,
+  writeAiAuditLog,
 } from '@ai-native-os/db'
 import type { MenuEntry } from '@ai-native-os/shared'
 import { and, eq, inArray } from 'drizzle-orm'
@@ -893,6 +894,60 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   assert.ok(auditGet && isRecord(auditGet), 'Expected GET operation for ai audit')
   assert.equal(auditGet.summary, '分页查询 AI 审计日志')
   assert.equal(auditGet.description, '返回 AI Tool 调用审计轨迹、反馈汇总和主体权限上下文。')
+
+  const auditDetailPath =
+    payload.paths['/api/v1/ai/audit/:id'] ?? payload.paths['/api/v1/ai/audit/{id}']
+  assert.ok(
+    auditDetailPath && isRecord(auditDetailPath),
+    'Expected /api/v1/ai/audit/:id path to exist',
+  )
+  const auditDetailGet = auditDetailPath.get
+  assert.ok(
+    auditDetailGet && isRecord(auditDetailGet),
+    'Expected GET operation for ai audit detail',
+  )
+  assert.equal(auditDetailGet.summary, '读取单条 AI 审计日志详情')
+  const auditDetailResponses = auditDetailGet.responses
+  const auditDetailJson =
+    auditDetailResponses &&
+    isRecord(auditDetailResponses) &&
+    isRecord(auditDetailResponses['200']) &&
+    isRecord(auditDetailResponses['200'].content)
+      ? auditDetailResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    auditDetailJson && isRecord(auditDetailJson),
+    'Expected AI audit detail JSON response schema',
+  )
+  const auditDetailSchema = resolveOpenApiSchema(payload, auditDetailJson.schema)
+  assert.equal(auditDetailSchema.title, 'AiAuditDetail')
+
+  const feedbackDetailPath =
+    payload.paths['/api/v1/ai/feedback/:id'] ?? payload.paths['/api/v1/ai/feedback/{id}']
+  assert.ok(
+    feedbackDetailPath && isRecord(feedbackDetailPath),
+    'Expected /api/v1/ai/feedback/:id path to exist',
+  )
+  const feedbackDetailGet = feedbackDetailPath.get
+  assert.ok(
+    feedbackDetailGet && isRecord(feedbackDetailGet),
+    'Expected GET operation for ai feedback detail',
+  )
+  assert.equal(feedbackDetailGet.summary, '读取单条 AI 反馈详情')
+  const feedbackDetailResponses = feedbackDetailGet.responses
+  const feedbackDetailJson =
+    feedbackDetailResponses &&
+    isRecord(feedbackDetailResponses) &&
+    isRecord(feedbackDetailResponses['200']) &&
+    isRecord(feedbackDetailResponses['200'].content)
+      ? feedbackDetailResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    feedbackDetailJson && isRecord(feedbackDetailJson),
+    'Expected AI feedback detail JSON response schema',
+  )
+  const feedbackDetailSchema = resolveOpenApiSchema(payload, feedbackDetailJson.schema)
+  assert.equal(feedbackDetailSchema.title, 'AiFeedbackDetail')
 
   const evalsPath = payload.paths['/api/v1/ai/evals']
   assert.ok(evalsPath && isRecord(evalsPath), 'Expected /api/v1/ai/evals path to exist')
@@ -2225,6 +2280,113 @@ test('AI contract routes expose knowledge, evals, and audit logs for administrat
   assert.ok(promptsPayload.json.summary.activeCount >= 0)
   assert.ok(promptsPayload.json.summary.draftCount >= 0)
   assert.ok(promptsPayload.json.summary.releaseReadyCount >= 0)
+})
+
+test('AI detail contract routes expose audit and feedback linkage for administrators', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const requestId = `contract-ai-detail-${randomUUID()}`
+  const auditLog = await writeAiAuditLog({
+    action: 'read',
+    actorAuthUserId: 'system:contract-ai-detail',
+    actorRbacUserId: null,
+    input: {
+      query: 'finance approver',
+    },
+    output: {
+      rows: 1,
+    },
+    requestInfo: {
+      requestId,
+      route: '/api/v1/ai/knowledge',
+    },
+    roleCodes: ['admin'],
+    status: 'success',
+    subject: 'AiKnowledge',
+    toolId: 'knowledge_semantic_search',
+  })
+
+  const createFeedbackHeaders = new Headers(authHeaders)
+  createFeedbackHeaders.set('content-type', 'application/json')
+
+  const createFeedbackResponse = await app.request('http://localhost/api/v1/ai/feedback', {
+    body: JSON.stringify({
+      accepted: false,
+      auditLogId: auditLog.id,
+      correction: '请限定为财务审批制度相关知识片段。',
+      feedbackText: '原始检索范围过宽。',
+      userAction: 'overridden',
+    }),
+    headers: createFeedbackHeaders,
+    method: 'POST',
+  })
+
+  const createdFeedbackPayload = (await createFeedbackResponse.json()) as {
+    json: {
+      auditLogId: string
+      id: string
+      userAction: string
+    }
+  }
+
+  const [auditDetailResponse, feedbackDetailResponse] = await Promise.all([
+    app.request(`http://localhost/api/v1/ai/audit/${auditLog.id}`, {
+      headers: authHeaders,
+    }),
+    app.request(`http://localhost/api/v1/ai/feedback/${createdFeedbackPayload.json.id}`, {
+      headers: authHeaders,
+    }),
+  ])
+
+  const auditDetailPayload = (await auditDetailResponse.json()) as {
+    json: {
+      feedback: Array<{
+        auditLogId: string
+        id: string
+        userAction: string
+      }>
+      feedbackCount: number
+      id: string
+      requestInfo: {
+        requestId: string
+        route: string
+      } | null
+      toolId: string
+    }
+  }
+  const feedbackDetailPayload = (await feedbackDetailResponse.json()) as {
+    json: {
+      accepted: boolean
+      auditLog: {
+        id: string
+        requestId: string | null
+        toolId: string
+      }
+      auditLogId: string
+      id: string
+      userAction: string
+    }
+  }
+
+  assert.equal(createFeedbackResponse.status, 200)
+  assert.equal(createdFeedbackPayload.json.auditLogId, auditLog.id)
+  assert.equal(createdFeedbackPayload.json.userAction, 'overridden')
+  assert.equal(auditDetailResponse.status, 200)
+  assert.equal(feedbackDetailResponse.status, 200)
+  assert.equal(auditDetailPayload.json.id, auditLog.id)
+  assert.equal(auditDetailPayload.json.toolId, 'knowledge_semantic_search')
+  assert.equal(auditDetailPayload.json.feedbackCount, 1)
+  assert.equal(auditDetailPayload.json.requestInfo?.requestId, requestId)
+  assert.equal(auditDetailPayload.json.requestInfo?.route, '/api/v1/ai/knowledge')
+  assert.equal(auditDetailPayload.json.feedback[0]?.id, createdFeedbackPayload.json.id)
+  assert.equal(auditDetailPayload.json.feedback[0]?.auditLogId, auditLog.id)
+  assert.equal(auditDetailPayload.json.feedback[0]?.userAction, 'overridden')
+  assert.equal(feedbackDetailPayload.json.id, createdFeedbackPayload.json.id)
+  assert.equal(feedbackDetailPayload.json.auditLogId, auditLog.id)
+  assert.equal(feedbackDetailPayload.json.accepted, false)
+  assert.equal(feedbackDetailPayload.json.userAction, 'overridden')
+  assert.equal(feedbackDetailPayload.json.auditLog.id, auditLog.id)
+  assert.equal(feedbackDetailPayload.json.auditLog.toolId, 'knowledge_semantic_search')
+  assert.equal(feedbackDetailPayload.json.auditLog.requestId, requestId)
 })
 
 test('admin can perform full contract-first CRUD on ai knowledge documents', async () => {

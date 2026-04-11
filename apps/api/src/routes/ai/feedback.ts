@@ -1,16 +1,22 @@
 import {
   AiFeedbackAuditLogNotFoundError,
   createAiFeedback,
+  getAiAuditLogById,
+  getAiFeedbackById,
   listAiFeedback,
   writeOperationLog,
 } from '@ai-native-os/db'
 import {
   type AiFeedbackCreateInput,
+  type AiFeedbackDetail,
   type AiFeedbackEntry,
   type AiFeedbackListResponse,
+  aiFeedbackDetailSchema,
   aiFeedbackEntrySchema,
   aiFeedbackListResponseSchema,
   createAiFeedbackInputSchema,
+  type GetAiFeedbackByIdInput,
+  getAiFeedbackByIdInputSchema,
   type ListAiFeedbackInput,
   listAiFeedbackInputSchema,
 } from '@ai-native-os/shared'
@@ -52,6 +58,47 @@ function serializeAiFeedbackEntry(record: {
  */
 export async function listFeedback(input: ListAiFeedbackInput): Promise<AiFeedbackListResponse> {
   return listAiFeedback(input)
+}
+
+/**
+ * 读取单条 AI 反馈详情，并补充其对应 AI 审计日志的最小上下文。
+ */
+export async function getFeedbackById(input: GetAiFeedbackByIdInput): Promise<AiFeedbackDetail> {
+  const feedbackRecord = await getAiFeedbackById(input.id)
+
+  if (!feedbackRecord) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'AI feedback not found',
+    })
+  }
+
+  const auditLogRecord = await getAiAuditLogById(feedbackRecord.auditLogId)
+
+  if (!auditLogRecord) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'AI audit log not found',
+    })
+  }
+
+  return {
+    accepted: feedbackRecord.accepted,
+    actorAuthUserId: feedbackRecord.actorAuthUserId,
+    actorRbacUserId: feedbackRecord.actorRbacUserId,
+    auditLog: {
+      createdAt: auditLogRecord.createdAt.toISOString(),
+      id: auditLogRecord.id,
+      requestId: auditLogRecord.requestInfo?.requestId ?? null,
+      status: auditLogRecord.status,
+      subject: auditLogRecord.subject,
+      toolId: auditLogRecord.toolId,
+    },
+    auditLogId: feedbackRecord.auditLogId,
+    correction: feedbackRecord.correction,
+    createdAt: feedbackRecord.createdAt.toISOString(),
+    feedbackText: feedbackRecord.feedbackText,
+    id: feedbackRecord.id,
+    userAction: feedbackRecord.userAction,
+  }
 }
 
 /**
@@ -112,6 +159,18 @@ export const aiFeedbackListProcedure = requireAnyPermission(aiFeedbackPermission
   .input(listAiFeedbackInputSchema)
   .output(aiFeedbackListResponseSchema)
   .handler(async ({ input }) => listFeedback(input))
+
+export const aiFeedbackGetByIdProcedure = requireAnyPermission(aiFeedbackPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/feedback/:id',
+    tags: ['AI:Feedback'],
+    summary: '读取单条 AI 反馈详情',
+    description: '返回单条 AI 反馈记录，并补充其所关联 AI 审计日志的最小上下文。',
+  })
+  .input(getAiFeedbackByIdInputSchema)
+  .output(aiFeedbackDetailSchema)
+  .handler(async ({ input }) => getFeedbackById(input))
 
 export const aiFeedbackCreateProcedure = requireAnyPermission(aiFeedbackPermissions)
   .route({
