@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { appActions, appSubjects } from '../abilities/subjects'
 import {
+  aiEvalItemScoreMapSchema,
   aiEvalRunStatusSchema,
   aiEvalScorerSummarySchema,
   aiEvalTriggerSourceSchema,
@@ -2845,6 +2846,50 @@ export const runAiEvalInputSchema = withOpenApiSchemaDoc(
   },
 )
 
+const aiEvalRunIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'AiEvalRunIdParam',
+  description: '单次 AI 评测运行记录主键 UUID，用于读取运行详情。',
+  examples: ['5b7d3be0-6f15-46ec-8ea6-3189d085f001'],
+})
+
+const aiEvalJsonPayloadSchema = withOpenApiSchemaDoc(
+  z.union([
+    z.record(z.string(), z.unknown()),
+    z.array(z.unknown()),
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+  ]),
+  {
+    title: 'AiEvalJsonPayload',
+    description: '评测输入、输出或标准答案的 JSON 负载，允许对象、数组、标量或空值。',
+    examples: [
+      {
+        prompt: '请总结本周销售异常，并给出复盘建议。',
+        reportType: 'weekly',
+      },
+    ],
+  },
+)
+
+export const getAiEvalRunByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: aiEvalIdSchema,
+    runId: aiEvalRunIdSchema,
+  }),
+  {
+    title: 'GetAiEvalRunByIdInput',
+    description: '读取单次 AI 评测运行详情所需的路径参数。',
+    examples: [
+      {
+        id: 'report-schedule',
+        runId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+      },
+    ],
+  },
+)
+
 export const aiEvalRunEntrySchema = withOpenApiSchemaDoc(
   z.object({
     actorAuthUserId: withOpenApiSchemaDoc(z.string(), {
@@ -2988,6 +3033,87 @@ export const aiEvalRunEntrySchema = withOpenApiSchemaDoc(
   },
 )
 
+export const aiEvalRunItemDetailSchema = withOpenApiSchemaDoc(
+  z.object({
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunItemCreatedAt',
+      description: '当前样本运行明细的创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T04:20:03.000Z'],
+    }),
+    datasetItemId: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunItemDatasetItemId',
+      description: '评测数据集中该样本的稳定标识。',
+      examples: ['report_schedule_case_01'],
+    }),
+    errorMessage: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'AiEvalRunItemErrorMessage',
+      description: '样本执行失败时的错误信息；成功时为 `null`。',
+      examples: [null],
+    }),
+    groundTruth: withOpenApiSchemaDoc(aiEvalJsonPayloadSchema, {
+      title: 'AiEvalRunItemGroundTruth',
+      description: '该样本的参考答案或基准输出。',
+    }),
+    id: withOpenApiSchemaDoc(z.string().uuid(), {
+      title: 'AiEvalRunItemId',
+      description: '评测运行样本明细主键 UUID。',
+      examples: ['24ce1b62-5cb6-4a62-9514-93ce8d941001'],
+    }),
+    input: withOpenApiSchemaDoc(aiEvalJsonPayloadSchema, {
+      title: 'AiEvalRunItemInput',
+      description: '送入评测执行链的原始输入负载。',
+    }),
+    itemIndex: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalRunItemIndex',
+      description: '该样本在本次运行中的顺序索引，从 `0` 开始。',
+      examples: [0],
+    }),
+    output: withOpenApiSchemaDoc(aiEvalJsonPayloadSchema, {
+      title: 'AiEvalRunItemOutput',
+      description: '模型或工作流针对该样本生成的输出负载。',
+    }),
+    runId: withOpenApiSchemaDoc(aiEvalRunIdSchema, {
+      title: 'AiEvalRunItemRunId',
+      description: '所属评测运行主键 UUID。',
+    }),
+    scores: withOpenApiSchemaDoc(aiEvalItemScoreMapSchema, {
+      title: 'AiEvalRunItemScores',
+      description: '当前样本在各评分器下的详细评分结果。',
+    }),
+  }),
+  {
+    title: 'AiEvalRunItemDetail',
+    description: '单个 AI 评测样本在一次运行中的详细输入、输出和评分结果。',
+    examples: [
+      {
+        createdAt: '2026-04-11T04:20:03.000Z',
+        datasetItemId: 'report_schedule_case_01',
+        errorMessage: null,
+        groundTruth: {
+          expectedSections: ['summary', 'risks', 'actions'],
+        },
+        id: '24ce1b62-5cb6-4a62-9514-93ce8d941001',
+        input: {
+          prompt: '请总结本周销售异常，并给出复盘建议。',
+          reportType: 'weekly',
+        },
+        itemIndex: 0,
+        output: {
+          sections: ['summary', 'risks', 'actions'],
+        },
+        runId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+        scores: {
+          factuality: {
+            error: null,
+            reason: '关键事实与参考答案一致。',
+            score: 0.94,
+          },
+        },
+      },
+    ],
+  },
+)
+
 export const aiEvalDetailSchema = withOpenApiSchemaDoc(
   aiEvalListItemSchema.extend({
     environment: withOpenApiSchemaDoc(
@@ -3065,6 +3191,101 @@ export const aiEvalDetailSchema = withOpenApiSchemaDoc(
         ],
         scorerCount: 3,
         status: 'registered',
+      },
+    ],
+  },
+)
+
+export const aiEvalRunDetailSchema = withOpenApiSchemaDoc(
+  aiEvalRunEntrySchema.extend({
+    environment: withOpenApiSchemaDoc(
+      z.object({
+        configured: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'AiEvalRunDetailConfigured',
+          description: '当前评测运行时是否已完成配置。',
+          examples: [true],
+        }),
+        reason: withOpenApiSchemaDoc(z.string(), {
+          title: 'AiEvalRunDetailReason',
+          description: '当前评测运行时说明，例如已配置状态或降级原因。',
+          examples: ['Mastra eval suites are configured and persisted run results are available.'],
+        }),
+      }),
+      {
+        title: 'AiEvalRunDetailEnvironment',
+        description: '单次评测运行详情附带的运行时环境说明。',
+      },
+    ),
+    items: withOpenApiSchemaDoc(z.array(aiEvalRunItemDetailSchema), {
+      title: 'AiEvalRunItems',
+      description: '该次评测运行逐样本的输入、输出与评分明细，按样本顺序返回。',
+    }),
+  }),
+  {
+    title: 'AiEvalRunDetail',
+    description: '单次 AI 评测运行详情，补充逐样本评分明细与环境说明。',
+    examples: [
+      {
+        actorAuthUserId: 'auth_user_01',
+        actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        completedAt: '2026-04-11T04:30:00.000Z',
+        createdAt: '2026-04-11T04:20:00.000Z',
+        datasetId: 'dataset_report_schedule',
+        datasetName: 'report-schedule-baseline',
+        environment: {
+          configured: true,
+          reason: 'Mastra eval suites are configured and persisted run results are available.',
+        },
+        evalKey: 'report-schedule',
+        evalName: 'Report Schedule Regression',
+        experimentId: 'exp_report_schedule_20260411',
+        failedCount: 0,
+        id: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+        items: [
+          {
+            createdAt: '2026-04-11T04:20:03.000Z',
+            datasetItemId: 'report_schedule_case_01',
+            errorMessage: null,
+            groundTruth: {
+              expectedSections: ['summary', 'risks', 'actions'],
+            },
+            id: '24ce1b62-5cb6-4a62-9514-93ce8d941001',
+            input: {
+              prompt: '请总结本周销售异常，并给出复盘建议。',
+              reportType: 'weekly',
+            },
+            itemIndex: 0,
+            output: {
+              sections: ['summary', 'risks', 'actions'],
+            },
+            runId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+            scores: {
+              factuality: {
+                error: null,
+                reason: '关键事实与参考答案一致。',
+                score: 0.94,
+              },
+            },
+          },
+        ],
+        requestId: 'req_eval_01',
+        scoreAverage: 0.91,
+        scoreMax: 1,
+        scoreMin: 0.72,
+        scorerSummary: {
+          factuality: {
+            averageScore: 0.91,
+            maxScore: 1,
+            minScore: 0.72,
+            sampleCount: 12,
+          },
+        },
+        skippedCount: 0,
+        startedAt: '2026-04-11T04:20:00.000Z',
+        status: 'completed',
+        succeededCount: 12,
+        totalItems: 12,
+        triggerSource: 'manual',
       },
     ],
   },
@@ -3516,9 +3737,12 @@ export type AiFeedbackDetail = z.infer<typeof aiFeedbackDetailSchema>
 export type AiFeedbackListResponse = z.infer<typeof aiFeedbackListResponseSchema>
 export type ListAiEvalsInput = z.infer<typeof listAiEvalsInputSchema>
 export type GetAiEvalByIdInput = z.infer<typeof getAiEvalByIdInputSchema>
+export type GetAiEvalRunByIdInput = z.infer<typeof getAiEvalRunByIdInputSchema>
 export type RunAiEvalInput = z.infer<typeof runAiEvalInputSchema>
 export type AiEvalRunEntry = z.infer<typeof aiEvalRunEntrySchema>
+export type AiEvalRunItemDetail = z.infer<typeof aiEvalRunItemDetailSchema>
 export type AiEvalDetail = z.infer<typeof aiEvalDetailSchema>
+export type AiEvalRunDetail = z.infer<typeof aiEvalRunDetailSchema>
 export type AiEvalRunResult = z.infer<typeof aiEvalRunResultSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
 export type GetPromptVersionByIdInput = z.infer<typeof getPromptVersionByIdInputSchema>

@@ -1,14 +1,23 @@
-import { listAiEvalRunsByEvalKey, writeOperationLog } from '@ai-native-os/db'
+import {
+  getAiEvalRunDetailById,
+  listAiEvalRunsByEvalKey,
+  writeOperationLog,
+} from '@ai-native-os/db'
 import {
   type AiEvalDetail,
   type AiEvalListResponse,
+  type AiEvalRunDetail,
   type AiEvalRunEntry,
+  type AiEvalRunItemDetail,
   type AiEvalRunResult,
   aiEvalDetailSchema,
   aiEvalListResponseSchema,
+  aiEvalRunDetailSchema,
   aiEvalRunResultSchema,
   type GetAiEvalByIdInput,
+  type GetAiEvalRunByIdInput,
   getAiEvalByIdInputSchema,
+  getAiEvalRunByIdInputSchema,
   type ListAiEvalsInput,
   listAiEvalsInputSchema,
   type RunAiEvalInput,
@@ -91,6 +100,64 @@ function serializeAiEvalRunEntry(record: {
 }
 
 /**
+ * 将数据库中的未知 JSON 负载收敛为 OpenAPI 合同允许的稳定 JSON 值。
+ */
+function normalizeAiEvalJsonPayload(
+  value: unknown,
+):
+  | AiEvalRunItemDetail['input']
+  | AiEvalRunItemDetail['output']
+  | AiEvalRunItemDetail['groundTruth'] {
+  if (value === null) {
+    return null
+  }
+
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    Array.isArray(value)
+  ) {
+    return value
+  }
+
+  if (typeof value === 'object') {
+    return value as Record<string, unknown>
+  }
+
+  return String(value)
+}
+
+/**
+ * 将数据库中的评测样本运行明细序列化为 contract-first 输出结构。
+ */
+function serializeAiEvalRunItemDetail(record: {
+  createdAt: Date
+  datasetItemId: string
+  errorMessage: string | null
+  groundTruth: unknown
+  id: string
+  input: unknown
+  itemIndex: number
+  output: unknown
+  runId: string
+  scores: AiEvalRunItemDetail['scores']
+}): AiEvalRunItemDetail {
+  return {
+    createdAt: record.createdAt.toISOString(),
+    datasetItemId: record.datasetItemId,
+    errorMessage: record.errorMessage,
+    groundTruth: normalizeAiEvalJsonPayload(record.groundTruth),
+    id: record.id,
+    input: normalizeAiEvalJsonPayload(record.input),
+    itemIndex: record.itemIndex,
+    output: normalizeAiEvalJsonPayload(record.output),
+    runId: record.runId,
+    scores: record.scores,
+  }
+}
+
+/**
  * 读取评估目录和最近运行结果，供 AI eval 面板展示。
  */
 export async function listAiEvals(input: ListAiEvalsInput): Promise<AiEvalListResponse> {
@@ -143,6 +210,37 @@ export async function getAiEvalById(input: GetAiEvalByIdInput): Promise<AiEvalDe
       reason: snapshot.reason,
     },
     recentRuns: recentRuns.slice(0, 5).map((runRecord) => serializeAiEvalRunEntry(runRecord)),
+  }
+}
+
+/**
+ * 读取单次评测运行详情，并返回逐样本评分明细供治理页面检查。
+ */
+export async function getAiEvalRunById(input: GetAiEvalRunByIdInput): Promise<AiEvalRunDetail> {
+  const snapshot = await buildMastraEvalCatalogSnapshot()
+  const evalEntry = snapshot.entries.find((entry) => entry.id === input.id)
+
+  if (!evalEntry) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'AI eval suite not found',
+    })
+  }
+
+  const runDetail = await getAiEvalRunDetailById(input.id, input.runId)
+
+  if (!runDetail) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'AI eval run not found',
+    })
+  }
+
+  return {
+    ...serializeAiEvalRunEntry(runDetail.run),
+    environment: {
+      configured: snapshot.configured,
+      reason: snapshot.reason,
+    },
+    items: runDetail.items.map((record) => serializeAiEvalRunItemDetail(record)),
   }
 }
 
@@ -216,6 +314,21 @@ export const aiEvalsGetByIdProcedure = requireAnyPermission(aiEvalReadPermission
   .input(getAiEvalByIdInputSchema)
   .output(aiEvalDetailSchema)
   .handler(async ({ input }) => getAiEvalById(input))
+
+/**
+ * 提供单次 AI 评测运行详情接口，供治理页检查样本级评分结果。
+ */
+export const aiEvalsRunDetailProcedure = requireAnyPermission(aiEvalReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/evals/:id/runs/:runId',
+    tags: ['AI:Evals'],
+    summary: '读取单次 AI 评测运行详情',
+    description: '返回指定评测运行的实验摘要、逐样本评分明细和当前运行环境说明。',
+  })
+  .input(getAiEvalRunByIdInputSchema)
+  .output(aiEvalRunDetailSchema)
+  .handler(async ({ input }) => getAiEvalRunById(input))
 
 /**
  * 提供手动触发评测运行接口，供治理页执行一次即时回归检查。

@@ -6,6 +6,7 @@ import {
   aiAuditListResponseSchema,
   aiEvalDetailSchema,
   aiEvalListResponseSchema,
+  aiEvalRunDetailSchema,
   aiEvalRunResultSchema,
   aiFeedbackDetailSchema,
   aiFeedbackEntrySchema,
@@ -31,6 +32,7 @@ import {
   deleteUserResultSchema,
   getAiAuditLogByIdInputSchema,
   getAiEvalByIdInputSchema,
+  getAiEvalRunByIdInputSchema,
   getAiFeedbackByIdInputSchema,
   getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
@@ -108,7 +110,7 @@ import {
 import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
 import { getAiAuditLogDetail, listAiAuditLogs } from '@/routes/ai/audit'
-import { getAiEvalById, listAiEvals, runAiEval } from '@/routes/ai/evals'
+import { getAiEvalById, getAiEvalRunById, listAiEvals, runAiEval } from '@/routes/ai/evals'
 import { createFeedback, getFeedbackById, listFeedback } from '@/routes/ai/feedback'
 import {
   createKnowledgeEntry,
@@ -982,6 +984,20 @@ app.get('/api/v1/ai/evals/:id', (c) =>
     getAiEvalById,
     (requestContext) => ({
       id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.get('/api/v1/ai/evals/:id/runs/:runId', (c) =>
+  handleContractFirstGet(
+    c,
+    getAiEvalRunByIdInputSchema,
+    aiEvalRunDetailSchema,
+    contractFirstReadRequirements.aiEvals,
+    getAiEvalRunById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+      runId: requestContext.req.param('runId'),
     }),
   ),
 )

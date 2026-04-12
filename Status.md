@@ -1,6 +1,6 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-11
+Last Updated: 2026-04-12
 Current Mode: Post-Phase 6 backlog ready
 Current Phase: Post-Phase 6 `Hardening & Documentation Rollout`
 Overall Status: `phase_6_complete_e2e_remediation_closed`
@@ -102,10 +102,11 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | CRD-C4 | Post-P6 | Deliver `ai/knowledge` full document-level CRUD vertical with audited reindex semantics and contract-first OpenAPI | done | DOC-C3, DOC-C4 | lint + typecheck + test + build |
 | CRD-C5 | Post-P6 | Deliver `ai/audit` and `ai/feedback` detail contracts with linked governance context and contract-first OpenAPI | done | CRD-C4 | lint + typecheck + test + build |
 | CRD-C6 | Post-P6 | Deliver `ai/evals` governance detail and run-command contracts plus `ai/prompts` detail contract with contract-first OpenAPI | done | CRD-C5 | lint + typecheck + test + build |
+| CRD-C7 | Post-P6 | Deliver `ai/evals` run-detail inspection contract with sample-level scoring detail and contract-first OpenAPI | done | CRD-C6 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
-Priority order as of 2026-04-11:
+Priority order as of 2026-04-12:
 
 - no active ready task in the scheduler DAG.
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
@@ -119,7 +120,8 @@ Priority order as of 2026-04-11:
 - `CRD-C4` is closed; `ai/knowledge` now exposes document-level CRUD, audited reindex semantics, and the same contract-first OpenAPI baseline.
 - `CRD-C5` is closed; `ai/audit` and `ai/feedback` now expose detail routes with linked governance context and the same contract-first OpenAPI baseline.
 - `CRD-C6` is closed; `ai/evals` now exposes detail and run-command contracts, and `ai/prompts` now exposes detail contract with the same contract-first OpenAPI baseline.
-- the next recommended backlog item is deeper AI governance follow-up, starting with eval-run detail inspection and prompt-version diff or compare contracts.
+- `CRD-C7` is closed; `ai/evals` now exposes run-detail inspection with sample-level scoring detail and the same contract-first OpenAPI baseline.
+- the next recommended backlog item is deeper AI governance follow-up, starting with prompt-version diff or compare contracts.
 
 Auto-unlock rules:
 

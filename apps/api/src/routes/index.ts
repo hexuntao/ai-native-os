@@ -1,5 +1,10 @@
 import { aiAuditGetByIdProcedure, aiAuditListProcedure } from './ai/audit'
-import { aiEvalsGetByIdProcedure, aiEvalsListProcedure, aiEvalsRunProcedure } from './ai/evals'
+import {
+  aiEvalsGetByIdProcedure,
+  aiEvalsListProcedure,
+  aiEvalsRunDetailProcedure,
+  aiEvalsRunProcedure,
+} from './ai/evals'
 import {
   aiFeedbackCreateProcedure,
   aiFeedbackGetByIdProcedure,
@@ -71,6 +76,7 @@ export const appRouter = {
     evals: {
       getById: aiEvalsGetByIdProcedure,
       list: aiEvalsListProcedure,
+      runDetail: aiEvalsRunDetailProcedure,
       run: aiEvalsRunProcedure,
     },
     feedback: {

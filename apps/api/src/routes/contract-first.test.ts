@@ -1022,6 +1022,34 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   const evalDetailSchema = resolveOpenApiSchema(payload, evalsDetailJson.schema)
   assert.equal(evalDetailSchema.title, 'AiEvalDetail')
 
+  const evalsRunDetailPath =
+    payload.paths['/api/v1/ai/evals/:id/runs/:runId'] ??
+    payload.paths['/api/v1/ai/evals/{id}/runs/{runId}']
+  assert.ok(
+    evalsRunDetailPath && isRecord(evalsRunDetailPath),
+    'Expected /api/v1/ai/evals/:id/runs/:runId path to exist',
+  )
+  const evalsRunDetailGet = evalsRunDetailPath.get
+  assert.ok(
+    evalsRunDetailGet && isRecord(evalsRunDetailGet),
+    'Expected GET operation for ai eval run detail',
+  )
+  assert.equal(evalsRunDetailGet.summary, '读取单次 AI 评测运行详情')
+  const evalsRunDetailResponses = evalsRunDetailGet.responses
+  const evalsRunDetailJson =
+    evalsRunDetailResponses &&
+    isRecord(evalsRunDetailResponses) &&
+    isRecord(evalsRunDetailResponses['200']) &&
+    isRecord(evalsRunDetailResponses['200'].content)
+      ? evalsRunDetailResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    evalsRunDetailJson && isRecord(evalsRunDetailJson),
+    'Expected AI eval run detail JSON response schema',
+  )
+  const evalRunDetailSchema = resolveOpenApiSchema(payload, evalsRunDetailJson.schema)
+  assert.equal(evalRunDetailSchema.title, 'AiEvalRunDetail')
+
   const evalsRunPath =
     payload.paths['/api/v1/ai/evals/:id/run'] ?? payload.paths['/api/v1/ai/evals/{id}/run']
   assert.ok(
@@ -2485,6 +2513,7 @@ test('AI eval detail and run contract routes expose recent runs for administrato
       }
       id: string
       recentRuns: Array<{
+        id: string
         experimentId: string
         evalKey: string
         triggerSource: string
@@ -2508,9 +2537,44 @@ test('AI eval detail and run contract routes expose recent runs for administrato
         run.triggerSource === 'manual',
     ),
   )
+  const matchingRun = detailPayload.json.recentRuns.find(
+    (run) => run.experimentId === runPayload.json.experimentId,
+  )
+  assert.ok(matchingRun, 'Expected matching eval run in recent runs')
+
+  const runDetailResponse = await app.request(
+    `http://localhost/api/v1/ai/evals/report-schedule/runs/${matchingRun.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const runDetailPayload = (await runDetailResponse.json()) as {
+    json: {
+      environment: {
+        configured: boolean
+      }
+      evalKey: string
+      id: string
+      items: Array<{
+        datasetItemId: string
+        itemIndex: number
+        scores: Record<string, unknown>
+      }>
+      triggerSource: string
+    }
+  }
 
   const evalOperationLogsAfter = await listOperationLogsByModule('ai_evals')
 
+  assert.equal(runDetailResponse.status, 200)
+  assert.equal(runDetailPayload.json.id, matchingRun.id)
+  assert.equal(runDetailPayload.json.evalKey, 'report-schedule')
+  assert.equal(runDetailPayload.json.triggerSource, 'manual')
+  assert.equal(runDetailPayload.json.environment.configured, true)
+  assert.ok(runDetailPayload.json.items.length > 0)
+  assert.equal(runDetailPayload.json.items[0]?.itemIndex, 0)
+  assert.ok(typeof runDetailPayload.json.items[0]?.datasetItemId === 'string')
+  assert.ok(Object.keys(runDetailPayload.json.items[0]?.scores ?? {}).length > 0)
   assert.ok(evalOperationLogsAfter.length > evalOperationLogsBefore.length)
   assert.ok(
     evalOperationLogsAfter.some(

@@ -4,7 +4,7 @@ import type {
   AiEvalScorerSummary,
   AiEvalTriggerSource,
 } from '@ai-native-os/shared'
-import { count, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm'
 
 import { type Database, db } from '../client'
 import { aiEvalRunItems, aiEvalRuns } from '../schema'
@@ -68,6 +68,19 @@ export interface AiEvalRunRecord {
   triggerSource: AiEvalTriggerSource
 }
 
+export interface AiEvalRunItemRecord {
+  createdAt: Date
+  datasetItemId: string
+  errorMessage: string | null
+  groundTruth: unknown
+  id: string
+  input: unknown
+  itemIndex: number
+  output: unknown
+  runId: string
+  scores: AiEvalItemScoreMap
+}
+
 function sanitizeJsonValue(value: unknown): unknown {
   if (value === undefined) {
     return null
@@ -104,6 +117,24 @@ function mapAiEvalRunRow(row: typeof aiEvalRuns.$inferSelect): AiEvalRunRecord {
     succeededCount: row.succeededCount,
     totalItems: row.totalItems,
     triggerSource: row.triggerSource as AiEvalTriggerSource,
+  }
+}
+
+/**
+ * 将评测运行逐项记录映射为稳定的数据访问层结构。
+ */
+function mapAiEvalRunItemRow(row: typeof aiEvalRunItems.$inferSelect): AiEvalRunItemRecord {
+  return {
+    createdAt: row.createdAt,
+    datasetItemId: row.datasetItemId,
+    errorMessage: row.errorMessage,
+    groundTruth: row.groundTruth,
+    id: row.id,
+    input: row.input,
+    itemIndex: row.itemIndex,
+    output: row.output,
+    runId: row.runId,
+    scores: row.scores,
   }
 }
 
@@ -219,4 +250,35 @@ export async function listAiEvalRunsByEvalKey(
     .orderBy(desc(aiEvalRuns.createdAt))
 
   return rows.map(mapAiEvalRunRow)
+}
+
+/**
+ * 按评测键和运行 ID 读取单次评测详情及逐项评分明细。
+ */
+export async function getAiEvalRunDetailById(
+  evalKey: string,
+  runId: string,
+  database: Database = db,
+): Promise<{
+  items: AiEvalRunItemRecord[]
+  run: AiEvalRunRecord
+} | null> {
+  const runRow = await database.query.aiEvalRuns.findFirst({
+    where: and(eq(aiEvalRuns.evalKey, evalKey), eq(aiEvalRuns.id, runId)),
+  })
+
+  if (!runRow) {
+    return null
+  }
+
+  const itemRows = await database
+    .select()
+    .from(aiEvalRunItems)
+    .where(eq(aiEvalRunItems.runId, runId))
+    .orderBy(asc(aiEvalRunItems.itemIndex), asc(aiEvalRunItems.createdAt))
+
+  return {
+    items: itemRows.map(mapAiEvalRunItemRow),
+    run: mapAiEvalRunRow(runRow),
+  }
 }
