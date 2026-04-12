@@ -970,6 +970,34 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   const promptHistorySchema = resolveOpenApiSchema(payload, promptsHistoryJson.schema)
   assert.equal(promptHistorySchema.title, 'PromptVersionHistory')
 
+  const promptsRollbackChainPath =
+    payload.paths['/api/v1/ai/prompts/rollback-chain/:promptKey'] ??
+    payload.paths['/api/v1/ai/prompts/rollback-chain/{promptKey}']
+  assert.ok(
+    promptsRollbackChainPath && isRecord(promptsRollbackChainPath),
+    'Expected /api/v1/ai/prompts/rollback-chain/:promptKey path to exist',
+  )
+  const promptsRollbackChainGet = promptsRollbackChainPath.get
+  assert.ok(
+    promptsRollbackChainGet && isRecord(promptsRollbackChainGet),
+    'Expected GET operation for ai prompt rollback chain',
+  )
+  assert.equal(promptsRollbackChainGet.summary, '读取 Prompt 回滚链路')
+  const promptsRollbackChainResponses = promptsRollbackChainGet.responses
+  const promptsRollbackChainJson =
+    promptsRollbackChainResponses &&
+    isRecord(promptsRollbackChainResponses) &&
+    isRecord(promptsRollbackChainResponses['200']) &&
+    isRecord(promptsRollbackChainResponses['200'].content)
+      ? promptsRollbackChainResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    promptsRollbackChainJson && isRecord(promptsRollbackChainJson),
+    'Expected AI prompt rollback chain JSON response schema',
+  )
+  const promptRollbackChainSchema = resolveOpenApiSchema(payload, promptsRollbackChainJson.schema)
+  assert.equal(promptRollbackChainSchema.title, 'PromptRollbackChain')
+
   const auditPath = payload.paths['/api/v1/ai/audit']
   assert.ok(auditPath && isRecord(auditPath), 'Expected /api/v1/ai/audit path to exist')
 
@@ -3207,6 +3235,202 @@ test('prompt governance history route exposes ordered release timeline and activ
   assert.equal(historyPayload.json.versions[0]?.releaseReady, true)
   assert.equal(historyPayload.json.versions[1]?.id, baselinePayload.json.id)
   assert.equal(historyPayload.json.versions[1]?.version, baselinePayload.json.version)
+})
+
+test('prompt governance rollback-chain route exposes rollback source and target lineage', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const promptKey = `admin.rollback.${randomUUID().slice(0, 8)}`
+
+  const baselineResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '回滚基线版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请输出结构化结论。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const baselinePayload = (await baselineResponse.json()) as {
+    json: {
+      id: string
+      version: number
+    }
+  }
+
+  const targetResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '回滚来源版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请输出结构化结论，并补充风险摘要。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const targetPayload = (await targetResponse.json()) as {
+    json: {
+      id: string
+      version: number
+    }
+  }
+
+  await runMastraEvalSuite({
+    actorAuthUserId: 'system:prompt-rollback-chain-test',
+    actorRbacUserId: null,
+    evalId: 'report-schedule',
+    requestId: `prompt-rollback-chain-${randomUUID()}`,
+    triggerSource: 'test',
+  })
+  const latestEvalRuns = await listAiEvalRunsByEvalKey('report-schedule')
+  const latestEvalRun = latestEvalRuns[0]
+
+  assert.ok(latestEvalRun, 'Expected a persisted eval run for prompt rollback chain route')
+
+  const attachBaselineResponse = await app.request(
+    'http://localhost/api/v1/ai/prompts/attach-evidence',
+    {
+      body: JSON.stringify({
+        evalRunId: latestEvalRun.id,
+        promptVersionId: baselinePayload.json.id,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    },
+  )
+
+  const activateBaselineResponse = await app.request(
+    'http://localhost/api/v1/ai/prompts/activate',
+    {
+      body: JSON.stringify({
+        promptVersionId: baselinePayload.json.id,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    },
+  )
+
+  const attachTargetResponse = await app.request(
+    'http://localhost/api/v1/ai/prompts/attach-evidence',
+    {
+      body: JSON.stringify({
+        evalRunId: latestEvalRun.id,
+        promptVersionId: targetPayload.json.id,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    },
+  )
+
+  const activateTargetResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: targetPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const rollbackResponse = await app.request('http://localhost/api/v1/ai/prompts/rollback', {
+    body: JSON.stringify({
+      promptKey,
+      targetVersionId: baselinePayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const rollbackChainResponse = await app.request(
+    `http://localhost/api/v1/ai/prompts/rollback-chain/${promptKey}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const rollbackChainPayload = (await rollbackChainResponse.json()) as {
+    json: {
+      events: Array<{
+        rolledBackAt: string | null
+        source: {
+          id: string
+          status: string
+          version: number
+        }
+        target: {
+          id: string
+          isActive: boolean
+          rolledBackFromVersionId: string | null
+          status: string
+          version: number
+        }
+      }>
+      promptKey: string
+      summary: {
+        activeVersionId: string | null
+        latestRollbackTargetVersionId: string | null
+        latestRollbackTargetVersionNumber: number | null
+        totalRollbackEvents: number
+      }
+    }
+  }
+
+  assert.equal(baselineResponse.status, 200)
+  assert.equal(targetResponse.status, 200)
+  assert.equal(attachBaselineResponse.status, 200)
+  assert.equal(activateBaselineResponse.status, 200)
+  assert.equal(attachTargetResponse.status, 200)
+  assert.equal(activateTargetResponse.status, 200)
+  assert.equal(rollbackResponse.status, 200)
+  assert.equal(rollbackChainResponse.status, 200)
+  assert.equal(rollbackChainPayload.json.promptKey, promptKey)
+  assert.equal(rollbackChainPayload.json.summary.totalRollbackEvents, 1)
+  assert.equal(rollbackChainPayload.json.summary.activeVersionId, baselinePayload.json.id)
+  assert.equal(
+    rollbackChainPayload.json.summary.latestRollbackTargetVersionId,
+    baselinePayload.json.id,
+  )
+  assert.equal(
+    rollbackChainPayload.json.summary.latestRollbackTargetVersionNumber,
+    baselinePayload.json.version,
+  )
+  assert.equal(rollbackChainPayload.json.events.length, 1)
+  assert.equal(rollbackChainPayload.json.events[0]?.source.id, targetPayload.json.id)
+  assert.equal(rollbackChainPayload.json.events[0]?.source.version, targetPayload.json.version)
+  assert.equal(rollbackChainPayload.json.events[0]?.source.status, 'archived')
+  assert.equal(rollbackChainPayload.json.events[0]?.target.id, baselinePayload.json.id)
+  assert.equal(rollbackChainPayload.json.events[0]?.target.version, baselinePayload.json.version)
+  assert.equal(rollbackChainPayload.json.events[0]?.target.isActive, true)
+  assert.equal(rollbackChainPayload.json.events[0]?.target.status, 'active')
+  assert.equal(
+    rollbackChainPayload.json.events[0]?.target.rolledBackFromVersionId,
+    targetPayload.json.id,
+  )
+  assert.ok(rollbackChainPayload.json.events[0]?.rolledBackAt)
 })
 
 test('super admin can read the contract-first permission list route', async () => {

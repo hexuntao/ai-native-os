@@ -25,6 +25,7 @@ import {
   aiPromptsGetByIdProcedure,
   aiPromptsHistoryProcedure,
   aiPromptsListProcedure,
+  aiPromptsRollbackChainProcedure,
   aiPromptsRollbackProcedure,
 } from './ai/prompts'
 import { monitorLogsListProcedure } from './monitor/logs'
@@ -101,6 +102,7 @@ export const appRouter = {
       getById: aiPromptsGetByIdProcedure,
       history: aiPromptsHistoryProcedure,
       list: aiPromptsListProcedure,
+      rollbackChain: aiPromptsRollbackChainProcedure,
       rollback: aiPromptsRollbackProcedure,
     },
   },

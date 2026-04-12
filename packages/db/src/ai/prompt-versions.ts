@@ -2,10 +2,12 @@ import type {
   ActivatePromptVersionInput,
   AttachPromptEvalEvidenceInput,
   CreatePromptVersionInput,
+  GetPromptRollbackChainInput,
   GetPromptVersionCompareInput,
   GetPromptVersionHistoryInput,
   PromptEvalEvidence,
   PromptReleasePolicy,
+  PromptRollbackChain,
   PromptTextDiff,
   PromptVersionCompare,
   PromptVersionEntry,
@@ -399,6 +401,59 @@ export async function getPromptVersionHistoryByPromptKey(
       totalVersions: versions.length,
     },
     versions,
+  }
+}
+
+/**
+ * 按 promptKey 汇总回滚链路，返回来源版本、目标版本和当前激活摘要。
+ */
+export async function getPromptRollbackChainByPromptKey(
+  input: GetPromptRollbackChainInput,
+  database: Database = db,
+): Promise<PromptRollbackChain> {
+  const rows = await database
+    .select()
+    .from(aiPromptVersions)
+    .where(eq(aiPromptVersions.promptKey, input.promptKey))
+    .orderBy(desc(aiPromptVersions.version), desc(aiPromptVersions.createdAt))
+
+  const versions = rows.map(mapPromptVersionRow)
+  const versionById = new Map(versions.map((entry) => [entry.id, entry] as const))
+  const activeVersion = versions.find((entry) => entry.isActive) ?? null
+  const events = versions
+    .filter((entry) => entry.rolledBackFromVersionId !== null)
+    .flatMap((targetEntry) => {
+      const sourceEntry = versionById.get(targetEntry.rolledBackFromVersionId ?? '')
+
+      if (!sourceEntry) {
+        return []
+      }
+
+      return [
+        {
+          rolledBackAt: targetEntry.activatedAt,
+          source: sourceEntry,
+          target: targetEntry,
+        },
+      ]
+    })
+    .sort((left, right) => {
+      const leftTime = left.rolledBackAt ?? ''
+      const rightTime = right.rolledBackAt ?? ''
+
+      return rightTime.localeCompare(leftTime)
+    })
+  const latestRollbackEvent = events[0] ?? null
+
+  return {
+    events,
+    promptKey: input.promptKey,
+    summary: {
+      activeVersionId: activeVersion?.id ?? null,
+      latestRollbackTargetVersionId: latestRollbackEvent?.target.id ?? null,
+      latestRollbackTargetVersionNumber: latestRollbackEvent?.target.version ?? null,
+      totalRollbackEvents: events.length,
+    },
   }
 }
 

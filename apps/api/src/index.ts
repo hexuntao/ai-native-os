@@ -37,6 +37,7 @@ import {
   getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
+  getPromptRollbackChainInputSchema,
   getPromptVersionByIdInputSchema,
   getPromptVersionCompareInputSchema,
   getPromptVersionHistoryInputSchema,
@@ -61,6 +62,7 @@ import {
   operationLogListResponseSchema,
   permissionEntrySchema,
   permissionListResponseSchema,
+  promptRollbackChainSchema,
   promptVersionCompareSchema,
   promptVersionDetailSchema,
   promptVersionEntrySchema,
@@ -127,6 +129,7 @@ import {
   activatePromptVersionEntry,
   attachPromptVersionEvalEvidence,
   createPromptVersionEntry,
+  getPromptRollbackChainEntry,
   getPromptVersionCompareEntry,
   getPromptVersionEntryById,
   getPromptVersionHistoryEntry,
@@ -1131,6 +1134,19 @@ app.get('/api/v1/ai/prompts/history/:promptKey', (c) =>
     promptVersionHistorySchema,
     contractFirstReadRequirements.aiPrompts,
     getPromptVersionHistoryEntry,
+    (requestContext) => ({
+      promptKey: requestContext.req.param('promptKey'),
+    }),
+  ),
+)
+
+app.get('/api/v1/ai/prompts/rollback-chain/:promptKey', (c) =>
+  handleContractFirstGet(
+    c,
+    getPromptRollbackChainInputSchema,
+    promptRollbackChainSchema,
+    contractFirstReadRequirements.aiPrompts,
+    getPromptRollbackChainEntry,
     (requestContext) => ({
       promptKey: requestContext.req.param('promptKey'),
     }),

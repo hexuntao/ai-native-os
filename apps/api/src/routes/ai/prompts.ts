@@ -3,6 +3,7 @@ import {
   attachPromptEvalEvidence,
   comparePromptVersionsById,
   createPromptVersion,
+  getPromptRollbackChainByPromptKey,
   getPromptVersionById,
   getPromptVersionHistoryByPromptKey,
   listPromptVersions,
@@ -22,18 +23,22 @@ import {
   attachPromptEvalEvidenceInputSchema,
   type CreatePromptVersionInput,
   createPromptVersionInputSchema,
+  type GetPromptRollbackChainInput,
   type GetPromptVersionByIdInput,
   type GetPromptVersionCompareInput,
   type GetPromptVersionHistoryInput,
+  getPromptRollbackChainInputSchema,
   getPromptVersionByIdInputSchema,
   getPromptVersionCompareInputSchema,
   getPromptVersionHistoryInputSchema,
+  type PromptRollbackChain,
   type PromptVersionCompare,
   type PromptVersionDetail,
   type PromptVersionEntry,
   type PromptVersionHistory,
   type PromptVersionListInput,
   type PromptVersionListResponse,
+  promptRollbackChainSchema,
   promptVersionCompareSchema,
   promptVersionDetailSchema,
   promptVersionEntrySchema,
@@ -100,6 +105,15 @@ export async function getPromptVersionHistoryEntry(
   input: GetPromptVersionHistoryInput,
 ): Promise<PromptVersionHistory> {
   return getPromptVersionHistoryByPromptKey(input)
+}
+
+/**
+ * 读取指定 Prompt 治理键的回滚链路，供治理页查看来源版本与目标版本关系。
+ */
+export async function getPromptRollbackChainEntry(
+  input: GetPromptRollbackChainInput,
+): Promise<PromptRollbackChain> {
+  return getPromptRollbackChainByPromptKey(input)
 }
 
 /**
@@ -310,6 +324,18 @@ export const aiPromptsHistoryProcedure = requireAnyPermission(promptReadPermissi
   .input(getPromptVersionHistoryInputSchema)
   .output(promptVersionHistorySchema)
   .handler(async ({ input }) => getPromptVersionHistoryEntry(input))
+
+export const aiPromptsRollbackChainProcedure = requireAnyPermission(promptReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/prompts/rollback-chain/:promptKey',
+    tags: ['AI:Prompts'],
+    summary: '读取 Prompt 回滚链路',
+    description: '返回指定 Prompt 治理键的回滚事件、来源版本和目标版本关系。',
+  })
+  .input(getPromptRollbackChainInputSchema)
+  .output(promptRollbackChainSchema)
+  .handler(async ({ input }) => getPromptRollbackChainEntry(input))
 
 export const aiPromptsCreateProcedure = requireAnyPermission(promptWritePermissions)
   .route({

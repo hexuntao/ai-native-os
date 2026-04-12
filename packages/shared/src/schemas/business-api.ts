@@ -3408,6 +3408,25 @@ export const getPromptVersionHistoryInputSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const getPromptRollbackChainInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    promptKey: withOpenApiSchemaDoc(promptKeySchema, {
+      title: 'PromptRollbackChainPromptKey',
+      description: '需要读取回滚链路的 Prompt 治理键。',
+      examples: ['admin.copilot.answer'],
+    }),
+  }),
+  {
+    title: 'GetPromptRollbackChainInput',
+    description: '读取某个 Prompt 治理键回滚链路所需的路径参数。',
+    examples: [
+      {
+        promptKey: 'admin.copilot.answer',
+      },
+    ],
+  },
+)
+
 export const getPromptVersionCompareInputSchema = withOpenApiSchemaDoc(
   z.object({
     baselineId: promptVersionBaselineIdSchema,
@@ -3947,6 +3966,140 @@ export const promptVersionHistorySchema = withOpenApiSchemaDoc(
   },
 )
 
+export const promptRollbackChainSchema = withOpenApiSchemaDoc(
+  z.object({
+    events: withOpenApiSchemaDoc(
+      z.array(
+        withOpenApiSchemaDoc(
+          z.object({
+            rolledBackAt: withOpenApiSchemaDoc(z.string().nullable(), {
+              title: 'PromptRollbackChainRolledBackAt',
+              description: '本次回滚事件发生时间，取目标版本重新激活时间；无法确定时为 `null`。',
+              examples: ['2026-04-11T06:00:00.000Z'],
+            }),
+            source: promptVersionDetailSchema,
+            target: promptVersionDetailSchema,
+          }),
+          {
+            title: 'PromptRollbackChainEvent',
+            description: '一次 Prompt 回滚事件，记录来源版本与目标版本快照。',
+          },
+        ),
+      ),
+      {
+        title: 'PromptRollbackChainEvents',
+        description: '当前 Prompt 治理键下的回滚事件列表，按回滚时间倒序返回。',
+      },
+    ),
+    promptKey: withOpenApiSchemaDoc(promptKeySchema, {
+      title: 'PromptRollbackChainPromptKeyField',
+      description: '本次回滚链查询对应的 Prompt 治理键。',
+      examples: ['admin.copilot.answer'],
+    }),
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        activeVersionId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+          title: 'PromptRollbackChainActiveVersionId',
+          description: '当前激活版本 UUID；若当前无激活版本则为 `null`。',
+          examples: ['95f398a5-0b64-4387-8f1c-fd6476412001'],
+        }),
+        latestRollbackTargetVersionId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+          title: 'PromptRollbackChainLatestTargetVersionId',
+          description: '最近一次回滚命中的目标版本 UUID；若从未回滚则为 `null`。',
+          examples: ['95f398a5-0b64-4387-8f1c-fd6476412001'],
+        }),
+        latestRollbackTargetVersionNumber: withOpenApiSchemaDoc(
+          z.number().int().min(1).nullable(),
+          {
+            title: 'PromptRollbackChainLatestTargetVersionNumber',
+            description: '最近一次回滚命中的目标版本号；若从未回滚则为 `null`。',
+            examples: [2],
+          },
+        ),
+        totalRollbackEvents: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptRollbackChainTotalEvents',
+          description: '当前 Prompt 治理键下记录到的回滚事件总数。',
+          examples: [1],
+        }),
+      }),
+      {
+        title: 'PromptRollbackChainSummary',
+        description: 'Prompt 回滚链摘要，供治理页面快速展示当前状态与回滚规模。',
+      },
+    ),
+  }),
+  {
+    title: 'PromptRollbackChain',
+    description: 'Prompt 回滚链响应，返回某个治理键下的回滚事件与当前激活状态。',
+    examples: [
+      {
+        events: [
+          {
+            rolledBackAt: '2026-04-11T06:00:00.000Z',
+            source: {
+              activatedAt: '2026-04-11T05:30:00.000Z',
+              activatedByAuthUserId: 'auth_user_01',
+              activatedByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+              createdAt: '2026-04-11T05:10:00.000Z',
+              createdByAuthUserId: 'auth_user_01',
+              createdByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+              evalEvidence: null,
+              id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+              isActive: false,
+              notes: '提高财务问答的事实一致性，并补充风险摘要。',
+              promptKey: 'admin.copilot.answer',
+              promptText: '你是后台管理 Copilot，请优先返回结构化结论。\\n输出前必须补充风险摘要。',
+              releasePolicy: {
+                minAverageScore: 0.9,
+                scorerThresholds: {
+                  factuality: 0.93,
+                },
+              },
+              releaseReady: true,
+              releaseReason: null,
+              rolledBackFromVersionId: null,
+              status: 'archived',
+              updatedAt: '2026-04-11T06:00:00.000Z',
+              version: 3,
+            },
+            target: {
+              activatedAt: '2026-04-11T06:00:00.000Z',
+              activatedByAuthUserId: 'auth_user_01',
+              activatedByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+              createdAt: '2026-04-11T04:20:00.000Z',
+              createdByAuthUserId: 'auth_user_01',
+              createdByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+              evalEvidence: null,
+              id: '95f398a5-0b64-4387-8f1c-fd6476412001',
+              isActive: true,
+              notes: '提高财务问答的事实一致性。',
+              promptKey: 'admin.copilot.answer',
+              promptText: '你是后台管理 Copilot，请优先返回结构化结论。',
+              releasePolicy: {
+                minAverageScore: 0.8,
+                scorerThresholds: {},
+              },
+              releaseReady: true,
+              releaseReason: null,
+              rolledBackFromVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+              status: 'active',
+              updatedAt: '2026-04-11T06:00:00.000Z',
+              version: 2,
+            },
+          },
+        ],
+        promptKey: 'admin.copilot.answer',
+        summary: {
+          activeVersionId: '95f398a5-0b64-4387-8f1c-fd6476412001',
+          latestRollbackTargetVersionId: '95f398a5-0b64-4387-8f1c-fd6476412001',
+          latestRollbackTargetVersionNumber: 2,
+          totalRollbackEvents: 1,
+        },
+      },
+    ],
+  },
+)
+
 // 工具发现 contract-first skeleton。
 export const toolGenKindSchema = withOpenApiSchemaDoc(z.enum(['agent', 'copilot', 'prompt']), {
   title: 'ToolGenKind',
@@ -4287,10 +4440,12 @@ export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
 export type GetPromptVersionByIdInput = z.infer<typeof getPromptVersionByIdInputSchema>
 export type GetPromptVersionCompareInput = z.infer<typeof getPromptVersionCompareInputSchema>
 export type GetPromptVersionHistoryInput = z.infer<typeof getPromptVersionHistoryInputSchema>
+export type GetPromptRollbackChainInput = z.infer<typeof getPromptRollbackChainInputSchema>
 export type PromptVersionDetail = z.infer<typeof promptVersionDetailSchema>
 export type PromptTextDiff = z.infer<typeof promptTextDiffSchema>
 export type PromptVersionCompare = z.infer<typeof promptVersionCompareSchema>
 export type PromptVersionHistory = z.infer<typeof promptVersionHistorySchema>
+export type PromptRollbackChain = z.infer<typeof promptRollbackChainSchema>
 export type ListToolGenInput = z.infer<typeof listToolGenInputSchema>
 export type ToolGenListResponse = z.infer<typeof toolGenListResponseSchema>
 export type ListToolJobsInput = z.infer<typeof listToolJobsInputSchema>
