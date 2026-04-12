@@ -103,6 +103,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | CRD-C5 | Post-P6 | Deliver `ai/audit` and `ai/feedback` detail contracts with linked governance context and contract-first OpenAPI | done | CRD-C4 | lint + typecheck + test + build |
 | CRD-C6 | Post-P6 | Deliver `ai/evals` governance detail and run-command contracts plus `ai/prompts` detail contract with contract-first OpenAPI | done | CRD-C5 | lint + typecheck + test + build |
 | CRD-C7 | Post-P6 | Deliver `ai/evals` run-detail inspection contract with sample-level scoring detail and contract-first OpenAPI | done | CRD-C6 | lint + typecheck + test + build |
+| CRD-C8 | Post-P6 | Deliver `ai/prompts` version-compare contract with governance diff summary and contract-first OpenAPI | done | CRD-C7 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -121,7 +122,8 @@ Priority order as of 2026-04-12:
 - `CRD-C5` is closed; `ai/audit` and `ai/feedback` now expose detail routes with linked governance context and the same contract-first OpenAPI baseline.
 - `CRD-C6` is closed; `ai/evals` now exposes detail and run-command contracts, and `ai/prompts` now exposes detail contract with the same contract-first OpenAPI baseline.
 - `CRD-C7` is closed; `ai/evals` now exposes run-detail inspection with sample-level scoring detail and the same contract-first OpenAPI baseline.
-- the next recommended backlog item is deeper AI governance follow-up, starting with prompt-version diff or compare contracts.
+- `CRD-C8` is closed; `ai/prompts` now exposes version-compare contract with text diff and governance diff summary under the same contract-first OpenAPI baseline.
+- the next recommended backlog item is deeper AI governance follow-up, starting with prompt-version rollback-chain or release-history contracts.
 
 Auto-unlock rules:
 

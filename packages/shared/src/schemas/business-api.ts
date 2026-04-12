@@ -13,7 +13,12 @@ import {
   aiFeedbackUserActionSchema,
 } from './ai-feedback'
 import { aiKnowledgeMetadataSchema } from './ai-knowledge'
-import { promptVersionEntrySchema } from './ai-prompts'
+import {
+  promptEvalEvidenceSchema,
+  promptReleasePolicySchema,
+  promptVersionEntrySchema,
+  promptVersionStatusSchema,
+} from './ai-prompts'
 import { aiRuntimeCapabilitySchema } from './ai-runtime'
 import { aiAuditLogEntrySchema } from './ai-tools'
 import { paginatedResponseSchema } from './common'
@@ -3362,6 +3367,12 @@ const promptVersionIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
   examples: ['b87ecb02-478d-40ff-b2d8-3f62fd9f9001'],
 })
 
+const promptVersionBaselineIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'PromptVersionBaselineIdParam',
+  description: '用于对比的基线 Prompt 版本主键 UUID。',
+  examples: ['95f398a5-0b64-4387-8f1c-fd6476412001'],
+})
+
 export const getPromptVersionByIdInputSchema = withOpenApiSchemaDoc(
   z.object({
     id: promptVersionIdSchema,
@@ -3371,6 +3382,23 @@ export const getPromptVersionByIdInputSchema = withOpenApiSchemaDoc(
     description: '读取单个 Prompt 版本详情所需的路径参数。',
     examples: [
       {
+        id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+      },
+    ],
+  },
+)
+
+export const getPromptVersionCompareInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    baselineId: promptVersionBaselineIdSchema,
+    id: promptVersionIdSchema,
+  }),
+  {
+    title: 'GetPromptVersionCompareInput',
+    description: '读取两个 Prompt 版本差异所需的路径参数。',
+    examples: [
+      {
+        baselineId: '95f398a5-0b64-4387-8f1c-fd6476412001',
         id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
       },
     ],
@@ -3407,6 +3435,391 @@ export const promptVersionDetailSchema = withOpenApiSchemaDoc(promptVersionEntry
     },
   ],
 })
+
+export const promptTextDiffSchema = withOpenApiSchemaDoc(
+  z.object({
+    addedLines: withOpenApiSchemaDoc(z.array(z.string()), {
+      title: 'PromptDiffAddedLines',
+      description: '目标版本中新增的正文行，按首次出现顺序返回。',
+      examples: [['4. 输出时必须先给出风险摘要。']],
+    }),
+    changed: withOpenApiSchemaDoc(z.boolean(), {
+      title: 'PromptDiffChanged',
+      description: 'Prompt 正文是否发生变化。',
+      examples: [true],
+    }),
+    removedLines: withOpenApiSchemaDoc(z.array(z.string()), {
+      title: 'PromptDiffRemovedLines',
+      description: '相较基线版本被移除的正文行，按基线顺序返回。',
+      examples: [['4. 输出时可以自由组织结构。']],
+    }),
+    unchangedLineCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'PromptDiffUnchangedLineCount',
+      description: '两版 Prompt 正文完全一致的行数。',
+      examples: [3],
+    }),
+  }),
+  {
+    title: 'PromptTextDiff',
+    description: 'Prompt 正文逐行差异摘要，用于治理界面快速判断正文改动范围。',
+    examples: [
+      {
+        addedLines: ['4. 输出时必须先给出风险摘要。'],
+        changed: true,
+        removedLines: ['4. 输出时可以自由组织结构。'],
+        unchangedLineCount: 3,
+      },
+    ],
+  },
+)
+
+export const promptVersionCompareSchema = withOpenApiSchemaDoc(
+  z.object({
+    baseline: promptVersionDetailSchema,
+    diff: withOpenApiSchemaDoc(
+      z.object({
+        activation: withOpenApiSchemaDoc(
+          z.object({
+            changed: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptCompareActivationChanged',
+              description: '激活状态或激活主体是否发生变化。',
+              examples: [true],
+            }),
+            currentActivatedAt: withOpenApiSchemaDoc(z.string().nullable(), {
+              title: 'PromptCompareCurrentActivatedAt',
+              description: '目标版本激活时间；未激活时为 `null`。',
+              examples: ['2026-04-11T05:00:00.000Z'],
+            }),
+            currentActivatedByAuthUserId: withOpenApiSchemaDoc(z.string().nullable(), {
+              title: 'PromptCompareCurrentActivatedByAuthUserId',
+              description: '目标版本激活主体的 Better Auth ID；未激活时为 `null`。',
+              examples: ['auth_user_01'],
+            }),
+            currentActivatedByRbacUserId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+              title: 'PromptCompareCurrentActivatedByRbacUserId',
+              description: '目标版本激活主体的 RBAC 用户 ID；未激活时为 `null`。',
+              examples: ['8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001'],
+            }),
+            previousActivatedAt: withOpenApiSchemaDoc(z.string().nullable(), {
+              title: 'PromptComparePreviousActivatedAt',
+              description: '基线版本激活时间；未激活时为 `null`。',
+              examples: [null],
+            }),
+            previousActivatedByAuthUserId: withOpenApiSchemaDoc(z.string().nullable(), {
+              title: 'PromptComparePreviousActivatedByAuthUserId',
+              description: '基线版本激活主体的 Better Auth ID；未激活时为 `null`。',
+              examples: [null],
+            }),
+            previousActivatedByRbacUserId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+              title: 'PromptComparePreviousActivatedByRbacUserId',
+              description: '基线版本激活主体的 RBAC 用户 ID；未激活时为 `null`。',
+              examples: [null],
+            }),
+          }),
+          {
+            title: 'PromptVersionActivationDiff',
+            description: 'Prompt 版本激活状态与激活主体差异。',
+          },
+        ),
+        evalEvidence: withOpenApiSchemaDoc(
+          z.object({
+            changed: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptCompareEvalEvidenceChanged',
+              description: '绑定的评测证据是否发生变化。',
+              examples: [true],
+            }),
+            current: withOpenApiSchemaDoc(promptEvalEvidenceSchema.nullable(), {
+              title: 'PromptCompareCurrentEvalEvidence',
+              description: '目标版本的评测证据；未绑定时为 `null`。',
+            }),
+            previous: withOpenApiSchemaDoc(promptEvalEvidenceSchema.nullable(), {
+              title: 'PromptComparePreviousEvalEvidence',
+              description: '基线版本的评测证据；未绑定时为 `null`。',
+            }),
+          }),
+          {
+            title: 'PromptVersionEvalEvidenceDiff',
+            description: 'Prompt 版本评测证据差异。',
+          },
+        ),
+        notes: withOpenApiSchemaDoc(
+          z.object({
+            changed: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptCompareNotesChanged',
+              description: '版本备注是否发生变化。',
+              examples: [true],
+            }),
+            current: withOpenApiSchemaDoc(z.string().nullable(), {
+              title: 'PromptCompareCurrentNotes',
+              description: '目标版本备注；未填写时为 `null`。',
+              examples: ['提高财务问答的事实一致性，并约束输出结构。'],
+            }),
+            previous: withOpenApiSchemaDoc(z.string().nullable(), {
+              title: 'PromptComparePreviousNotes',
+              description: '基线版本备注；未填写时为 `null`。',
+              examples: ['提高财务问答的事实一致性。'],
+            }),
+          }),
+          {
+            title: 'PromptVersionNotesDiff',
+            description: 'Prompt 版本备注差异。',
+          },
+        ),
+        promptText: promptTextDiffSchema,
+        releasePolicy: withOpenApiSchemaDoc(
+          z.object({
+            changed: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptCompareReleasePolicyChanged',
+              description: '发布门禁策略是否发生变化。',
+              examples: [true],
+            }),
+            current: promptReleasePolicySchema,
+            previous: promptReleasePolicySchema,
+          }),
+          {
+            title: 'PromptVersionReleasePolicyDiff',
+            description: 'Prompt 版本发布门禁策略差异。',
+          },
+        ),
+        rollback: withOpenApiSchemaDoc(
+          z.object({
+            changed: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptCompareRollbackChanged',
+              description: '回滚来源关系是否发生变化。',
+              examples: [false],
+            }),
+            currentRolledBackFromVersionId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+              title: 'PromptCompareCurrentRolledBackFromVersionId',
+              description: '目标版本的回滚来源版本 ID；无回滚来源时为 `null`。',
+              examples: [null],
+            }),
+            previousRolledBackFromVersionId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+              title: 'PromptComparePreviousRolledBackFromVersionId',
+              description: '基线版本的回滚来源版本 ID；无回滚来源时为 `null`。',
+              examples: [null],
+            }),
+          }),
+          {
+            title: 'PromptVersionRollbackDiff',
+            description: 'Prompt 版本回滚来源关系差异。',
+          },
+        ),
+        status: withOpenApiSchemaDoc(
+          z.object({
+            changed: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptCompareStatusChanged',
+              description: '版本状态或当前激活标记是否发生变化。',
+              examples: [true],
+            }),
+            currentIsActive: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptCompareCurrentIsActive',
+              description: '目标版本是否为当前生效版本。',
+              examples: [true],
+            }),
+            currentStatus: promptVersionStatusSchema,
+            previousIsActive: withOpenApiSchemaDoc(z.boolean(), {
+              title: 'PromptComparePreviousIsActive',
+              description: '基线版本是否为当前生效版本。',
+              examples: [false],
+            }),
+            previousStatus: promptVersionStatusSchema,
+          }),
+          {
+            title: 'PromptVersionStatusDiff',
+            description: 'Prompt 版本状态差异。',
+          },
+        ),
+      }),
+      {
+        title: 'PromptVersionDiff',
+        description: 'Prompt 两个版本之间的治理差异明细。',
+      },
+    ),
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        changedFields: withOpenApiSchemaDoc(z.array(z.string()), {
+          title: 'PromptCompareChangedFields',
+          description: '本次版本对比检测到变化的治理字段列表。',
+          examples: [['promptText', 'releasePolicy', 'notes']],
+        }),
+        promptKey: withOpenApiSchemaDoc(z.string(), {
+          title: 'PromptComparePromptKey',
+          description: '本次对比所属的 Prompt 治理键。',
+          examples: ['admin.copilot.answer'],
+        }),
+        totalChangedFields: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptCompareTotalChangedFields',
+          description: '发生变化的治理字段数量。',
+          examples: [3],
+        }),
+        versionDelta: withOpenApiSchemaDoc(z.number().int(), {
+          title: 'PromptCompareVersionDelta',
+          description: '目标版本号减去基线版本号的差值；正数表示目标版本更晚。',
+          examples: [1],
+        }),
+      }),
+      {
+        title: 'PromptVersionCompareSummary',
+        description: 'Prompt 版本对比摘要，便于治理页面快速展示差异范围。',
+      },
+    ),
+    target: promptVersionDetailSchema,
+  }),
+  {
+    title: 'PromptVersionCompare',
+    description: '两个 Prompt 版本之间的治理对比结果，包含正文差异和门禁差异。',
+    examples: [
+      {
+        baseline: {
+          activatedAt: null,
+          activatedByAuthUserId: null,
+          activatedByRbacUserId: null,
+          createdAt: '2026-04-11T04:00:00.000Z',
+          createdByAuthUserId: 'auth_user_01',
+          createdByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+          evalEvidence: null,
+          id: '95f398a5-0b64-4387-8f1c-fd6476412001',
+          isActive: false,
+          notes: '提高财务问答的事实一致性。',
+          promptKey: 'admin.copilot.answer',
+          promptText: '你是后台管理 Copilot，请优先返回结构化结论。\\n4. 输出时可以自由组织结构。',
+          releasePolicy: {
+            minAverageScore: 0.8,
+            scorerThresholds: {},
+          },
+          releaseReady: false,
+          releaseReason: '缺少评测证据。',
+          rolledBackFromVersionId: null,
+          status: 'draft',
+          updatedAt: '2026-04-11T04:00:00.000Z',
+          version: 2,
+        },
+        diff: {
+          activation: {
+            changed: true,
+            currentActivatedAt: '2026-04-11T05:00:00.000Z',
+            currentActivatedByAuthUserId: 'auth_user_01',
+            currentActivatedByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            previousActivatedAt: null,
+            previousActivatedByAuthUserId: null,
+            previousActivatedByRbacUserId: null,
+          },
+          evalEvidence: {
+            changed: true,
+            current: {
+              completedAt: '2026-04-11T04:30:00.000Z',
+              evalKey: 'report-schedule',
+              evalRunId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+              experimentId: 'exp_report_schedule_20260411',
+              scoreAverage: 0.91,
+              scorerSummary: {
+                factuality: {
+                  averageScore: 0.93,
+                  maxScore: 1,
+                  minScore: 0.85,
+                  sampleCount: 12,
+                },
+              },
+              status: 'completed',
+            },
+            previous: null,
+          },
+          notes: {
+            changed: true,
+            current: '提高财务问答的事实一致性，并约束输出结构。',
+            previous: '提高财务问答的事实一致性。',
+          },
+          promptText: {
+            addedLines: ['4. 输出时必须先给出风险摘要。'],
+            changed: true,
+            removedLines: ['4. 输出时可以自由组织结构。'],
+            unchangedLineCount: 1,
+          },
+          releasePolicy: {
+            changed: true,
+            current: {
+              minAverageScore: 0.9,
+              scorerThresholds: {
+                factuality: 0.93,
+              },
+            },
+            previous: {
+              minAverageScore: 0.8,
+              scorerThresholds: {},
+            },
+          },
+          rollback: {
+            changed: false,
+            currentRolledBackFromVersionId: null,
+            previousRolledBackFromVersionId: null,
+          },
+          status: {
+            changed: true,
+            currentIsActive: true,
+            currentStatus: 'active',
+            previousIsActive: false,
+            previousStatus: 'draft',
+          },
+        },
+        summary: {
+          changedFields: [
+            'promptText',
+            'notes',
+            'releasePolicy',
+            'evalEvidence',
+            'activation',
+            'status',
+          ],
+          promptKey: 'admin.copilot.answer',
+          totalChangedFields: 6,
+          versionDelta: 1,
+        },
+        target: {
+          activatedAt: '2026-04-11T05:00:00.000Z',
+          activatedByAuthUserId: 'auth_user_01',
+          activatedByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+          createdAt: '2026-04-11T04:20:00.000Z',
+          createdByAuthUserId: 'auth_user_01',
+          createdByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+          evalEvidence: {
+            completedAt: '2026-04-11T04:30:00.000Z',
+            evalKey: 'report-schedule',
+            evalRunId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+            experimentId: 'exp_report_schedule_20260411',
+            scoreAverage: 0.91,
+            scorerSummary: {
+              factuality: {
+                averageScore: 0.93,
+                maxScore: 1,
+                minScore: 0.85,
+                sampleCount: 12,
+              },
+            },
+            status: 'completed',
+          },
+          id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          isActive: true,
+          notes: '提高财务问答的事实一致性，并约束输出结构。',
+          promptKey: 'admin.copilot.answer',
+          promptText:
+            '你是后台管理 Copilot，请优先返回结构化结论。\\n4. 输出时必须先给出风险摘要。',
+          releasePolicy: {
+            minAverageScore: 0.9,
+            scorerThresholds: {
+              factuality: 0.93,
+            },
+          },
+          releaseReady: true,
+          releaseReason: null,
+          rolledBackFromVersionId: null,
+          status: 'active',
+          updatedAt: '2026-04-11T05:00:00.000Z',
+          version: 3,
+        },
+      },
+    ],
+  },
+)
 
 // 工具发现 contract-first skeleton。
 export const toolGenKindSchema = withOpenApiSchemaDoc(z.enum(['agent', 'copilot', 'prompt']), {
@@ -3746,7 +4159,10 @@ export type AiEvalRunDetail = z.infer<typeof aiEvalRunDetailSchema>
 export type AiEvalRunResult = z.infer<typeof aiEvalRunResultSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
 export type GetPromptVersionByIdInput = z.infer<typeof getPromptVersionByIdInputSchema>
+export type GetPromptVersionCompareInput = z.infer<typeof getPromptVersionCompareInputSchema>
 export type PromptVersionDetail = z.infer<typeof promptVersionDetailSchema>
+export type PromptTextDiff = z.infer<typeof promptTextDiffSchema>
+export type PromptVersionCompare = z.infer<typeof promptVersionCompareSchema>
 export type ListToolGenInput = z.infer<typeof listToolGenInputSchema>
 export type ToolGenListResponse = z.infer<typeof toolGenListResponseSchema>
 export type ListToolJobsInput = z.infer<typeof listToolJobsInputSchema>

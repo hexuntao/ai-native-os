@@ -914,6 +914,34 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   const promptDetailSchema = resolveOpenApiSchema(payload, promptsDetailJson.schema)
   assert.equal(promptDetailSchema.title, 'PromptVersionDetail')
 
+  const promptsComparePath =
+    payload.paths['/api/v1/ai/prompts/:id/compare/:baselineId'] ??
+    payload.paths['/api/v1/ai/prompts/{id}/compare/{baselineId}']
+  assert.ok(
+    promptsComparePath && isRecord(promptsComparePath),
+    'Expected /api/v1/ai/prompts/:id/compare/:baselineId path to exist',
+  )
+  const promptsCompareGet = promptsComparePath.get
+  assert.ok(
+    promptsCompareGet && isRecord(promptsCompareGet),
+    'Expected GET operation for ai prompt compare',
+  )
+  assert.equal(promptsCompareGet.summary, '对比两个 Prompt 版本')
+  const promptsCompareResponses = promptsCompareGet.responses
+  const promptsCompareJson =
+    promptsCompareResponses &&
+    isRecord(promptsCompareResponses) &&
+    isRecord(promptsCompareResponses['200']) &&
+    isRecord(promptsCompareResponses['200'].content)
+      ? promptsCompareResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    promptsCompareJson && isRecord(promptsCompareJson),
+    'Expected AI prompt compare JSON response schema',
+  )
+  const promptCompareSchema = resolveOpenApiSchema(payload, promptsCompareJson.schema)
+  assert.equal(promptCompareSchema.title, 'PromptVersionCompare')
+
   const auditPath = payload.paths['/api/v1/ai/audit']
   assert.ok(auditPath && isRecord(auditPath), 'Expected /api/v1/ai/audit path to exist')
 
@@ -2889,6 +2917,136 @@ test('prompt governance activation requires eval evidence before release', async
   assert.equal(detailPayload.json.status, 'active')
   assert.equal(detailPayload.json.isActive, true)
   assert.equal(detailPayload.json.evalEvidence?.evalRunId, latestEvalRun.id)
+})
+
+test('prompt governance compare route exposes text and release-policy diffs', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const promptKey = `admin.compare.${randomUUID().slice(0, 8)}`
+
+  const baselineResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '第一版提示词，强调结构化回答。',
+      promptKey,
+      promptText: ['你是后台管理 Copilot，请优先返回结构化结论。', '先给摘要，再给行动建议。'].join(
+        '\n',
+      ),
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const baselinePayload = (await baselineResponse.json()) as {
+    json: {
+      id: string
+      version: number
+    }
+  }
+
+  const targetResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '第二版提示词，新增风险摘要和更严格门禁。',
+      promptKey,
+      promptText: [
+        '你是后台管理 Copilot，请优先返回结构化结论。',
+        '先给摘要，再给行动建议。',
+        '输出前必须补充风险摘要。',
+      ].join('\n'),
+      releasePolicy: {
+        minAverageScore: 0.92,
+        scorerThresholds: {
+          factuality: 0.95,
+        },
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const targetPayload = (await targetResponse.json()) as {
+    json: {
+      id: string
+      version: number
+    }
+  }
+
+  const compareResponse = await app.request(
+    `http://localhost/api/v1/ai/prompts/${targetPayload.json.id}/compare/${baselinePayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const comparePayload = (await compareResponse.json()) as {
+    json: {
+      baseline: {
+        id: string
+        version: number
+      }
+      diff: {
+        notes: {
+          changed: boolean
+        }
+        promptText: {
+          addedLines: string[]
+          changed: boolean
+          unchangedLineCount: number
+        }
+        releasePolicy: {
+          changed: boolean
+          current: {
+            minAverageScore: number
+            scorerThresholds: Record<string, number>
+          }
+        }
+        status: {
+          changed: boolean
+          currentStatus: string
+          previousStatus: string
+        }
+      }
+      summary: {
+        changedFields: string[]
+        promptKey: string
+        totalChangedFields: number
+        versionDelta: number
+      }
+      target: {
+        id: string
+        version: number
+      }
+    }
+  }
+
+  assert.equal(baselineResponse.status, 200)
+  assert.equal(targetResponse.status, 200)
+  assert.equal(compareResponse.status, 200)
+  assert.equal(comparePayload.json.baseline.id, baselinePayload.json.id)
+  assert.equal(comparePayload.json.target.id, targetPayload.json.id)
+  assert.equal(comparePayload.json.baseline.version, baselinePayload.json.version)
+  assert.equal(comparePayload.json.target.version, targetPayload.json.version)
+  assert.equal(comparePayload.json.summary.promptKey, promptKey)
+  assert.equal(comparePayload.json.summary.versionDelta, 1)
+  assert.ok(comparePayload.json.summary.totalChangedFields >= 3)
+  assert.ok(comparePayload.json.summary.changedFields.includes('promptText'))
+  assert.ok(comparePayload.json.summary.changedFields.includes('notes'))
+  assert.ok(comparePayload.json.summary.changedFields.includes('releasePolicy'))
+  assert.equal(comparePayload.json.diff.promptText.changed, true)
+  assert.ok(comparePayload.json.diff.promptText.unchangedLineCount >= 2)
+  assert.ok(comparePayload.json.diff.promptText.addedLines.includes('输出前必须补充风险摘要。'))
+  assert.equal(comparePayload.json.diff.notes.changed, true)
+  assert.equal(comparePayload.json.diff.releasePolicy.changed, true)
+  assert.equal(comparePayload.json.diff.releasePolicy.current.minAverageScore, 0.92)
+  assert.equal(comparePayload.json.diff.releasePolicy.current.scorerThresholds.factuality, 0.95)
+  assert.equal(comparePayload.json.diff.status.changed, false)
+  assert.equal(comparePayload.json.diff.status.previousStatus, 'draft')
+  assert.equal(comparePayload.json.diff.status.currentStatus, 'draft')
 })
 
 test('super admin can read the contract-first permission list route', async () => {

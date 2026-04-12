@@ -20,6 +20,7 @@ import {
 import {
   aiPromptsActivateProcedure,
   aiPromptsAttachEvidenceProcedure,
+  aiPromptsCompareProcedure,
   aiPromptsCreateProcedure,
   aiPromptsGetByIdProcedure,
   aiPromptsListProcedure,
@@ -94,6 +95,7 @@ export const appRouter = {
     prompts: {
       activate: aiPromptsActivateProcedure,
       'attach-evidence': aiPromptsAttachEvidenceProcedure,
+      compare: aiPromptsCompareProcedure,
       create: aiPromptsCreateProcedure,
       getById: aiPromptsGetByIdProcedure,
       list: aiPromptsListProcedure,

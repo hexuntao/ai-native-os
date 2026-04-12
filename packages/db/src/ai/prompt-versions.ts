@@ -2,8 +2,11 @@ import type {
   ActivatePromptVersionInput,
   AttachPromptEvalEvidenceInput,
   CreatePromptVersionInput,
+  GetPromptVersionCompareInput,
   PromptEvalEvidence,
   PromptReleasePolicy,
+  PromptTextDiff,
+  PromptVersionCompare,
   PromptVersionEntry,
   PromptVersionListInput,
   PromptVersionListResponse,
@@ -47,6 +50,15 @@ export class PromptActiveVersionNotFoundError extends Error {
   constructor(promptKey: string) {
     super(`No active prompt version exists for prompt ${promptKey}`)
     this.name = 'PromptActiveVersionNotFoundError'
+  }
+}
+
+export class PromptCompareMismatchError extends Error {
+  constructor(currentPromptKey: string, baselinePromptKey: string) {
+    super(
+      `Prompt compare requires the same promptKey, got ${currentPromptKey} and ${baselinePromptKey}`,
+    )
+    this.name = 'PromptCompareMismatchError'
   }
 }
 
@@ -155,6 +167,151 @@ function createPromptEvalEvidenceFromRun(row: typeof aiEvalRuns.$inferSelect): P
   }
 }
 
+/**
+ * 将 Prompt 正文按行归一化，便于生成稳定的版本差异摘要。
+ */
+function normalizePromptTextLines(promptText: string): string[] {
+  return promptText
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+}
+
+/**
+ * 计算 Prompt 正文逐行差异摘要，避免在治理页面重复实现相同逻辑。
+ */
+function buildPromptTextDiff(currentText: string, previousText: string): PromptTextDiff {
+  const currentLines = normalizePromptTextLines(currentText)
+  const previousLines = normalizePromptTextLines(previousText)
+  const previousLineCount = new Map<string, number>()
+
+  for (const line of previousLines) {
+    previousLineCount.set(line, (previousLineCount.get(line) ?? 0) + 1)
+  }
+
+  const currentLineCount = new Map<string, number>()
+
+  for (const line of currentLines) {
+    currentLineCount.set(line, (currentLineCount.get(line) ?? 0) + 1)
+  }
+
+  const addedLines: string[] = []
+
+  for (const line of currentLines) {
+    const currentCount = currentLineCount.get(line) ?? 0
+    const previousCount = previousLineCount.get(line) ?? 0
+
+    if (currentCount > previousCount && !addedLines.includes(line)) {
+      addedLines.push(line)
+    }
+  }
+
+  const removedLines: string[] = []
+
+  for (const line of previousLines) {
+    const currentCount = currentLineCount.get(line) ?? 0
+    const previousCount = previousLineCount.get(line) ?? 0
+
+    if (previousCount > currentCount && !removedLines.includes(line)) {
+      removedLines.push(line)
+    }
+  }
+
+  let unchangedLineCount = 0
+
+  for (const [line, currentCount] of currentLineCount.entries()) {
+    const previousCount = previousLineCount.get(line) ?? 0
+    unchangedLineCount += Math.min(currentCount, previousCount)
+  }
+
+  return {
+    addedLines,
+    changed: currentText !== previousText,
+    removedLines,
+    unchangedLineCount,
+  }
+}
+
+/**
+ * 汇总两个 Prompt 版本之间的治理差异，供对比接口与审阅面板复用。
+ */
+function buildPromptVersionCompare(
+  target: PromptVersionEntry,
+  baseline: PromptVersionEntry,
+): PromptVersionCompare {
+  const promptTextDiff = buildPromptTextDiff(target.promptText, baseline.promptText)
+  const notesChanged = target.notes !== baseline.notes
+  const releasePolicyChanged =
+    JSON.stringify(target.releasePolicy) !== JSON.stringify(baseline.releasePolicy)
+  const evalEvidenceChanged =
+    JSON.stringify(target.evalEvidence) !== JSON.stringify(baseline.evalEvidence)
+  const activationChanged =
+    target.activatedAt !== baseline.activatedAt ||
+    target.activatedByAuthUserId !== baseline.activatedByAuthUserId ||
+    target.activatedByRbacUserId !== baseline.activatedByRbacUserId
+  const statusChanged = target.status !== baseline.status || target.isActive !== baseline.isActive
+  const rollbackChanged = target.rolledBackFromVersionId !== baseline.rolledBackFromVersionId
+  const changedFields = [
+    ...(promptTextDiff.changed ? ['promptText'] : []),
+    ...(notesChanged ? ['notes'] : []),
+    ...(releasePolicyChanged ? ['releasePolicy'] : []),
+    ...(evalEvidenceChanged ? ['evalEvidence'] : []),
+    ...(activationChanged ? ['activation'] : []),
+    ...(statusChanged ? ['status'] : []),
+    ...(rollbackChanged ? ['rollback'] : []),
+  ]
+
+  return {
+    baseline,
+    diff: {
+      activation: {
+        changed: activationChanged,
+        currentActivatedAt: target.activatedAt,
+        currentActivatedByAuthUserId: target.activatedByAuthUserId,
+        currentActivatedByRbacUserId: target.activatedByRbacUserId,
+        previousActivatedAt: baseline.activatedAt,
+        previousActivatedByAuthUserId: baseline.activatedByAuthUserId,
+        previousActivatedByRbacUserId: baseline.activatedByRbacUserId,
+      },
+      evalEvidence: {
+        changed: evalEvidenceChanged,
+        current: target.evalEvidence,
+        previous: baseline.evalEvidence,
+      },
+      notes: {
+        changed: notesChanged,
+        current: target.notes,
+        previous: baseline.notes,
+      },
+      promptText: promptTextDiff,
+      releasePolicy: {
+        changed: releasePolicyChanged,
+        current: target.releasePolicy,
+        previous: baseline.releasePolicy,
+      },
+      rollback: {
+        changed: rollbackChanged,
+        currentRolledBackFromVersionId: target.rolledBackFromVersionId,
+        previousRolledBackFromVersionId: baseline.rolledBackFromVersionId,
+      },
+      status: {
+        changed: statusChanged,
+        currentIsActive: target.isActive,
+        currentStatus: target.status,
+        previousIsActive: baseline.isActive,
+        previousStatus: baseline.status,
+      },
+    },
+    summary: {
+      changedFields,
+      promptKey: target.promptKey,
+      totalChangedFields: changedFields.length,
+      versionDelta: target.version - baseline.version,
+    },
+    target,
+  }
+}
+
 async function getPromptVersionRowById(
   promptVersionId: string,
   database: Database,
@@ -186,6 +343,31 @@ export async function getPromptVersionById(
     .limit(1)
 
   return row ? mapPromptVersionRow(row) : null
+}
+
+/**
+ * 按版本主键读取两个 Prompt 版本的治理差异，要求二者属于同一 promptKey。
+ */
+export async function comparePromptVersionsById(
+  input: GetPromptVersionCompareInput,
+  database: Database = db,
+): Promise<PromptVersionCompare> {
+  const target = await getPromptVersionById(input.id, database)
+  const baseline = await getPromptVersionById(input.baselineId, database)
+
+  if (!target) {
+    throw new PromptVersionNotFoundError(input.id)
+  }
+
+  if (!baseline) {
+    throw new PromptVersionNotFoundError(input.baselineId)
+  }
+
+  if (target.promptKey !== baseline.promptKey) {
+    throw new PromptCompareMismatchError(target.promptKey, baseline.promptKey)
+  }
+
+  return buildPromptVersionCompare(target, baseline)
 }
 
 /**

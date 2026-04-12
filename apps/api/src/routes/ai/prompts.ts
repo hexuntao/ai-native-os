@@ -1,10 +1,12 @@
 import {
   activatePromptVersion,
   attachPromptEvalEvidence,
+  comparePromptVersionsById,
   createPromptVersion,
   getPromptVersionById,
   listPromptVersions,
   PromptActiveVersionNotFoundError,
+  PromptCompareMismatchError,
   PromptEvalRunNotFoundError,
   PromptReleaseGateError,
   PromptRollbackTargetNotFoundError,
@@ -20,11 +22,15 @@ import {
   type CreatePromptVersionInput,
   createPromptVersionInputSchema,
   type GetPromptVersionByIdInput,
+  type GetPromptVersionCompareInput,
   getPromptVersionByIdInputSchema,
+  getPromptVersionCompareInputSchema,
+  type PromptVersionCompare,
   type PromptVersionDetail,
   type PromptVersionEntry,
   type PromptVersionListInput,
   type PromptVersionListResponse,
+  promptVersionCompareSchema,
   promptVersionDetailSchema,
   promptVersionEntrySchema,
   promptVersionListInputSchema,
@@ -58,7 +64,8 @@ function mapPromptGovernanceError(error: unknown): never {
     error instanceof PromptEvalRunNotFoundError ||
     error instanceof PromptReleaseGateError ||
     error instanceof PromptRollbackTargetNotFoundError ||
-    error instanceof PromptActiveVersionNotFoundError
+    error instanceof PromptActiveVersionNotFoundError ||
+    error instanceof PromptCompareMismatchError
   ) {
     throw new ORPCError('BAD_REQUEST', {
       message: error.message,
@@ -66,6 +73,19 @@ function mapPromptGovernanceError(error: unknown): never {
   }
 
   throw error
+}
+
+/**
+ * 对比两个 Prompt 版本的治理差异，供版本审阅与发布前检查使用。
+ */
+export async function getPromptVersionCompareEntry(
+  input: GetPromptVersionCompareInput,
+): Promise<PromptVersionCompare> {
+  try {
+    return await comparePromptVersionsById(input)
+  } catch (error) {
+    mapPromptGovernanceError(error)
+  }
 }
 
 /**
@@ -253,6 +273,18 @@ export const aiPromptsGetByIdProcedure = requireAnyPermission(promptReadPermissi
   .output(promptVersionDetailSchema)
   .handler(async ({ input }) => getPromptVersionEntryById(input))
 
+export const aiPromptsCompareProcedure = requireAnyPermission(promptReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/prompts/:id/compare/:baselineId',
+    tags: ['AI:Prompts'],
+    summary: '对比两个 Prompt 版本',
+    description: '返回两个同一 Prompt 治理键版本之间的正文差异、门禁差异和状态差异。',
+  })
+  .input(getPromptVersionCompareInputSchema)
+  .output(promptVersionCompareSchema)
+  .handler(async ({ input }) => getPromptVersionCompareEntry(input))
+
 export const aiPromptsCreateProcedure = requireAnyPermission(promptWritePermissions)
   .route({
     method: 'POST',
@@ -331,3 +363,4 @@ export type PromptGovernanceError =
   | PromptReleaseGateError
   | PromptRollbackTargetNotFoundError
   | PromptActiveVersionNotFoundError
+  | PromptCompareMismatchError

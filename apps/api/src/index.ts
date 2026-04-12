@@ -38,6 +38,7 @@ import {
   getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
   getPromptVersionByIdInputSchema,
+  getPromptVersionCompareInputSchema,
   getRoleByIdInputSchema,
   getUserByIdInputSchema,
   healthResponseSchema,
@@ -59,6 +60,7 @@ import {
   operationLogListResponseSchema,
   permissionEntrySchema,
   permissionListResponseSchema,
+  promptVersionCompareSchema,
   promptVersionDetailSchema,
   promptVersionEntrySchema,
   promptVersionListInputSchema,
@@ -123,6 +125,7 @@ import {
   activatePromptVersionEntry,
   attachPromptVersionEvalEvidence,
   createPromptVersionEntry,
+  getPromptVersionCompareEntry,
   getPromptVersionEntryById,
   listPromptVersionEntries,
   rollbackPromptVersionEntry,
@@ -1099,6 +1102,20 @@ app.get('/api/v1/ai/prompts/:id', (c) =>
     contractFirstReadRequirements.aiPrompts,
     getPromptVersionEntryById,
     (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.get('/api/v1/ai/prompts/:id/compare/:baselineId', (c) =>
+  handleContractFirstGet(
+    c,
+    getPromptVersionCompareInputSchema,
+    promptVersionCompareSchema,
+    contractFirstReadRequirements.aiPrompts,
+    getPromptVersionCompareEntry,
+    (requestContext) => ({
+      baselineId: requestContext.req.param('baselineId'),
       id: requestContext.req.param('id'),
     }),
   ),
