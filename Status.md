@@ -109,6 +109,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | CRD-C11 | Post-P6 | Deliver `ai/prompts` release-approval audit contract with version-scoped audit trail and contract-first OpenAPI | done | CRD-C10 | lint + typecheck + test + build |
 | GOV-C1 | Post-P6 | Deliver `ai/prompts` rejection and exception audit contract with failure-path operation logging and contract-first OpenAPI | done | CRD-C11 | lint + typecheck + test + build |
 | IAM-C1 | Post-P6 | Harden Better Auth ↔ RBAC principal binding to prefer stable `auth_user_id` with legacy email backfill compatibility | done | GOV-C1 | db:migrate + lint + typecheck + test + build |
+| UI-C1 | Post-P6 | Establish web UI design contract and refactor the app shell into a control-console baseline | done | IAM-C1 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -133,7 +134,8 @@ Priority order as of 2026-04-12:
 - `CRD-C11` is closed; `ai/prompts` now exposes release-approval audit with version-scoped operation-log trail and requestInfo context under the same contract-first OpenAPI baseline.
 - `GOV-C1` is closed; `ai/prompts` now exposes prompt-key-scoped failure audit with rejection vs exception split and failure-path operation logging.
 - `IAM-C1` is closed; auth middleware, permission loading, seeded bootstrap users, monitor online sessions, and `system/users` write paths now prefer stable `users.auth_user_id`, while legacy email-linked rows are backfilled on first authenticated access.
-- the next recommended backlog item is web UI / UX hardening, starting with information architecture cleanup and management-form ergonomics.
+- `UI-C1` is closed; the repository now has a dedicated web UI design contract, a neutral control-console token baseline, a left-nav/topbar shell, a collapsible Copilot workspace, and compact data-surface headers.
+- the next recommended backlog item is `UI-C2`: refactor directory-style pages (`system/users`, `system/roles`, `system/permissions`, `system/menus`) toward toolbar + table + modal/drawer form ergonomics.
 
 Auto-unlock rules:
 
@@ -234,7 +236,7 @@ Residual follow-up risks:
 Follow-up priority after current E2E remediation sprint:
 
 1. Additional CRUD and documentation-template rollout beyond `system/users`, `system/roles`, `system/permissions`, `system/menus`, and current AI contract surfaces
-2. Web UI / UX hardening for dashboard layout, form ergonomics, and action density
+2. Web UI / UX hardening for directory ergonomics, observability layouts, and AI governance workbench patterns
 3. External platform credential and live deploy verification
 
 ## 7. QA Recording Template

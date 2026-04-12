@@ -3,26 +3,34 @@
 @source "../../../../packages/ui/src";
 
 :root {
-  --background: #f4ecdf;
-  --foreground: #24170e;
-  --card: rgba(255, 249, 239, 0.9);
-  --card-strong: #fffaf1;
-  --popover: #fffaf1;
-  --popover-foreground: #24170e;
-  --primary: #ba4f1f;
-  --primary-foreground: #fff7f1;
-  --secondary: rgba(36, 23, 14, 0.08);
-  --secondary-foreground: #24170e;
-  --muted-foreground: #6e5a47;
-  --border: rgba(55, 38, 22, 0.12);
-  --input: rgba(36, 23, 14, 0.14);
-  --ring: rgba(186, 79, 31, 0.42);
-  --shadow-panel: 0 18px 40px rgba(79, 48, 24, 0.12);
-  --shadow-soft: 0 10px 24px rgba(79, 48, 24, 0.08);
-  --radius-sm: 0.85rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.3rem;
-  --radius-xl: 1.75rem;
+  --font-sans:
+    "Manrope", "Avenir Next", "Segoe UI", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB",
+    sans-serif;
+  --font-mono:
+    "IBM Plex Mono", "SFMono-Regular", "SF Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
+  --background: #f4f6f8;
+  --foreground: #151b23;
+  --card: rgba(255, 255, 255, 0.9);
+  --card-strong: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #151b23;
+  --primary: #b65b13;
+  --primary-foreground: #fffaf4;
+  --secondary: #eef2f6;
+  --secondary-foreground: #1f2937;
+  --muted-foreground: #627082;
+  --border: rgba(15, 23, 42, 0.1);
+  --input: rgba(15, 23, 42, 0.14);
+  --ring: rgba(182, 91, 19, 0.28);
+  --success: #0f9f6e;
+  --warning: #c28414;
+  --danger: #c2413a;
+  --shadow-panel: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --radius-sm: 0.7rem;
+  --radius-md: 0.95rem;
+  --radius-lg: 1.2rem;
+  --radius-xl: 1.5rem;
 }
 
 @theme inline {
@@ -54,11 +62,11 @@
   body {
     min-height: 100vh;
     background:
-      radial-gradient(circle at top left, rgba(186, 79, 31, 0.22), transparent 28%),
-      radial-gradient(circle at top right, rgba(36, 23, 14, 0.08), transparent 26%),
-      linear-gradient(135deg, #f7f0e5 0%, #eedfca 48%, #e5d2bb 100%);
+      radial-gradient(circle at top left, rgba(182, 91, 19, 0.12), transparent 22%),
+      radial-gradient(circle at 85% 0%, rgba(15, 23, 42, 0.08), transparent 24%),
+      linear-gradient(180deg, #f8fafc 0%, #f2f5f8 46%, #eef2f6 100%);
     color: var(--foreground);
-    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    font-family: var(--font-sans);
     margin: 0;
   }
 
@@ -70,5 +78,12 @@
   button,
   input {
     font: inherit;
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: var(--font-mono);
   }
 }

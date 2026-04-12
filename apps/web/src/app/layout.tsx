@@ -19,7 +19,7 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   return (
     <html lang={defaultLocale}>
-      <body className="bg-background text-foreground antialiased">
+      <body className="bg-background font-[var(--font-sans)] text-foreground antialiased">
         <AppProviders locale={defaultLocale} messages={getLocaleMessages(defaultLocale)}>
           {children}
         </AppProviders>
