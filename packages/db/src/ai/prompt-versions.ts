@@ -173,6 +173,22 @@ async function getPromptVersionRowById(
 }
 
 /**
+ * 按主键读取单个 Prompt 版本，供治理详情页和 API 详情接口复用。
+ */
+export async function getPromptVersionById(
+  promptVersionId: string,
+  database: Database = db,
+): Promise<PromptVersionEntry | null> {
+  const [row] = await database
+    .select()
+    .from(aiPromptVersions)
+    .where(eq(aiPromptVersions.id, promptVersionId))
+    .limit(1)
+
+  return row ? mapPromptVersionRow(row) : null
+}
+
+/**
  * 创建新的 prompt 草稿版本，默认不激活。
  */
 export async function createPromptVersion(

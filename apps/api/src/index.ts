@@ -4,7 +4,9 @@ import {
   activatePromptVersionInputSchema,
   aiAuditDetailSchema,
   aiAuditListResponseSchema,
+  aiEvalDetailSchema,
   aiEvalListResponseSchema,
+  aiEvalRunResultSchema,
   aiFeedbackDetailSchema,
   aiFeedbackEntrySchema,
   aiFeedbackListResponseSchema,
@@ -28,10 +30,12 @@ import {
   deleteUserInputSchema,
   deleteUserResultSchema,
   getAiAuditLogByIdInputSchema,
+  getAiEvalByIdInputSchema,
   getAiFeedbackByIdInputSchema,
   getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
+  getPromptVersionByIdInputSchema,
   getRoleByIdInputSchema,
   getUserByIdInputSchema,
   healthResponseSchema,
@@ -53,12 +57,14 @@ import {
   operationLogListResponseSchema,
   permissionEntrySchema,
   permissionListResponseSchema,
+  promptVersionDetailSchema,
   promptVersionEntrySchema,
   promptVersionListInputSchema,
   promptVersionListResponseSchema,
   roleEntrySchema,
   roleListResponseSchema,
   rollbackPromptVersionInputSchema,
+  runAiEvalInputSchema,
   serializedAbilityResponseSchema,
   updateKnowledgeInputSchema,
   updateMenuInputSchema,
@@ -102,7 +108,7 @@ import {
 import { createAppContext } from '@/orpc/context'
 import { appRouter } from '@/routes'
 import { getAiAuditLogDetail, listAiAuditLogs } from '@/routes/ai/audit'
-import { listAiEvals } from '@/routes/ai/evals'
+import { getAiEvalById, listAiEvals, runAiEval } from '@/routes/ai/evals'
 import { createFeedback, getFeedbackById, listFeedback } from '@/routes/ai/feedback'
 import {
   createKnowledgeEntry,
@@ -115,6 +121,7 @@ import {
   activatePromptVersionEntry,
   attachPromptVersionEvalEvidence,
   createPromptVersionEntry,
+  getPromptVersionEntryById,
   listPromptVersionEntries,
   rollbackPromptVersionEntry,
 } from '@/routes/ai/prompts'
@@ -214,7 +221,15 @@ const contractFirstReadRequirements = {
 >
 
 const contractFirstWriteRequirements = {
+  aiEvals: [
+    { action: 'manage', subject: 'AiKnowledge' },
+    { action: 'manage', subject: 'all' },
+  ],
   aiKnowledge: [
+    { action: 'manage', subject: 'AiKnowledge' },
+    { action: 'manage', subject: 'all' },
+  ],
+  aiPrompts: [
     { action: 'manage', subject: 'AiKnowledge' },
     { action: 'manage', subject: 'all' },
   ],
@@ -958,6 +973,37 @@ app.get('/api/v1/ai/evals', (c) =>
   ),
 )
 
+app.get('/api/v1/ai/evals/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getAiEvalByIdInputSchema,
+    aiEvalDetailSchema,
+    contractFirstReadRequirements.aiEvals,
+    getAiEvalById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/ai/evals/:id/run', (c) =>
+  handleContractFirstPost(
+    c,
+    runAiEvalInputSchema,
+    aiEvalRunResultSchema,
+    contractFirstWriteRequirements.aiEvals,
+    async (input, context) =>
+      runAiEval(input, {
+        actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
 app.get('/api/v1/ai/audit', (c) =>
   handleContractFirstGet(
     c,
@@ -1029,12 +1075,25 @@ app.get('/api/v1/ai/prompts', (c) =>
   ),
 )
 
+app.get('/api/v1/ai/prompts/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getPromptVersionByIdInputSchema,
+    promptVersionDetailSchema,
+    contractFirstReadRequirements.aiPrompts,
+    getPromptVersionEntryById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
 app.post('/api/v1/ai/prompts', (c) =>
   handleContractFirstPost(
     c,
     createPromptVersionInputSchema,
     promptVersionEntrySchema,
-    contractFirstReadRequirements.aiPrompts,
+    contractFirstWriteRequirements.aiPrompts,
     async (input, context) =>
       createPromptVersionEntry(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
@@ -1049,7 +1108,7 @@ app.post('/api/v1/ai/prompts/attach-evidence', (c) =>
     c,
     attachPromptEvalEvidenceInputSchema,
     promptVersionEntrySchema,
-    contractFirstReadRequirements.aiPrompts,
+    contractFirstWriteRequirements.aiPrompts,
     async (input, context) =>
       attachPromptVersionEvalEvidence(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
@@ -1064,7 +1123,7 @@ app.post('/api/v1/ai/prompts/activate', (c) =>
     c,
     activatePromptVersionInputSchema,
     promptVersionEntrySchema,
-    contractFirstReadRequirements.aiPrompts,
+    contractFirstWriteRequirements.aiPrompts,
     async (input, context) =>
       activatePromptVersionEntry(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
@@ -1079,7 +1138,7 @@ app.post('/api/v1/ai/prompts/rollback', (c) =>
     c,
     rollbackPromptVersionInputSchema,
     promptVersionEntrySchema,
-    contractFirstReadRequirements.aiPrompts,
+    contractFirstWriteRequirements.aiPrompts,
     async (input, context) =>
       rollbackPromptVersionEntry(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',

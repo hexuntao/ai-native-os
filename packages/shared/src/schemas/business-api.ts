@@ -1,13 +1,18 @@
 import { z } from 'zod'
 
 import { appActions, appSubjects } from '../abilities/subjects'
-import { aiEvalRunStatusSchema } from './ai-evals'
+import {
+  aiEvalRunStatusSchema,
+  aiEvalScorerSummarySchema,
+  aiEvalTriggerSourceSchema,
+} from './ai-evals'
 import {
   aiFeedbackEntrySchema,
   aiFeedbackSummarySchema,
   aiFeedbackUserActionSchema,
 } from './ai-feedback'
 import { aiKnowledgeMetadataSchema } from './ai-knowledge'
+import { promptVersionEntrySchema } from './ai-prompts'
 import { aiRuntimeCapabilitySchema } from './ai-runtime'
 import { aiAuditLogEntrySchema } from './ai-tools'
 import { paginatedResponseSchema } from './common'
@@ -2804,6 +2809,384 @@ export const aiEvalListResponseSchema = withOpenApiSchemaDoc(
   },
 )
 
+const aiEvalIdSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(120), {
+  title: 'AiEvalIdParam',
+  description: 'AI 评测套件标识符，用于读取单个评测详情或触发一次评测运行。',
+  examples: ['report-schedule'],
+})
+
+export const getAiEvalByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: aiEvalIdSchema,
+  }),
+  {
+    title: 'GetAiEvalByIdInput',
+    description: '读取单个 AI 评测详情所需的路径参数。',
+    examples: [
+      {
+        id: 'report-schedule',
+      },
+    ],
+  },
+)
+
+export const runAiEvalInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: aiEvalIdSchema,
+  }),
+  {
+    title: 'RunAiEvalInput',
+    description: '触发一次 AI 评测运行所需的路径参数。',
+    examples: [
+      {
+        id: 'report-schedule',
+      },
+    ],
+  },
+)
+
+export const aiEvalRunEntrySchema = withOpenApiSchemaDoc(
+  z.object({
+    actorAuthUserId: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunActorAuthUserId',
+      description: '触发本次评测运行的 Better Auth 主体 ID。',
+      examples: ['auth_user_01'],
+    }),
+    actorRbacUserId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+      title: 'AiEvalRunActorRbacUserId',
+      description: '触发本次评测运行的应用 RBAC 用户 ID；未映射时为 `null`。',
+      examples: ['8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001'],
+    }),
+    completedAt: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'AiEvalRunCompletedAt',
+      description: '本次评测运行完成时间；未完成时为 `null`。',
+      examples: ['2026-04-11T04:30:00.000Z'],
+    }),
+    createdAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunCreatedAt',
+      description: '本次评测运行记录创建时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T04:00:00.000Z'],
+    }),
+    datasetId: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunDatasetId',
+      description: '本次评测运行实际使用的数据集 ID。',
+      examples: ['dataset_report_schedule'],
+    }),
+    datasetName: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunDatasetName',
+      description: '本次评测运行实际使用的数据集名称。',
+      examples: ['report-schedule-baseline'],
+    }),
+    evalKey: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunEvalKey',
+      description: '评测套件稳定标识。',
+      examples: ['report-schedule'],
+    }),
+    evalName: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunEvalName',
+      description: '评测套件显示名称。',
+      examples: ['Report Schedule Regression'],
+    }),
+    experimentId: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunExperimentId',
+      description: 'Mastra 实验 ID，用于串联实验追踪记录。',
+      examples: ['exp_report_schedule_20260411'],
+    }),
+    failedCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalRunFailedCount',
+      description: '本次评测运行失败样本数。',
+      examples: [0],
+    }),
+    id: withOpenApiSchemaDoc(z.string().uuid(), {
+      title: 'AiEvalRunId',
+      description: 'AI 评测运行主键 UUID。',
+      examples: ['5b7d3be0-6f15-46ec-8ea6-3189d085f001'],
+    }),
+    requestId: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'AiEvalRunRequestId',
+      description: '关联请求 ID，用于串联 API、任务和实验日志。',
+      examples: ['req_eval_01'],
+    }),
+    scoreAverage: withOpenApiSchemaDoc(z.number().min(0).max(1).nullable(), {
+      title: 'AiEvalRunAverageScore',
+      description: '本次评测运行平均分；未完成时为 `null`。',
+      examples: [0.91],
+    }),
+    scoreMax: withOpenApiSchemaDoc(z.number().min(0).max(1).nullable(), {
+      title: 'AiEvalRunMaxScore',
+      description: '本次评测运行最高分；未完成时为 `null`。',
+      examples: [1],
+    }),
+    scoreMin: withOpenApiSchemaDoc(z.number().min(0).max(1).nullable(), {
+      title: 'AiEvalRunMinScore',
+      description: '本次评测运行最低分；未完成时为 `null`。',
+      examples: [0.72],
+    }),
+    scorerSummary: withOpenApiSchemaDoc(aiEvalScorerSummarySchema, {
+      title: 'AiEvalRunScorerSummary',
+      description: '本次评测运行按评分器聚合后的统计结果。',
+    }),
+    skippedCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalRunSkippedCount',
+      description: '本次评测运行跳过的样本数。',
+      examples: [0],
+    }),
+    startedAt: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunStartedAt',
+      description: '本次评测运行开始时间，ISO 8601 字符串。',
+      examples: ['2026-04-11T04:20:00.000Z'],
+    }),
+    status: aiEvalRunStatusSchema,
+    succeededCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalRunSucceededCount',
+      description: '本次评测运行成功样本数。',
+      examples: [12],
+    }),
+    totalItems: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalRunTotalItems',
+      description: '本次评测运行总样本数。',
+      examples: [12],
+    }),
+    triggerSource: aiEvalTriggerSourceSchema,
+  }),
+  {
+    title: 'AiEvalRunEntry',
+    description: '单次 AI 评测运行记录，包含实验元信息、评分摘要和触发主体。',
+    examples: [
+      {
+        actorAuthUserId: 'auth_user_01',
+        actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        completedAt: '2026-04-11T04:30:00.000Z',
+        createdAt: '2026-04-11T04:20:00.000Z',
+        datasetId: 'dataset_report_schedule',
+        datasetName: 'report-schedule-baseline',
+        evalKey: 'report-schedule',
+        evalName: 'Report Schedule Regression',
+        experimentId: 'exp_report_schedule_20260411',
+        failedCount: 0,
+        id: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+        requestId: 'req_eval_01',
+        scoreAverage: 0.91,
+        scoreMax: 1,
+        scoreMin: 0.72,
+        scorerSummary: {
+          factuality: {
+            averageScore: 0.91,
+            maxScore: 1,
+            minScore: 0.72,
+            sampleCount: 12,
+          },
+        },
+        skippedCount: 0,
+        startedAt: '2026-04-11T04:20:00.000Z',
+        status: 'completed',
+        succeededCount: 12,
+        totalItems: 12,
+        triggerSource: 'manual',
+      },
+    ],
+  },
+)
+
+export const aiEvalDetailSchema = withOpenApiSchemaDoc(
+  aiEvalListItemSchema.extend({
+    environment: withOpenApiSchemaDoc(
+      z.object({
+        configured: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'AiEvalDetailConfigured',
+          description: '当前评测运行时是否已完成配置。',
+          examples: [true],
+        }),
+        reason: withOpenApiSchemaDoc(z.string(), {
+          title: 'AiEvalDetailReason',
+          description: '当前评测运行时说明，例如已配置状态或降级原因。',
+          examples: ['Mastra eval suites are configured and persisted run results are available.'],
+        }),
+      }),
+      {
+        title: 'AiEvalDetailEnvironment',
+        description: '单个评测详情附带的运行时环境说明。',
+      },
+    ),
+    recentRuns: withOpenApiSchemaDoc(z.array(aiEvalRunEntrySchema), {
+      title: 'AiEvalRecentRuns',
+      description: '该评测套件最近的运行记录，按创建时间倒序返回。',
+    }),
+  }),
+  {
+    title: 'AiEvalDetail',
+    description: '单个 AI 评测详情，补充最近运行记录和当前运行时环境说明。',
+    examples: [
+      {
+        backing: 'mastra',
+        datasetSize: 12,
+        environment: {
+          configured: true,
+          reason: 'Mastra eval suites are configured and persisted run results are available.',
+        },
+        id: 'report-schedule',
+        lastRunAverageScore: 0.91,
+        lastRunAt: '2026-04-11T04:30:00.000Z',
+        lastRunStatus: 'completed',
+        name: 'Report Schedule Regression',
+        notes: '覆盖报表计划任务的回归评测样本。',
+        recentRuns: [
+          {
+            actorAuthUserId: 'auth_user_01',
+            actorRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            completedAt: '2026-04-11T04:30:00.000Z',
+            createdAt: '2026-04-11T04:20:00.000Z',
+            datasetId: 'dataset_report_schedule',
+            datasetName: 'report-schedule-baseline',
+            evalKey: 'report-schedule',
+            evalName: 'Report Schedule Regression',
+            experimentId: 'exp_report_schedule_20260411',
+            failedCount: 0,
+            id: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+            requestId: 'req_eval_01',
+            scoreAverage: 0.91,
+            scoreMax: 1,
+            scoreMin: 0.72,
+            scorerSummary: {
+              factuality: {
+                averageScore: 0.91,
+                maxScore: 1,
+                minScore: 0.72,
+                sampleCount: 12,
+              },
+            },
+            skippedCount: 0,
+            startedAt: '2026-04-11T04:20:00.000Z',
+            status: 'completed',
+            succeededCount: 12,
+            totalItems: 12,
+            triggerSource: 'manual',
+          },
+        ],
+        scorerCount: 3,
+        status: 'registered',
+      },
+    ],
+  },
+)
+
+export const aiEvalRunResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    completedAt: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'AiEvalRunResultCompletedAt',
+      description: '本次触发运行完成时间；未完成时为 `null`。',
+      examples: ['2026-04-11T04:30:00.000Z'],
+    }),
+    datasetId: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunResultDatasetId',
+      description: '本次触发运行实际使用的数据集 ID。',
+      examples: ['dataset_report_schedule'],
+    }),
+    datasetName: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunResultDatasetName',
+      description: '本次触发运行实际使用的数据集名称。',
+      examples: ['report-schedule-baseline'],
+    }),
+    evalId: aiEvalIdSchema,
+    evalName: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunResultName',
+      description: '本次触发运行的评测显示名称。',
+      examples: ['Report Schedule Regression'],
+    }),
+    experimentId: withOpenApiSchemaDoc(z.string(), {
+      title: 'AiEvalRunResultExperimentId',
+      description: '本次触发运行对应的实验 ID。',
+      examples: ['exp_report_schedule_20260411'],
+    }),
+    requestId: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'AiEvalRunResultRequestId',
+      description: '串联本次运行的请求 ID；未传播时为 `null`。',
+      examples: ['req_eval_01'],
+    }),
+    scoreAverage: withOpenApiSchemaDoc(z.number().min(0).max(1).nullable(), {
+      title: 'AiEvalRunResultAverageScore',
+      description: '本次触发运行的平均分；未完成时为 `null`。',
+      examples: [0.91],
+    }),
+    status: aiEvalRunStatusSchema,
+    totalItems: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'AiEvalRunResultTotalItems',
+      description: '本次运行实际处理的样本数。',
+      examples: [12],
+    }),
+  }),
+  {
+    title: 'AiEvalRunResult',
+    description: '一次 AI 评测触发命令的结果摘要，用于治理页面确认执行结果。',
+    examples: [
+      {
+        completedAt: '2026-04-11T04:30:00.000Z',
+        datasetId: 'dataset_report_schedule',
+        datasetName: 'report-schedule-baseline',
+        evalId: 'report-schedule',
+        evalName: 'Report Schedule Regression',
+        experimentId: 'exp_report_schedule_20260411',
+        requestId: 'req_eval_01',
+        scoreAverage: 0.91,
+        status: 'completed',
+        totalItems: 12,
+      },
+    ],
+  },
+)
+
+const promptVersionIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
+  title: 'PromptVersionIdParam',
+  description: 'Prompt 版本主键 UUID，用于读取单个 Prompt 版本详情。',
+  examples: ['b87ecb02-478d-40ff-b2d8-3f62fd9f9001'],
+})
+
+export const getPromptVersionByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: promptVersionIdSchema,
+  }),
+  {
+    title: 'GetPromptVersionByIdInput',
+    description: '读取单个 Prompt 版本详情所需的路径参数。',
+    examples: [
+      {
+        id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+      },
+    ],
+  },
+)
+
+export const promptVersionDetailSchema = withOpenApiSchemaDoc(promptVersionEntrySchema.extend({}), {
+  title: 'PromptVersionDetail',
+  description: '单个 Prompt 版本详情，供治理页面查看具体版本状态、证据和回滚关系。',
+  examples: [
+    {
+      activatedAt: null,
+      activatedByAuthUserId: null,
+      activatedByRbacUserId: null,
+      createdAt: '2026-04-11T04:00:00.000Z',
+      createdByAuthUserId: 'auth_user_01',
+      createdByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+      evalEvidence: null,
+      id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+      isActive: false,
+      notes: '提高财务问答的事实一致性。',
+      promptKey: 'admin.copilot.answer',
+      promptText: '你是后台管理 Copilot，请优先返回结构化结论。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+      releaseReady: false,
+      releaseReason: '缺少评测证据。',
+      rolledBackFromVersionId: null,
+      status: 'draft',
+      updatedAt: '2026-04-11T04:00:00.000Z',
+      version: 3,
+    },
+  ],
+})
+
 // 工具发现 contract-first skeleton。
 export const toolGenKindSchema = withOpenApiSchemaDoc(z.enum(['agent', 'copilot', 'prompt']), {
   title: 'ToolGenKind',
@@ -3132,7 +3515,14 @@ export type GetAiFeedbackByIdInput = z.infer<typeof getAiFeedbackByIdInputSchema
 export type AiFeedbackDetail = z.infer<typeof aiFeedbackDetailSchema>
 export type AiFeedbackListResponse = z.infer<typeof aiFeedbackListResponseSchema>
 export type ListAiEvalsInput = z.infer<typeof listAiEvalsInputSchema>
+export type GetAiEvalByIdInput = z.infer<typeof getAiEvalByIdInputSchema>
+export type RunAiEvalInput = z.infer<typeof runAiEvalInputSchema>
+export type AiEvalRunEntry = z.infer<typeof aiEvalRunEntrySchema>
+export type AiEvalDetail = z.infer<typeof aiEvalDetailSchema>
+export type AiEvalRunResult = z.infer<typeof aiEvalRunResultSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
+export type GetPromptVersionByIdInput = z.infer<typeof getPromptVersionByIdInputSchema>
+export type PromptVersionDetail = z.infer<typeof promptVersionDetailSchema>
 export type ListToolGenInput = z.infer<typeof listToolGenInputSchema>
 export type ToolGenListResponse = z.infer<typeof toolGenListResponseSchema>
 export type ListToolJobsInput = z.infer<typeof listToolJobsInputSchema>

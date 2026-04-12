@@ -887,6 +887,33 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
         '新版本发布门禁策略；未传时使用默认阈值。',
   )
 
+  const promptsDetailPath =
+    payload.paths['/api/v1/ai/prompts/:id'] ?? payload.paths['/api/v1/ai/prompts/{id}']
+  assert.ok(
+    promptsDetailPath && isRecord(promptsDetailPath),
+    'Expected /api/v1/ai/prompts/:id path to exist',
+  )
+  const promptsDetailGet = promptsDetailPath.get
+  assert.ok(
+    promptsDetailGet && isRecord(promptsDetailGet),
+    'Expected GET operation for ai prompt detail',
+  )
+  assert.equal(promptsDetailGet.summary, '读取单个 Prompt 版本详情')
+  const promptsDetailResponses = promptsDetailGet.responses
+  const promptsDetailJson =
+    promptsDetailResponses &&
+    isRecord(promptsDetailResponses) &&
+    isRecord(promptsDetailResponses['200']) &&
+    isRecord(promptsDetailResponses['200'].content)
+      ? promptsDetailResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    promptsDetailJson && isRecord(promptsDetailJson),
+    'Expected AI prompt detail JSON response schema',
+  )
+  const promptDetailSchema = resolveOpenApiSchema(payload, promptsDetailJson.schema)
+  assert.equal(promptDetailSchema.title, 'PromptVersionDetail')
+
   const auditPath = payload.paths['/api/v1/ai/audit']
   assert.ok(auditPath && isRecord(auditPath), 'Expected /api/v1/ai/audit path to exist')
 
@@ -970,6 +997,51 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
     evalsOutputSchema.description,
     'AI 评测目录分页响应，返回评测条目、分页信息和环境汇总。',
   )
+
+  const evalsDetailPath =
+    payload.paths['/api/v1/ai/evals/:id'] ?? payload.paths['/api/v1/ai/evals/{id}']
+  assert.ok(
+    evalsDetailPath && isRecord(evalsDetailPath),
+    'Expected /api/v1/ai/evals/:id path to exist',
+  )
+  const evalsDetailGet = evalsDetailPath.get
+  assert.ok(evalsDetailGet && isRecord(evalsDetailGet), 'Expected GET operation for ai eval detail')
+  assert.equal(evalsDetailGet.summary, '读取单个 AI 评测详情')
+  const evalsDetailResponses = evalsDetailGet.responses
+  const evalsDetailJson =
+    evalsDetailResponses &&
+    isRecord(evalsDetailResponses) &&
+    isRecord(evalsDetailResponses['200']) &&
+    isRecord(evalsDetailResponses['200'].content)
+      ? evalsDetailResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    evalsDetailJson && isRecord(evalsDetailJson),
+    'Expected AI eval detail JSON response schema',
+  )
+  const evalDetailSchema = resolveOpenApiSchema(payload, evalsDetailJson.schema)
+  assert.equal(evalDetailSchema.title, 'AiEvalDetail')
+
+  const evalsRunPath =
+    payload.paths['/api/v1/ai/evals/:id/run'] ?? payload.paths['/api/v1/ai/evals/{id}/run']
+  assert.ok(
+    evalsRunPath && isRecord(evalsRunPath),
+    'Expected /api/v1/ai/evals/:id/run path to exist',
+  )
+  const evalsRunPost = evalsRunPath.post
+  assert.ok(evalsRunPost && isRecord(evalsRunPost), 'Expected POST operation for ai eval run')
+  assert.equal(evalsRunPost.summary, '手动执行 AI 评测')
+  const evalsRunResponses = evalsRunPost.responses
+  const evalsRunJson =
+    evalsRunResponses &&
+    isRecord(evalsRunResponses) &&
+    isRecord(evalsRunResponses['200']) &&
+    isRecord(evalsRunResponses['200'].content)
+      ? evalsRunResponses['200'].content['application/json']
+      : undefined
+  assert.ok(evalsRunJson && isRecord(evalsRunJson), 'Expected AI eval run JSON response schema')
+  const evalRunSchema = resolveOpenApiSchema(payload, evalsRunJson.schema)
+  assert.equal(evalRunSchema.title, 'AiEvalRunResult')
 })
 
 test('OpenAPI document exposes rich schema metadata for monitor, tools, and system helper surfaces', async () => {
@@ -2389,6 +2461,67 @@ test('AI detail contract routes expose audit and feedback linkage for administra
   assert.equal(feedbackDetailPayload.json.auditLog.requestId, requestId)
 })
 
+test('AI eval detail and run contract routes expose recent runs for administrators', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const evalOperationLogsBefore = await listOperationLogsByModule('ai_evals')
+  const runResponse = await app.request('http://localhost/api/v1/ai/evals/report-schedule/run', {
+    headers: authHeaders,
+    method: 'POST',
+  })
+  const runPayload = (await runResponse.json()) as {
+    json: {
+      evalId: string
+      experimentId: string
+      status: string
+    }
+  }
+  const detailResponse = await app.request('http://localhost/api/v1/ai/evals/report-schedule', {
+    headers: authHeaders,
+  })
+  const detailPayload = (await detailResponse.json()) as {
+    json: {
+      environment: {
+        configured: boolean
+      }
+      id: string
+      recentRuns: Array<{
+        experimentId: string
+        evalKey: string
+        triggerSource: string
+      }>
+      status: string
+    }
+  }
+
+  assert.equal(runResponse.status, 200)
+  assert.equal(runPayload.json.evalId, 'report-schedule')
+  assert.equal(runPayload.json.status, 'completed')
+  assert.equal(detailResponse.status, 200)
+  assert.equal(detailPayload.json.id, 'report-schedule')
+  assert.equal(detailPayload.json.status, 'registered')
+  assert.equal(detailPayload.json.environment.configured, true)
+  assert.ok(
+    detailPayload.json.recentRuns.some(
+      (run) =>
+        run.experimentId === runPayload.json.experimentId &&
+        run.evalKey === 'report-schedule' &&
+        run.triggerSource === 'manual',
+    ),
+  )
+
+  const evalOperationLogsAfter = await listOperationLogsByModule('ai_evals')
+
+  assert.ok(evalOperationLogsAfter.length > evalOperationLogsBefore.length)
+  assert.ok(
+    evalOperationLogsAfter.some(
+      (log) =>
+        log.action === 'run_ai_eval' &&
+        log.targetId === runPayload.json.experimentId &&
+        log.requestInfo?.evalId === 'report-schedule',
+    ),
+  )
+})
+
 test('admin can perform full contract-first CRUD on ai knowledge documents', async () => {
   const authHeaders = await createSessionForRole('admin')
   const knowledgeSuffix = randomUUID().slice(0, 8)
@@ -2667,6 +2800,31 @@ test('prompt governance activation requires eval evidence before release', async
   assert.equal(activatePayload.json.id, createPayload.json.id)
   assert.equal(activatePayload.json.status, 'active')
   assert.equal(activatePayload.json.isActive, true)
+
+  const detailResponse = await app.request(
+    `http://localhost/api/v1/ai/prompts/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const detailPayload = (await detailResponse.json()) as {
+    json: {
+      evalEvidence: {
+        evalRunId: string
+      } | null
+      id: string
+      isActive: boolean
+      promptKey: string
+      status: string
+    }
+  }
+
+  assert.equal(detailResponse.status, 200)
+  assert.equal(detailPayload.json.id, createPayload.json.id)
+  assert.equal(detailPayload.json.promptKey, promptKey)
+  assert.equal(detailPayload.json.status, 'active')
+  assert.equal(detailPayload.json.isActive, true)
+  assert.equal(detailPayload.json.evalEvidence?.evalRunId, latestEvalRun.id)
 })
 
 test('super admin can read the contract-first permission list route', async () => {

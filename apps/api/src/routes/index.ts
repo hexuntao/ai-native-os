@@ -1,5 +1,5 @@
 import { aiAuditGetByIdProcedure, aiAuditListProcedure } from './ai/audit'
-import { aiEvalsListProcedure } from './ai/evals'
+import { aiEvalsGetByIdProcedure, aiEvalsListProcedure, aiEvalsRunProcedure } from './ai/evals'
 import {
   aiFeedbackCreateProcedure,
   aiFeedbackGetByIdProcedure,
@@ -16,6 +16,7 @@ import {
   aiPromptsActivateProcedure,
   aiPromptsAttachEvidenceProcedure,
   aiPromptsCreateProcedure,
+  aiPromptsGetByIdProcedure,
   aiPromptsListProcedure,
   aiPromptsRollbackProcedure,
 } from './ai/prompts'
@@ -67,7 +68,11 @@ export const appRouter = {
       getById: aiAuditGetByIdProcedure,
       list: aiAuditListProcedure,
     },
-    evals: aiEvalsListProcedure,
+    evals: {
+      getById: aiEvalsGetByIdProcedure,
+      list: aiEvalsListProcedure,
+      run: aiEvalsRunProcedure,
+    },
     feedback: {
       create: aiFeedbackCreateProcedure,
       getById: aiFeedbackGetByIdProcedure,
@@ -84,6 +89,7 @@ export const appRouter = {
       activate: aiPromptsActivateProcedure,
       'attach-evidence': aiPromptsAttachEvidenceProcedure,
       create: aiPromptsCreateProcedure,
+      getById: aiPromptsGetByIdProcedure,
       list: aiPromptsListProcedure,
       rollback: aiPromptsRollbackProcedure,
     },

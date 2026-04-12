@@ -2,6 +2,7 @@ import {
   activatePromptVersion,
   attachPromptEvalEvidence,
   createPromptVersion,
+  getPromptVersionById,
   listPromptVersions,
   PromptActiveVersionNotFoundError,
   PromptEvalRunNotFoundError,
@@ -18,9 +19,13 @@ import {
   attachPromptEvalEvidenceInputSchema,
   type CreatePromptVersionInput,
   createPromptVersionInputSchema,
+  type GetPromptVersionByIdInput,
+  getPromptVersionByIdInputSchema,
+  type PromptVersionDetail,
   type PromptVersionEntry,
   type PromptVersionListInput,
   type PromptVersionListResponse,
+  promptVersionDetailSchema,
   promptVersionEntrySchema,
   promptVersionListInputSchema,
   promptVersionListResponseSchema,
@@ -61,6 +66,23 @@ function mapPromptGovernanceError(error: unknown): never {
   }
 
   throw error
+}
+
+/**
+ * 读取单个 Prompt 版本详情，供治理页查看具体版本状态与门禁证据。
+ */
+export async function getPromptVersionEntryById(
+  input: GetPromptVersionByIdInput,
+): Promise<PromptVersionDetail> {
+  const promptVersionEntry = await getPromptVersionById(input.id)
+
+  if (!promptVersionEntry) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'Prompt version not found',
+    })
+  }
+
+  return promptVersionEntry
 }
 
 /**
@@ -218,6 +240,18 @@ export const aiPromptsListProcedure = requireAnyPermission(promptReadPermissions
   .input(promptVersionListInputSchema)
   .output(promptVersionListResponseSchema)
   .handler(async ({ input }) => listPromptVersionEntries(input))
+
+export const aiPromptsGetByIdProcedure = requireAnyPermission(promptReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/prompts/:id',
+    tags: ['AI:Prompts'],
+    summary: '读取单个 Prompt 版本详情',
+    description: '返回单个 Prompt 版本的具体内容、评测证据、门禁状态和回滚关系。',
+  })
+  .input(getPromptVersionByIdInputSchema)
+  .output(promptVersionDetailSchema)
+  .handler(async ({ input }) => getPromptVersionEntryById(input))
 
 export const aiPromptsCreateProcedure = requireAnyPermission(promptWritePermissions)
   .route({
