@@ -22,6 +22,7 @@ import {
   updatePermissionAction,
 } from '@/app/(dashboard)/system/permissions/actions'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
+import { ManagementDialog } from '@/components/management/management-dialog'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { canManagePermissions } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -226,89 +227,95 @@ export default async function SystemPermissionsPage({
       </form>
 
       {canWritePermissions ? (
-        <form
-          action={createPermissionAction}
-          className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/75 p-5 shadow-[var(--shadow-soft)]"
-        >
-          <input name="returnTo" type="hidden" value={returnTo} />
-          <div className="grid gap-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Create custom permission
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-background/72 px-4 py-4">
+          <div className="grid gap-1">
+            <p className="text-sm font-medium text-foreground">Permission authoring</p>
             <p className="text-sm leading-6 text-muted-foreground">
-              仅允许创建自定义权限规则。系统基线权限、`manage:all` 和完全重复规则会在后端直接拒绝。
+              自定义权限通过弹层式编辑维护，列表保持为高密度拓扑视图。
             </p>
           </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="create-permission-resource">Resource</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="User"
-                id="create-permission-resource"
-                name="resource"
-              >
-                {appSubjects.map((subject) => (
-                  <option key={subject} value={subject}>
-                    {subject}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-permission-action">Action</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="read"
-                id="create-permission-action"
-                name="action"
-              >
-                {appActions.map((action) => (
-                  <option key={action} value={action}>
-                    {action}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-permission-mode">Mode</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="allow"
-                id="create-permission-mode"
-                name="mode"
-              >
-                <option value="allow">Allow</option>
-                <option value="deny">Deny</option>
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-permission-description">Description</FieldLabel>
-              <Input id="create-permission-description" name="description" />
-            </Field>
-            <Field className="xl:col-span-2">
-              <FieldLabel htmlFor="create-permission-fields">Fields CSV</FieldLabel>
-              <Input id="create-permission-fields" name="fields" placeholder="status, approverId" />
-              <FieldHint>留空表示不限制字段范围。</FieldHint>
-            </Field>
-            <Field className="xl:col-span-2">
-              <FieldLabel htmlFor="create-permission-conditions">Conditions JSON</FieldLabel>
-              <textarea
-                className={textAreaClassName}
-                defaultValue=""
-                id="create-permission-conditions"
-                name="conditions"
-                placeholder='{"department":"finance"}'
-              />
-              <FieldHint>必须是 JSON 对象；留空表示无条件。</FieldHint>
-            </Field>
-          </div>
-
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button type="submit">Create permission</Button>
-          </div>
-        </form>
+          <ManagementDialog
+            contentClassName="w-[min(92vw,48rem)]"
+            description="创建自定义权限规则；系统基线权限和完全重复规则仍会被后端拒绝。"
+            title="Create permission"
+            triggerLabel="New permission"
+          >
+            <form action={createPermissionAction} className="grid gap-4">
+              <input name="returnTo" type="hidden" value={returnTo} />
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="create-permission-resource">Resource</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="User"
+                    id="create-permission-resource"
+                    name="resource"
+                  >
+                    {appSubjects.map((subject) => (
+                      <option key={subject} value={subject}>
+                        {subject}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-permission-action">Action</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="read"
+                    id="create-permission-action"
+                    name="action"
+                  >
+                    {appActions.map((action) => (
+                      <option key={action} value={action}>
+                        {action}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-permission-mode">Mode</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="allow"
+                    id="create-permission-mode"
+                    name="mode"
+                  >
+                    <option value="allow">Allow</option>
+                    <option value="deny">Deny</option>
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-permission-description">Description</FieldLabel>
+                  <Input id="create-permission-description" name="description" />
+                </Field>
+                <Field className="xl:col-span-2">
+                  <FieldLabel htmlFor="create-permission-fields">Fields CSV</FieldLabel>
+                  <Input
+                    id="create-permission-fields"
+                    name="fields"
+                    placeholder="status, approverId"
+                  />
+                  <FieldHint>留空表示不限制字段范围。</FieldHint>
+                </Field>
+                <Field className="xl:col-span-2">
+                  <FieldLabel htmlFor="create-permission-conditions">Conditions JSON</FieldLabel>
+                  <textarea
+                    className={textAreaClassName}
+                    defaultValue=""
+                    id="create-permission-conditions"
+                    name="conditions"
+                    placeholder='{"department":"finance"}'
+                  />
+                  <FieldHint>必须是 JSON 对象；留空表示无条件。</FieldHint>
+                </Field>
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button type="submit">Create permission</Button>
+              </div>
+            </form>
+          </ManagementDialog>
+        </div>
       ) : (
         <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 text-sm leading-7 text-muted-foreground">
           当前主体只有读取权限。权限创建、编辑、删除表单仅对具备 `manage:Permission` 或 `manage:all`
@@ -372,11 +379,15 @@ export default async function SystemPermissionsPage({
                           </div>
                         ) : (
                           <div className="grid gap-3">
-                            <details className="rounded-[var(--radius-lg)] border border-border/70 bg-background/70 p-3">
-                              <summary className="cursor-pointer text-sm font-medium text-foreground">
-                                Edit permission
-                              </summary>
-                              <form action={updatePermissionAction} className="mt-3 grid gap-3">
+                            <ManagementDialog
+                              contentClassName="w-[min(92vw,48rem)]"
+                              description="更新自定义权限规则；若当前已被角色引用，语义变更仍受后端保护。"
+                              title={`Edit ${row.action}:${row.resource}`}
+                              triggerLabel="Edit"
+                              triggerSize="sm"
+                              triggerVariant="secondary"
+                            >
+                              <form action={updatePermissionAction} className="grid gap-3">
                                 <input name="id" type="hidden" value={row.id} />
                                 <input name="returnTo" type="hidden" value={returnTo} />
                                 <Field>
@@ -464,11 +475,13 @@ export default async function SystemPermissionsPage({
                                     </FieldHint>
                                   ) : null}
                                 </Field>
-                                <Button size="sm" type="submit" variant="secondary">
-                                  Save changes
-                                </Button>
+                                <div className="flex justify-end">
+                                  <Button size="sm" type="submit" variant="secondary">
+                                    Save changes
+                                  </Button>
+                                </div>
                               </form>
-                            </details>
+                            </ManagementDialog>
 
                             <form action={deletePermissionAction}>
                               <input name="id" type="hidden" value={row.id} />

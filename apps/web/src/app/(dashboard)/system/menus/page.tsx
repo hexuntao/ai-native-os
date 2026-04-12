@@ -24,6 +24,7 @@ import {
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
+import { ManagementDialog } from '@/components/management/management-dialog'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { canManageMenus } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -215,143 +216,152 @@ export default async function SystemMenusPage({
       </FilterToolbar>
 
       {canWriteMenus ? (
-        <form
-          action={createMenuAction}
-          className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/75 p-5 shadow-[var(--shadow-soft)]"
-        >
-          <input name="returnTo" type="hidden" value={returnTo} />
-          <div className="grid gap-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Create custom menu
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-background/72 px-4 py-4">
+          <div className="grid gap-1">
+            <p className="text-sm font-medium text-foreground">Navigation authoring</p>
             <p className="text-sm leading-6 text-muted-foreground">
-              仅允许创建自定义菜单节点。父级必须是目录节点，叶子菜单必须带路径，权限动作和资源必须成对填写。
+              自定义菜单通过弹层维护，表格保留路由、权限和可见性状态用于快速扫描。
             </p>
           </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="create-menu-name">Name</FieldLabel>
-              <Input defaultValue="" id="create-menu-name" name="name" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-type">Type</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="menu"
-                id="create-menu-type"
-                name="type"
-              >
-                <option value="directory">directory</option>
-                <option value="menu">menu</option>
-                <option value="button">button</option>
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-parent">Parent directory</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue=""
-                id="create-menu-parent"
-                name="parentId"
-              >
-                <option value="">Top level</option>
-                {directoryOptions.map((menuEntry) => (
-                  <option key={menuEntry.id} value={menuEntry.id}>
-                    {menuEntry.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-sort-order">Sort order</FieldLabel>
-              <Input defaultValue="0" id="create-menu-sort-order" name="sortOrder" type="number" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-path">Path</FieldLabel>
-              <Input
-                defaultValue=""
-                id="create-menu-path"
-                name="path"
-                placeholder="/system/menus"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-component">Component</FieldLabel>
-              <Input
-                defaultValue=""
-                id="create-menu-component"
-                name="component"
-                placeholder="system/menus/page"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-icon">Icon</FieldLabel>
-              <Input defaultValue="" id="create-menu-icon" name="icon" placeholder="menu" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-visible">Visibility</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="visible"
-                id="create-menu-visible"
-                name="visible"
-              >
-                <option value="visible">visible</option>
-                <option value="hidden">hidden</option>
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-status">Status</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="active"
-                id="create-menu-status"
-                name="status"
-              >
-                <option value="active">active</option>
-                <option value="inactive">inactive</option>
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-permission-action">Permission action</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue=""
-                id="create-menu-permission-action"
-                name="permissionAction"
-              >
-                <option value="">none</option>
-                {appActions.map((action) => (
-                  <option key={action} value={action}>
-                    {action}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-menu-permission-resource">Permission resource</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue=""
-                id="create-menu-permission-resource"
-                name="permissionResource"
-              >
-                <option value="">none</option>
-                {appSubjects.map((subject) => (
-                  <option key={subject} value={subject}>
-                    {subject}
-                  </option>
-                ))}
-              </select>
-              <FieldHint>若填写权限，动作与资源必须同时配置。</FieldHint>
-            </Field>
-          </div>
-
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button type="submit">Create menu</Button>
-          </div>
-        </form>
+          <ManagementDialog
+            contentClassName="w-[min(92vw,52rem)]"
+            description="创建自定义菜单节点。父级必须是目录节点，叶子菜单必须带路径，权限动作与资源必须成对填写。"
+            title="Create menu"
+            triggerLabel="New menu"
+          >
+            <form action={createMenuAction} className="grid gap-4">
+              <input name="returnTo" type="hidden" value={returnTo} />
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="create-menu-name">Name</FieldLabel>
+                  <Input defaultValue="" id="create-menu-name" name="name" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-type">Type</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="menu"
+                    id="create-menu-type"
+                    name="type"
+                  >
+                    <option value="directory">directory</option>
+                    <option value="menu">menu</option>
+                    <option value="button">button</option>
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-parent">Parent directory</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue=""
+                    id="create-menu-parent"
+                    name="parentId"
+                  >
+                    <option value="">Top level</option>
+                    {directoryOptions.map((menuEntry) => (
+                      <option key={menuEntry.id} value={menuEntry.id}>
+                        {menuEntry.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-sort-order">Sort order</FieldLabel>
+                  <Input
+                    defaultValue="0"
+                    id="create-menu-sort-order"
+                    name="sortOrder"
+                    type="number"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-path">Path</FieldLabel>
+                  <Input
+                    defaultValue=""
+                    id="create-menu-path"
+                    name="path"
+                    placeholder="/system/menus"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-component">Component</FieldLabel>
+                  <Input
+                    defaultValue=""
+                    id="create-menu-component"
+                    name="component"
+                    placeholder="system/menus/page"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-icon">Icon</FieldLabel>
+                  <Input defaultValue="" id="create-menu-icon" name="icon" placeholder="menu" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-visible">Visibility</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="visible"
+                    id="create-menu-visible"
+                    name="visible"
+                  >
+                    <option value="visible">visible</option>
+                    <option value="hidden">hidden</option>
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-status">Status</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="active"
+                    id="create-menu-status"
+                    name="status"
+                  >
+                    <option value="active">active</option>
+                    <option value="inactive">inactive</option>
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-permission-action">Permission action</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue=""
+                    id="create-menu-permission-action"
+                    name="permissionAction"
+                  >
+                    <option value="">none</option>
+                    {appActions.map((action) => (
+                      <option key={action} value={action}>
+                        {action}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-menu-permission-resource">
+                    Permission resource
+                  </FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue=""
+                    id="create-menu-permission-resource"
+                    name="permissionResource"
+                  >
+                    <option value="">none</option>
+                    {appSubjects.map((subject) => (
+                      <option key={subject} value={subject}>
+                        {subject}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldHint>若填写权限，动作与资源必须同时配置。</FieldHint>
+                </Field>
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button type="submit">Create menu</Button>
+              </div>
+            </form>
+          </ManagementDialog>
+        </div>
       ) : (
         <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 text-sm leading-7 text-muted-foreground">
           当前主体只有读取权限。菜单创建、编辑、删除表单仅对具备 `manage:Menu` 或 `manage:all`
@@ -369,6 +379,7 @@ export default async function SystemMenusPage({
                 <TableHead>Type</TableHead>
                 <TableHead>Permission</TableHead>
                 <TableHead>State</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -407,6 +418,190 @@ export default async function SystemMenusPage({
                         {isProtected ? <Badge variant="secondary">seeded</Badge> : null}
                       </div>
                     </TableCell>
+                    <TableCell className="align-top">
+                      {canWriteMenus ? (
+                        isProtected ? (
+                          <span className="text-sm text-muted-foreground">Seeded</span>
+                        ) : (
+                          <div className="grid gap-3">
+                            <ManagementDialog
+                              contentClassName="w-[min(92vw,52rem)]"
+                              description="更新自定义菜单节点的路径、父子关系、可见性与权限绑定。"
+                              title={`Edit ${row.name}`}
+                              triggerLabel="Edit"
+                              triggerSize="sm"
+                              triggerVariant="secondary"
+                            >
+                              <form action={updateMenuAction} className="grid gap-4">
+                                <input name="id" type="hidden" value={row.id} />
+                                <input name="returnTo" type="hidden" value={returnTo} />
+
+                                <div className="grid gap-4 xl:grid-cols-2">
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-name-${row.id}`}>Name</FieldLabel>
+                                    <Input
+                                      defaultValue={row.name}
+                                      id={`menu-name-${row.id}`}
+                                      name="name"
+                                    />
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-type-${row.id}`}>Type</FieldLabel>
+                                    <select
+                                      className={formControlClassName}
+                                      defaultValue={row.type}
+                                      id={`menu-type-${row.id}`}
+                                      name="type"
+                                    >
+                                      <option value="directory">directory</option>
+                                      <option value="menu">menu</option>
+                                      <option value="button">button</option>
+                                    </select>
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-parent-${row.id}`}>
+                                      Parent directory
+                                    </FieldLabel>
+                                    <select
+                                      className={formControlClassName}
+                                      defaultValue={row.parentId ?? ''}
+                                      id={`menu-parent-${row.id}`}
+                                      name="parentId"
+                                    >
+                                      <option value="">Top level</option>
+                                      {getDirectoryOptions(menuOptionsPayload.data, row.id).map(
+                                        (menuEntry) => (
+                                          <option key={menuEntry.id} value={menuEntry.id}>
+                                            {menuEntry.name}
+                                          </option>
+                                        ),
+                                      )}
+                                    </select>
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-sort-order-${row.id}`}>
+                                      Sort order
+                                    </FieldLabel>
+                                    <Input
+                                      defaultValue={String(row.sortOrder)}
+                                      id={`menu-sort-order-${row.id}`}
+                                      name="sortOrder"
+                                      type="number"
+                                    />
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-path-${row.id}`}>Path</FieldLabel>
+                                    <Input
+                                      defaultValue={stringifyNullableValue(row.path)}
+                                      id={`menu-path-${row.id}`}
+                                      name="path"
+                                    />
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-component-${row.id}`}>
+                                      Component
+                                    </FieldLabel>
+                                    <Input
+                                      defaultValue={stringifyNullableValue(row.component)}
+                                      id={`menu-component-${row.id}`}
+                                      name="component"
+                                    />
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-icon-${row.id}`}>Icon</FieldLabel>
+                                    <Input
+                                      defaultValue={stringifyNullableValue(row.icon)}
+                                      id={`menu-icon-${row.id}`}
+                                      name="icon"
+                                    />
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-visible-${row.id}`}>
+                                      Visibility
+                                    </FieldLabel>
+                                    <select
+                                      className={formControlClassName}
+                                      defaultValue={row.visible ? 'visible' : 'hidden'}
+                                      id={`menu-visible-${row.id}`}
+                                      name="visible"
+                                    >
+                                      <option value="visible">visible</option>
+                                      <option value="hidden">hidden</option>
+                                    </select>
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-status-${row.id}`}>
+                                      Status
+                                    </FieldLabel>
+                                    <select
+                                      className={formControlClassName}
+                                      defaultValue={row.status ? 'active' : 'inactive'}
+                                      id={`menu-status-${row.id}`}
+                                      name="status"
+                                    >
+                                      <option value="active">active</option>
+                                      <option value="inactive">inactive</option>
+                                    </select>
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-permission-action-${row.id}`}>
+                                      Permission action
+                                    </FieldLabel>
+                                    <select
+                                      className={formControlClassName}
+                                      defaultValue={row.permissionAction ?? ''}
+                                      id={`menu-permission-action-${row.id}`}
+                                      name="permissionAction"
+                                    >
+                                      <option value="">none</option>
+                                      {appActions.map((action) => (
+                                        <option key={action} value={action}>
+                                          {action}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </Field>
+                                  <Field>
+                                    <FieldLabel htmlFor={`menu-permission-resource-${row.id}`}>
+                                      Permission resource
+                                    </FieldLabel>
+                                    <select
+                                      className={formControlClassName}
+                                      defaultValue={row.permissionResource ?? ''}
+                                      id={`menu-permission-resource-${row.id}`}
+                                      name="permissionResource"
+                                    >
+                                      <option value="">none</option>
+                                      {appSubjects.map((subject) => (
+                                        <option key={subject} value={subject}>
+                                          {subject}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </Field>
+                                </div>
+
+                                <div className="flex justify-end">
+                                  <Button type="submit" variant="secondary">
+                                    Save changes
+                                  </Button>
+                                </div>
+                              </form>
+                            </ManagementDialog>
+
+                            <form action={deleteMenuAction}>
+                              <input name="id" type="hidden" value={row.id} />
+                              <input name="returnTo" type="hidden" value={returnTo} />
+                              <Button size="sm" type="submit" variant="ghost">
+                                Delete
+                              </Button>
+                            </form>
+                          </div>
+                        )
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Read only</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 )
               })}
@@ -433,195 +628,6 @@ export default async function SystemMenusPage({
           </div>
         </div>
       </div>
-
-      {canWriteMenus ? (
-        <div className="grid gap-4">
-          {payload.data.map((row) => {
-            const isProtected = isProtectedSeedMenu(row)
-            const rowParentOptions = getDirectoryOptions(menuOptionsPayload.data, row.id)
-
-            return (
-              <div
-                className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/75 p-5 shadow-[var(--shadow-soft)]"
-                key={`${row.id}-editor`}
-              >
-                <div className="grid gap-2">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    Edit menu
-                  </p>
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {row.name} ·{' '}
-                    {isProtected ? '系统种子菜单，仅可查看。' : '可编辑自定义菜单节点。'}
-                  </p>
-                </div>
-
-                <form action={updateMenuAction} className="grid gap-4">
-                  <input name="id" type="hidden" value={row.id} />
-                  <input name="returnTo" type="hidden" value={returnTo} />
-
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor={`menu-name-${row.id}`}>Name</FieldLabel>
-                      <Input
-                        defaultValue={row.name}
-                        disabled={isProtected}
-                        id={`menu-name-${row.id}`}
-                        name="name"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-type-${row.id}`}>Type</FieldLabel>
-                      <select
-                        className={formControlClassName}
-                        defaultValue={row.type}
-                        disabled={isProtected}
-                        id={`menu-type-${row.id}`}
-                        name="type"
-                      >
-                        <option value="directory">directory</option>
-                        <option value="menu">menu</option>
-                        <option value="button">button</option>
-                      </select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-parent-${row.id}`}>Parent directory</FieldLabel>
-                      <select
-                        className={formControlClassName}
-                        defaultValue={row.parentId ?? ''}
-                        disabled={isProtected}
-                        id={`menu-parent-${row.id}`}
-                        name="parentId"
-                      >
-                        <option value="">Top level</option>
-                        {rowParentOptions.map((menuEntry) => (
-                          <option key={menuEntry.id} value={menuEntry.id}>
-                            {menuEntry.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-sort-order-${row.id}`}>Sort order</FieldLabel>
-                      <Input
-                        defaultValue={String(row.sortOrder)}
-                        disabled={isProtected}
-                        id={`menu-sort-order-${row.id}`}
-                        name="sortOrder"
-                        type="number"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-path-${row.id}`}>Path</FieldLabel>
-                      <Input
-                        defaultValue={stringifyNullableValue(row.path)}
-                        disabled={isProtected}
-                        id={`menu-path-${row.id}`}
-                        name="path"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-component-${row.id}`}>Component</FieldLabel>
-                      <Input
-                        defaultValue={stringifyNullableValue(row.component)}
-                        disabled={isProtected}
-                        id={`menu-component-${row.id}`}
-                        name="component"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-icon-${row.id}`}>Icon</FieldLabel>
-                      <Input
-                        defaultValue={stringifyNullableValue(row.icon)}
-                        disabled={isProtected}
-                        id={`menu-icon-${row.id}`}
-                        name="icon"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-visible-${row.id}`}>Visibility</FieldLabel>
-                      <select
-                        className={formControlClassName}
-                        defaultValue={row.visible ? 'visible' : 'hidden'}
-                        disabled={isProtected}
-                        id={`menu-visible-${row.id}`}
-                        name="visible"
-                      >
-                        <option value="visible">visible</option>
-                        <option value="hidden">hidden</option>
-                      </select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-status-${row.id}`}>Status</FieldLabel>
-                      <select
-                        className={formControlClassName}
-                        defaultValue={row.status ? 'active' : 'inactive'}
-                        disabled={isProtected}
-                        id={`menu-status-${row.id}`}
-                        name="status"
-                      >
-                        <option value="active">active</option>
-                        <option value="inactive">inactive</option>
-                      </select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-permission-action-${row.id}`}>
-                        Permission action
-                      </FieldLabel>
-                      <select
-                        className={formControlClassName}
-                        defaultValue={row.permissionAction ?? ''}
-                        disabled={isProtected}
-                        id={`menu-permission-action-${row.id}`}
-                        name="permissionAction"
-                      >
-                        <option value="">none</option>
-                        {appActions.map((action) => (
-                          <option key={action} value={action}>
-                            {action}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`menu-permission-resource-${row.id}`}>
-                        Permission resource
-                      </FieldLabel>
-                      <select
-                        className={formControlClassName}
-                        defaultValue={row.permissionResource ?? ''}
-                        disabled={isProtected}
-                        id={`menu-permission-resource-${row.id}`}
-                        name="permissionResource"
-                      >
-                        <option value="">none</option>
-                        {appSubjects.map((subject) => (
-                          <option key={subject} value={subject}>
-                            {subject}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  </div>
-
-                  <div className="flex flex-wrap justify-end gap-3">
-                    <Button disabled={isProtected} type="submit" variant="secondary">
-                      Save changes
-                    </Button>
-                  </div>
-                </form>
-
-                <form action={deleteMenuAction} className="flex justify-end">
-                  <input name="id" type="hidden" value={row.id} />
-                  <input name="returnTo" type="hidden" value={returnTo} />
-                  <Button disabled={isProtected} type="submit" variant="secondary">
-                    Delete menu
-                  </Button>
-                </form>
-              </div>
-            )
-          })}
-        </div>
-      ) : null}
 
       <PaginationControls
         nextHref={

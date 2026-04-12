@@ -25,6 +25,7 @@ import { GenerativeUsersPanel } from '@/components/generative/generative-users-p
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
+import { ManagementDialog } from '@/components/management/management-dialog'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { canManageUserDirectory } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -169,76 +170,82 @@ export default async function SystemUsersPage({
       </FilterToolbar>
 
       {canManageUsers ? (
-        <form
-          action={createUserAction}
-          className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/75 p-5 shadow-[var(--shadow-soft)]"
-        >
-          <input name="returnTo" type="hidden" value={returnTo} />
-          <div className="grid gap-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Create principal
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-background/72 px-4 py-4">
+          <div className="grid gap-1">
+            <p className="text-sm font-medium text-foreground">Directory actions</p>
             <p className="text-sm leading-6 text-muted-foreground">
-              New entries will create the application user, Better Auth credential identity, and
-              RBAC role bindings in one audited transaction.
+              新建、编辑和删除都走同一套审计安全服务端动作，不再把表单长期铺在列表前面。
             </p>
           </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="create-username">Username</FieldLabel>
-              <Input id="create-username" minLength={3} name="username" required />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-email">Email</FieldLabel>
-              <Input id="create-email" name="email" required type="email" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-nickname">Nickname</FieldLabel>
-              <Input id="create-nickname" name="nickname" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-password">Password</FieldLabel>
-              <Input id="create-password" minLength={12} name="password" required type="password" />
-              <FieldHint>密码至少 12 位，创建时会同步写入 Better Auth credential。</FieldHint>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-status">Status</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="active"
-                id="create-status"
-                name="status"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-role-codes">Role bindings</FieldLabel>
-              <select
-                className={multiSelectClassName}
-                id="create-role-codes"
-                multiple
-                name="roleCodes"
-                size={Math.max(3, Math.min(assignableRoles.length, 6))}
-              >
-                {assignableRoles.map((role: AssignableRole) => (
-                  <option key={role.id} value={role.code}>
-                    {role.name} ({role.code})
-                  </option>
-                ))}
-              </select>
-              <FieldHint>
-                按住 Command / Ctrl 可多选角色，超级管理员边界仍由后端强制校验。
-              </FieldHint>
-            </Field>
-          </div>
-
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button type="submit">Create user</Button>
-          </div>
-        </form>
+          <ManagementDialog
+            description="创建应用用户、Better Auth credential 身份和 RBAC 角色绑定。"
+            title="Create user"
+            triggerLabel="New user"
+          >
+            <form action={createUserAction} className="grid gap-4">
+              <input name="returnTo" type="hidden" value={returnTo} />
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="create-username">Username</FieldLabel>
+                  <Input id="create-username" minLength={3} name="username" required />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-email">Email</FieldLabel>
+                  <Input id="create-email" name="email" required type="email" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-nickname">Nickname</FieldLabel>
+                  <Input id="create-nickname" name="nickname" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-password">Password</FieldLabel>
+                  <Input
+                    id="create-password"
+                    minLength={12}
+                    name="password"
+                    required
+                    type="password"
+                  />
+                  <FieldHint>密码至少 12 位，创建时会同步写入 Better Auth credential。</FieldHint>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-status">Status</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="active"
+                    id="create-status"
+                    name="status"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-role-codes">Role bindings</FieldLabel>
+                  <select
+                    className={multiSelectClassName}
+                    id="create-role-codes"
+                    multiple
+                    name="roleCodes"
+                    size={Math.max(3, Math.min(assignableRoles.length, 6))}
+                  >
+                    {assignableRoles.map((role: AssignableRole) => (
+                      <option key={role.id} value={role.code}>
+                        {role.name} ({role.code})
+                      </option>
+                    ))}
+                  </select>
+                  <FieldHint>
+                    按住 Command / Ctrl 可多选角色，超级管理员边界仍由后端强制校验。
+                  </FieldHint>
+                </Field>
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button type="submit">Create user</Button>
+              </div>
+            </form>
+          </ManagementDialog>
+        </div>
       ) : (
         <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 text-sm leading-7 text-muted-foreground">
           当前主体只有读取权限。用户创建、编辑、删除表单仅对具备 `manage:User` 或 `manage:all`
@@ -297,11 +304,15 @@ export default async function SystemUsersPage({
                   <TableCell className="align-top">
                     {canManageUsers ? (
                       <div className="grid gap-3">
-                        <details className="rounded-[var(--radius-lg)] border border-border/70 bg-background/70 p-3">
-                          <summary className="cursor-pointer text-sm font-medium text-foreground">
-                            Edit user
-                          </summary>
-                          <form action={updateUserAction} className="mt-3 grid gap-3">
+                        <ManagementDialog
+                          contentClassName="w-[min(92vw,44rem)]"
+                          description="更新用户资料、登录邮箱、可选密码重置和角色绑定。"
+                          title={`Edit ${row.username}`}
+                          triggerLabel="Edit"
+                          triggerSize="sm"
+                          triggerVariant="secondary"
+                        >
+                          <form action={updateUserAction} className="grid gap-3">
                             <input name="id" type="hidden" value={row.id} />
                             <input name="returnTo" type="hidden" value={returnTo} />
                             <Field>
@@ -370,11 +381,13 @@ export default async function SystemUsersPage({
                                 ))}
                               </select>
                             </Field>
-                            <Button size="sm" type="submit" variant="secondary">
-                              Save changes
-                            </Button>
+                            <div className="flex justify-end">
+                              <Button size="sm" type="submit" variant="secondary">
+                                Save changes
+                              </Button>
+                            </div>
                           </form>
-                        </details>
+                        </ManagementDialog>
 
                         <form action={deleteUserAction}>
                           <input name="id" type="hidden" value={row.id} />

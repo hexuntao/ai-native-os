@@ -24,6 +24,7 @@ import {
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
+import { ManagementDialog } from '@/components/management/management-dialog'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { canManageRoles } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -187,75 +188,82 @@ export default async function SystemRolesPage({
       </FilterToolbar>
 
       {canWriteRoles ? (
-        <form
-          action={createRoleAction}
-          className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/75 p-5 shadow-[var(--shadow-soft)]"
-        >
-          <input name="returnTo" type="hidden" value={returnTo} />
-          <div className="grid gap-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Create custom role
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-background/72 px-4 py-4">
+          <div className="grid gap-1">
+            <p className="text-sm font-medium text-foreground">Role lifecycle</p>
             <p className="text-sm leading-6 text-muted-foreground">
-              仅允许创建自定义角色。系统保留角色和 `manage:all` 权限提升会在后端直接拒绝。
+              自定义角色通过弹层完成创建和编辑，列表首屏只保留筛选、状态和分配关系。
             </p>
           </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="create-role-name">Role name</FieldLabel>
-              <Input id="create-role-name" name="name" required />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-role-code">Role code</FieldLabel>
-              <Input id="create-role-code" name="code" required />
-              <FieldHint>编码应保持稳定，避免复用系统保留编码。</FieldHint>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-role-description">Description</FieldLabel>
-              <Input id="create-role-description" name="description" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-role-sort-order">Sort order</FieldLabel>
-              <Input defaultValue="0" id="create-role-sort-order" name="sortOrder" type="number" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-role-status">Status</FieldLabel>
-              <select
-                className={formControlClassName}
-                defaultValue="active"
-                id="create-role-status"
-                name="status"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </Field>
-            <Field className="xl:col-span-2">
-              <FieldLabel htmlFor="create-role-permissions">Permission bindings</FieldLabel>
-              <select
-                className={multiSelectClassName}
-                id="create-role-permissions"
-                multiple
-                name="permissionIds"
-                size={Math.max(4, Math.min(assignablePermissions.length, 8))}
-              >
-                {assignablePermissions.map((permission: AssignablePermission) => (
-                  <option key={permission.id} value={permission.id}>
-                    {formatPermissionOptionLabel(permission)}
-                  </option>
-                ))}
-              </select>
-              <FieldHint>
-                按住 Command / Ctrl 可多选权限；保留权限提升和系统角色保护仍由后端强制校验。
-              </FieldHint>
-            </Field>
-          </div>
-
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button type="submit">Create role</Button>
-          </div>
-        </form>
+          <ManagementDialog
+            contentClassName="w-[min(92vw,48rem)]"
+            description="创建自定义角色并绑定权限。系统保留角色和权限提升边界仍由后端强制校验。"
+            title="Create role"
+            triggerLabel="New role"
+          >
+            <form action={createRoleAction} className="grid gap-4">
+              <input name="returnTo" type="hidden" value={returnTo} />
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="create-role-name">Role name</FieldLabel>
+                  <Input id="create-role-name" name="name" required />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-role-code">Role code</FieldLabel>
+                  <Input id="create-role-code" name="code" required />
+                  <FieldHint>编码应保持稳定，避免复用系统保留编码。</FieldHint>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-role-description">Description</FieldLabel>
+                  <Input id="create-role-description" name="description" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-role-sort-order">Sort order</FieldLabel>
+                  <Input
+                    defaultValue="0"
+                    id="create-role-sort-order"
+                    name="sortOrder"
+                    type="number"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="create-role-status">Status</FieldLabel>
+                  <select
+                    className={formControlClassName}
+                    defaultValue="active"
+                    id="create-role-status"
+                    name="status"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </Field>
+                <Field className="xl:col-span-2">
+                  <FieldLabel htmlFor="create-role-permissions">Permission bindings</FieldLabel>
+                  <select
+                    className={multiSelectClassName}
+                    id="create-role-permissions"
+                    multiple
+                    name="permissionIds"
+                    size={Math.max(4, Math.min(assignablePermissions.length, 8))}
+                  >
+                    {assignablePermissions.map((permission: AssignablePermission) => (
+                      <option key={permission.id} value={permission.id}>
+                        {formatPermissionOptionLabel(permission)}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldHint>
+                    按住 Command / Ctrl 可多选权限；保留权限提升和系统角色保护仍由后端强制校验。
+                  </FieldHint>
+                </Field>
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button type="submit">Create role</Button>
+              </div>
+            </form>
+          </ManagementDialog>
+        </div>
       ) : (
         <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 text-sm leading-7 text-muted-foreground">
           当前主体只有读取权限。角色创建、编辑、删除表单仅对具备 `manage:Role` 或 `manage:all`
@@ -330,11 +338,15 @@ export default async function SystemRolesPage({
                           </div>
                         ) : (
                           <div className="grid gap-3">
-                            <details className="rounded-[var(--radius-lg)] border border-border/70 bg-background/70 p-3">
-                              <summary className="cursor-pointer text-sm font-medium text-foreground">
-                                Edit role
-                              </summary>
-                              <form action={updateRoleAction} className="mt-3 grid gap-3">
+                            <ManagementDialog
+                              contentClassName="w-[min(92vw,48rem)]"
+                              description="更新自定义角色的名称、状态、排序和权限绑定。"
+                              title={`Edit ${row.name}`}
+                              triggerLabel="Edit"
+                              triggerSize="sm"
+                              triggerVariant="secondary"
+                            >
+                              <form action={updateRoleAction} className="grid gap-3">
                                 <input name="id" type="hidden" value={row.id} />
                                 <input name="returnTo" type="hidden" value={returnTo} />
                                 <Field>
@@ -412,11 +424,13 @@ export default async function SystemRolesPage({
                                     )}
                                   </select>
                                 </Field>
-                                <Button size="sm" type="submit" variant="secondary">
-                                  Save changes
-                                </Button>
+                                <div className="flex justify-end">
+                                  <Button size="sm" type="submit" variant="secondary">
+                                    Save changes
+                                  </Button>
+                                </div>
                               </form>
-                            </details>
+                            </ManagementDialog>
 
                             <form action={deleteRoleAction}>
                               <input name="id" type="hidden" value={row.id} />
