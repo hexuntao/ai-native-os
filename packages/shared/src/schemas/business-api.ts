@@ -3404,6 +3404,25 @@ export const getPromptReleaseAuditInputSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const getPromptGovernanceFailureAuditInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    promptKey: withOpenApiSchemaDoc(promptKeySchema, {
+      title: 'PromptGovernanceFailureAuditPromptKey',
+      description: '需要读取失败治理审计的 Prompt 治理键。',
+      examples: ['admin.copilot.answer'],
+    }),
+  }),
+  {
+    title: 'GetPromptGovernanceFailureAuditInput',
+    description: '读取某个 Prompt 治理键失败审计轨迹所需的路径参数。',
+    examples: [
+      {
+        promptKey: 'admin.copilot.answer',
+      },
+    ],
+  },
+)
+
 export const getPromptVersionHistoryInputSchema = withOpenApiSchemaDoc(
   z.object({
     promptKey: withOpenApiSchemaDoc(promptKeySchema, {
@@ -4278,6 +4297,177 @@ export const promptReleaseAuditSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const promptGovernanceFailureKindSchema = withOpenApiSchemaDoc(
+  z.enum(['exception', 'rejection']),
+  {
+    title: 'PromptGovernanceFailureKind',
+    description:
+      'Prompt 治理失败类型；`rejection` 表示门禁或领域规则拒绝，`exception` 表示运行时异常。',
+    examples: ['rejection', 'exception'],
+  },
+)
+
+export const promptGovernanceFailureAuditLogItemSchema = withOpenApiSchemaDoc(
+  operationLogListItemSchema.extend({
+    failureKind: promptGovernanceFailureKindSchema,
+    originalAction: withOpenApiSchemaDoc(z.string(), {
+      title: 'PromptGovernanceFailureOriginalAction',
+      description: '失败事件对应的原始治理动作，例如激活、绑定证据或回滚。',
+      examples: ['activate_prompt_version'],
+    }),
+    requestInfo: withOpenApiSchemaDoc(z.record(z.string(), z.string()).nullable(), {
+      title: 'PromptGovernanceFailureRequestInfo',
+      description:
+        '与本次失败治理动作关联的上下文，如 promptKey、promptVersionId、failureCode、requestId。',
+      examples: [
+        {
+          failureCode: 'PromptReleaseGateError',
+          failureKind: 'rejection',
+          originalAction: 'activate_prompt_version',
+          promptKey: 'admin.copilot.answer',
+          promptVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          requestId: 'req_prompt_rejection_01',
+        },
+      ],
+    }),
+  }),
+  {
+    title: 'PromptGovernanceFailureAuditLogItem',
+    description: 'Prompt 治理失败审计条目，包含失败类型、原始动作和完整 requestInfo 上下文。',
+    examples: [
+      {
+        action: 'activate_prompt_version_rejected',
+        createdAt: '2026-04-12T02:00:00.000Z',
+        detail:
+          'Prompt governance action activate_prompt_version was rejected for admin.copilot.answer.',
+        errorMessage: 'missing eval evidence',
+        failureKind: 'rejection',
+        id: '0bc91adf-c937-405b-a962-58b3a83db001',
+        module: 'ai_prompts',
+        operatorId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        originalAction: 'activate_prompt_version',
+        requestId: 'req_prompt_rejection_01',
+        requestInfo: {
+          failureCode: 'PromptReleaseGateError',
+          failureKind: 'rejection',
+          originalAction: 'activate_prompt_version',
+          promptKey: 'admin.copilot.answer',
+          promptVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          requestId: 'req_prompt_rejection_01',
+        },
+        status: 'error',
+        targetId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+      },
+    ],
+  },
+)
+
+export const promptGovernanceFailureAuditSchema = withOpenApiSchemaDoc(
+  z.object({
+    auditTrail: withOpenApiSchemaDoc(z.array(promptGovernanceFailureAuditLogItemSchema), {
+      title: 'PromptGovernanceFailureAuditTrail',
+      description: '当前 Prompt 治理键下的失败审计轨迹，按时间倒序返回。',
+    }),
+    promptKey: withOpenApiSchemaDoc(promptKeySchema, {
+      title: 'PromptGovernanceFailureAuditPromptKeyValue',
+      description: '当前失败审计响应对应的 Prompt 治理键。',
+      examples: ['admin.copilot.answer'],
+    }),
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        exceptionEventCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptGovernanceFailureExceptionEventCount',
+          description: '当前治理键下记录到的运行时异常事件数量。',
+          examples: [1],
+        }),
+        hasReleaseGateRejection: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'PromptGovernanceFailureHasReleaseGateRejection',
+          description: '是否出现过因发布门禁未满足而被拒绝的事件。',
+          examples: [true],
+        }),
+        hasUnexpectedException: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'PromptGovernanceFailureHasUnexpectedException',
+          description: '是否存在未归类为领域拒绝的运行时异常事件。',
+          examples: [false],
+        }),
+        latestFailureAction: withOpenApiSchemaDoc(z.string().nullable(), {
+          title: 'PromptGovernanceFailureLatestAction',
+          description: '最近一条失败事件的动作名；无失败记录时为 `null`。',
+          examples: ['activate_prompt_version_rejected'],
+        }),
+        latestFailureKind: withOpenApiSchemaDoc(promptGovernanceFailureKindSchema.nullable(), {
+          title: 'PromptGovernanceFailureLatestKind',
+          description: '最近一条失败事件的类型；无失败记录时为 `null`。',
+          examples: ['rejection'],
+        }),
+        latestFailureRequestId: withOpenApiSchemaDoc(z.string().nullable(), {
+          title: 'PromptGovernanceFailureLatestRequestId',
+          description: '最近一条失败事件关联的 requestId；无请求上下文时为 `null`。',
+          examples: ['req_prompt_rejection_01'],
+        }),
+        rejectionEventCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptGovernanceFailureRejectionEventCount',
+          description: '当前治理键下记录到的门禁拒绝或规则拒绝事件数量。',
+          examples: [2],
+        }),
+        totalFailureEventCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptGovernanceFailureTotalEventCount',
+          description: '当前治理键下记录到的全部失败治理事件数量。',
+          examples: [3],
+        }),
+      }),
+      {
+        title: 'PromptGovernanceFailureAuditSummary',
+        description: 'Prompt 治理失败审计摘要，供治理页快速展示拒绝与异常分布。',
+      },
+    ),
+  }),
+  {
+    title: 'PromptGovernanceFailureAudit',
+    description: 'Prompt 治理失败审计响应，返回某个治理键下的拒绝事件、异常事件与汇总信息。',
+    examples: [
+      {
+        auditTrail: [
+          {
+            action: 'activate_prompt_version_rejected',
+            createdAt: '2026-04-12T02:00:00.000Z',
+            detail:
+              'Prompt governance action activate_prompt_version was rejected for admin.copilot.answer.',
+            errorMessage: 'missing eval evidence',
+            failureKind: 'rejection',
+            id: '0bc91adf-c937-405b-a962-58b3a83db001',
+            module: 'ai_prompts',
+            operatorId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            originalAction: 'activate_prompt_version',
+            requestId: 'req_prompt_rejection_01',
+            requestInfo: {
+              failureCode: 'PromptReleaseGateError',
+              failureKind: 'rejection',
+              originalAction: 'activate_prompt_version',
+              promptKey: 'admin.copilot.answer',
+              promptVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+              requestId: 'req_prompt_rejection_01',
+            },
+            status: 'error',
+            targetId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          },
+        ],
+        promptKey: 'admin.copilot.answer',
+        summary: {
+          exceptionEventCount: 0,
+          hasReleaseGateRejection: true,
+          hasUnexpectedException: false,
+          latestFailureAction: 'activate_prompt_version_rejected',
+          latestFailureKind: 'rejection',
+          latestFailureRequestId: 'req_prompt_rejection_01',
+          rejectionEventCount: 1,
+          totalFailureEventCount: 1,
+        },
+      },
+    ],
+  },
+)
+
 // 工具发现 contract-first skeleton。
 export const toolGenKindSchema = withOpenApiSchemaDoc(z.enum(['agent', 'copilot', 'prompt']), {
   title: 'ToolGenKind',
@@ -4615,11 +4805,19 @@ export type AiEvalDetail = z.infer<typeof aiEvalDetailSchema>
 export type AiEvalRunDetail = z.infer<typeof aiEvalRunDetailSchema>
 export type AiEvalRunResult = z.infer<typeof aiEvalRunResultSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
+export type GetPromptGovernanceFailureAuditInput = z.infer<
+  typeof getPromptGovernanceFailureAuditInputSchema
+>
 export type GetPromptReleaseAuditInput = z.infer<typeof getPromptReleaseAuditInputSchema>
 export type GetPromptVersionByIdInput = z.infer<typeof getPromptVersionByIdInputSchema>
 export type GetPromptVersionCompareInput = z.infer<typeof getPromptVersionCompareInputSchema>
 export type GetPromptVersionHistoryInput = z.infer<typeof getPromptVersionHistoryInputSchema>
 export type GetPromptRollbackChainInput = z.infer<typeof getPromptRollbackChainInputSchema>
+export type PromptGovernanceFailureKind = z.infer<typeof promptGovernanceFailureKindSchema>
+export type PromptGovernanceFailureAuditLogItem = z.infer<
+  typeof promptGovernanceFailureAuditLogItemSchema
+>
+export type PromptGovernanceFailureAudit = z.infer<typeof promptGovernanceFailureAuditSchema>
 export type PromptReleaseAuditLogItem = z.infer<typeof promptReleaseAuditLogItemSchema>
 export type PromptReleaseAudit = z.infer<typeof promptReleaseAuditSchema>
 export type PromptVersionDetail = z.infer<typeof promptVersionDetailSchema>

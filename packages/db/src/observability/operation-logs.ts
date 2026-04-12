@@ -148,3 +148,33 @@ export async function listOperationLogsByModuleAndTargetId(
 
   return rows.map(mapOperationLogRow)
 }
+
+/**
+ * 按模块和 requestInfo 中的指定键值读取操作日志，供 key-scoped 治理审计合同复用。
+ */
+export async function listOperationLogsByModuleAndRequestInfoValue(
+  module: string,
+  requestInfoKey: string,
+  requestInfoValue: string,
+  options?: {
+    status?: OperationLogStatus
+  },
+  database: Database = db,
+): Promise<OperationLogRecord[]> {
+  const conditions = [
+    eq(operationLogs.module, module),
+    sql`${operationLogs.requestInfo}->>${requestInfoKey} = ${requestInfoValue}`,
+  ]
+
+  if (options?.status) {
+    conditions.push(eq(operationLogs.status, options.status))
+  }
+
+  const rows = await database
+    .select()
+    .from(operationLogs)
+    .where(and(...conditions))
+    .orderBy(desc(operationLogs.createdAt))
+
+  return rows.map(mapOperationLogRow)
+}

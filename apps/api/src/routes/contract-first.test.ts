@@ -14,6 +14,7 @@ import {
   userRoles,
   users,
   writeAiAuditLog,
+  writeOperationLog,
 } from '@ai-native-os/db'
 import type { MenuEntry } from '@ai-native-os/shared'
 import { and, eq, inArray } from 'drizzle-orm'
@@ -997,6 +998,34 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   )
   const promptReleaseAuditSchema = resolveOpenApiSchema(payload, promptsReleaseAuditJson.schema)
   assert.equal(promptReleaseAuditSchema.title, 'PromptReleaseAudit')
+
+  const promptsFailureAuditPath =
+    payload.paths['/api/v1/ai/prompts/failure-audit/:promptKey'] ??
+    payload.paths['/api/v1/ai/prompts/failure-audit/{promptKey}']
+  assert.ok(
+    promptsFailureAuditPath && isRecord(promptsFailureAuditPath),
+    'Expected /api/v1/ai/prompts/failure-audit/:promptKey path to exist',
+  )
+  const promptsFailureAuditGet = promptsFailureAuditPath.get
+  assert.ok(
+    promptsFailureAuditGet && isRecord(promptsFailureAuditGet),
+    'Expected GET operation for ai prompt failure audit',
+  )
+  assert.equal(promptsFailureAuditGet.summary, '读取 Prompt 治理失败审计')
+  const promptsFailureAuditResponses = promptsFailureAuditGet.responses
+  const promptsFailureAuditJson =
+    promptsFailureAuditResponses &&
+    isRecord(promptsFailureAuditResponses) &&
+    isRecord(promptsFailureAuditResponses['200']) &&
+    isRecord(promptsFailureAuditResponses['200'].content)
+      ? promptsFailureAuditResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    promptsFailureAuditJson && isRecord(promptsFailureAuditJson),
+    'Expected AI prompt failure audit JSON response schema',
+  )
+  const promptFailureAuditSchema = resolveOpenApiSchema(payload, promptsFailureAuditJson.schema)
+  assert.equal(promptFailureAuditSchema.title, 'PromptGovernanceFailureAudit')
 
   const promptsRollbackChainPath =
     payload.paths['/api/v1/ai/prompts/rollback-chain/:promptKey'] ??
@@ -3392,6 +3421,130 @@ test('prompt governance release-audit route exposes approval audit trail for a p
   assert.ok(
     releaseAuditPayload.json.auditTrail.some(
       (entry) => entry.requestInfo?.evalRunId === latestEvalRun.id,
+    ),
+  )
+})
+
+test('prompt governance failure-audit route exposes rejection and exception audit trail for a prompt key', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const promptKey = `admin.failure-audit.${randomUUID().slice(0, 8)}`
+
+  const createResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '失败审计目标版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请返回结构化结论。',
+      releasePolicy: {
+        minAverageScore: 0.95,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+
+  const activateResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: createPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const activatePayload = (await activateResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  await writeOperationLog({
+    action: 'activate_prompt_version_exception',
+    detail: `Prompt governance action activate_prompt_version threw an unexpected exception for ${promptKey}.`,
+    errorMessage: 'Synthetic governance exception for audit coverage',
+    fallbackActorKind: 'system',
+    module: 'ai_prompts',
+    requestInfo: {
+      failureCode: 'SyntheticPromptGovernanceException',
+      failureKind: 'exception',
+      originalAction: 'activate_prompt_version',
+      promptKey,
+      promptVersionId: createPayload.json.id,
+      requestId: `prompt-failure-audit-exception-${randomUUID()}`,
+    },
+    status: 'error',
+    targetId: createPayload.json.id,
+  })
+
+  const failureAuditResponse = await app.request(
+    `http://localhost/api/v1/ai/prompts/failure-audit/${promptKey}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const failureAuditPayload = (await failureAuditResponse.json()) as {
+    json: {
+      auditTrail: Array<{
+        action: string
+        errorMessage: string | null
+        failureKind: 'exception' | 'rejection'
+        originalAction: string
+        requestInfo: Record<string, string> | null
+      }>
+      promptKey: string
+      summary: {
+        exceptionEventCount: number
+        hasReleaseGateRejection: boolean
+        hasUnexpectedException: boolean
+        latestFailureAction: string | null
+        latestFailureKind: 'exception' | 'rejection' | null
+        latestFailureRequestId: string | null
+        rejectionEventCount: number
+        totalFailureEventCount: number
+      }
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(activateResponse.status, 400)
+  assert.equal(activatePayload.code, 'BAD_REQUEST')
+  assert.match(activatePayload.message, /missing eval evidence/i)
+  assert.equal(failureAuditResponse.status, 200)
+  assert.equal(failureAuditPayload.json.promptKey, promptKey)
+  assert.ok(failureAuditPayload.json.summary.totalFailureEventCount >= 2)
+  assert.ok(failureAuditPayload.json.summary.rejectionEventCount >= 1)
+  assert.ok(failureAuditPayload.json.summary.exceptionEventCount >= 1)
+  assert.equal(failureAuditPayload.json.summary.hasReleaseGateRejection, true)
+  assert.equal(failureAuditPayload.json.summary.hasUnexpectedException, true)
+  assert.ok(failureAuditPayload.json.summary.latestFailureAction)
+  assert.ok(failureAuditPayload.json.auditTrail.length >= 2)
+  assert.ok(
+    failureAuditPayload.json.auditTrail.some(
+      (entry) =>
+        entry.action === 'activate_prompt_version_rejected' &&
+        entry.failureKind === 'rejection' &&
+        entry.requestInfo?.failureCode === 'PromptReleaseGateError',
+    ),
+  )
+  assert.ok(
+    failureAuditPayload.json.auditTrail.some(
+      (entry) =>
+        entry.action === 'activate_prompt_version_exception' &&
+        entry.failureKind === 'exception' &&
+        entry.requestInfo?.failureCode === 'SyntheticPromptGovernanceException',
+    ),
+  )
+  assert.ok(
+    failureAuditPayload.json.auditTrail.every(
+      (entry) => entry.originalAction === 'activate_prompt_version',
     ),
   )
 })

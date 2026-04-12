@@ -6,6 +6,7 @@ import {
   getPromptRollbackChainByPromptKey,
   getPromptVersionById,
   getPromptVersionHistoryByPromptKey,
+  listOperationLogsByModuleAndRequestInfoValue,
   listOperationLogsByModuleAndTargetId,
   listPromptVersions,
   PromptActiveVersionNotFoundError,
@@ -24,16 +25,20 @@ import {
   attachPromptEvalEvidenceInputSchema,
   type CreatePromptVersionInput,
   createPromptVersionInputSchema,
+  type GetPromptGovernanceFailureAuditInput,
   type GetPromptReleaseAuditInput,
   type GetPromptRollbackChainInput,
   type GetPromptVersionByIdInput,
   type GetPromptVersionCompareInput,
   type GetPromptVersionHistoryInput,
+  getPromptGovernanceFailureAuditInputSchema,
   getPromptReleaseAuditInputSchema,
   getPromptRollbackChainInputSchema,
   getPromptVersionByIdInputSchema,
   getPromptVersionCompareInputSchema,
   getPromptVersionHistoryInputSchema,
+  type PromptGovernanceFailureAudit,
+  type PromptGovernanceFailureKind,
   type PromptReleaseAudit,
   type PromptRollbackChain,
   type PromptVersionCompare,
@@ -42,6 +47,7 @@ import {
   type PromptVersionHistory,
   type PromptVersionListInput,
   type PromptVersionListResponse,
+  promptGovernanceFailureAuditSchema,
   promptReleaseAuditSchema,
   promptRollbackChainSchema,
   promptVersionCompareSchema,
@@ -61,6 +67,20 @@ interface PromptMutationContext {
   actorAuthUserId: string
   actorRbacUserId: string | null
   requestId: string
+}
+
+type PromptGovernanceAction =
+  | 'activate_prompt_version'
+  | 'attach_prompt_eval_evidence'
+  | 'create_prompt_version'
+  | 'rollback_prompt_version'
+
+interface PromptGovernanceFailureLogInput {
+  action: PromptGovernanceAction
+  evalRunId?: string | null
+  promptKey?: string | null
+  promptVersionId?: string | null
+  targetVersionId?: string | null
 }
 
 const promptReadPermissions = [
@@ -88,6 +108,145 @@ function mapPromptGovernanceError(error: unknown): never {
   }
 
   throw error
+}
+
+/**
+ * 判断失败是否属于已知的治理拒绝，而不是未知运行时异常。
+ */
+function isPromptGovernanceRejectedError(error: unknown): boolean {
+  return (
+    error instanceof PromptVersionNotFoundError ||
+    error instanceof PromptEvalRunNotFoundError ||
+    error instanceof PromptReleaseGateError ||
+    error instanceof PromptRollbackTargetNotFoundError ||
+    error instanceof PromptActiveVersionNotFoundError ||
+    error instanceof PromptCompareMismatchError
+  )
+}
+
+/**
+ * 提取失败日志要使用的失败类型，确保拒绝和异常在审计面可区分。
+ */
+function resolvePromptGovernanceFailureKind(error: unknown): PromptGovernanceFailureKind {
+  return isPromptGovernanceRejectedError(error) ? 'rejection' : 'exception'
+}
+
+/**
+ * 将失败类型收敛到稳定的 action 命名，避免和成功路径的审计动作混淆。
+ */
+function buildPromptGovernanceFailureAction(
+  action: PromptGovernanceAction,
+  failureKind: PromptGovernanceFailureKind,
+): string {
+  return failureKind === 'rejection' ? `${action}_rejected` : `${action}_exception`
+}
+
+/**
+ * 提取稳定失败代码，供后续治理页和告警规则做聚合。
+ */
+function resolvePromptGovernanceFailureCode(error: unknown): string {
+  if (error instanceof Error && error.name.length > 0) {
+    return error.name
+  }
+
+  return 'UnknownPromptGovernanceError'
+}
+
+/**
+ * 在失败路径尽量补全 promptKey，保证 key-scoped 治理审计合同能够聚合完整失败链路。
+ */
+async function resolvePromptGovernanceFailurePromptKey(
+  input: PromptGovernanceFailureLogInput,
+): Promise<string | null> {
+  if (input.promptKey) {
+    return input.promptKey
+  }
+
+  const candidateVersionId = input.promptVersionId ?? input.targetVersionId ?? null
+
+  if (!candidateVersionId) {
+    return null
+  }
+
+  const promptVersion = await getPromptVersionById(candidateVersionId)
+
+  return promptVersion?.promptKey ?? null
+}
+
+/**
+ * 失败审计采用 best-effort 写入，避免日志故障反向打断治理主流程。
+ */
+async function writePromptGovernanceFailureLog(
+  input: PromptGovernanceFailureLogInput,
+  error: unknown,
+  context: PromptMutationContext,
+): Promise<void> {
+  const failureKind = resolvePromptGovernanceFailureKind(error)
+  const failureCode = resolvePromptGovernanceFailureCode(error)
+  const errorMessage = error instanceof Error ? error.message : 'Unknown prompt governance error'
+
+  try {
+    const promptKey = await resolvePromptGovernanceFailurePromptKey(input)
+
+    await writeOperationLog({
+      action: buildPromptGovernanceFailureAction(input.action, failureKind),
+      detail: `Prompt governance action ${input.action} was ${failureKind} for ${promptKey ?? 'unknown_prompt'}.`,
+      errorMessage,
+      fallbackActorKind: 'anonymous',
+      module: 'ai_prompts',
+      operatorId: context.actorRbacUserId,
+      requestInfo: {
+        evalRunId: input.evalRunId ?? null,
+        failureCode,
+        failureKind,
+        originalAction: input.action,
+        promptKey,
+        promptVersionId: input.promptVersionId ?? null,
+        requestId: context.requestId,
+        targetVersionId: input.targetVersionId ?? null,
+      },
+      status: 'error',
+      targetId: input.promptVersionId ?? input.targetVersionId ?? null,
+    })
+  } catch (operationLogError) {
+    const operationLogMessage =
+      operationLogError instanceof Error ? operationLogError.message : 'Unknown operation log error'
+    console.error(
+      `Failed to persist prompt governance failure operation log for ${input.action}: ${operationLogMessage}`,
+    )
+  }
+}
+
+/**
+ * 从失败审计条目中恢复原始动作，兼容旧日志没有 requestInfo.originalAction 的情况。
+ */
+function resolvePromptGovernanceOriginalAction(
+  action: string,
+  requestInfo: Record<string, string> | null,
+): string {
+  const requestInfoOriginalAction = requestInfo?.originalAction
+
+  if (requestInfoOriginalAction) {
+    return requestInfoOriginalAction
+  }
+
+  return action.replace(/_(rejected|exception)$/u, '')
+}
+
+/**
+ * 从 requestInfo 或 action 后缀中恢复失败类型，保证旧条目也能被正确聚合。
+ */
+function resolvePromptGovernanceFailureKindFromLogEntry(
+  action: string,
+  requestInfo: Record<string, string> | null,
+): PromptGovernanceFailureKind {
+  const requestInfoFailureKind = requestInfo?.failureKind
+
+  if (requestInfoFailureKind === 'exception' || requestInfoFailureKind === 'rejection') {
+    return requestInfoFailureKind
+  }
+
+  return action.endsWith('_exception') ? 'exception' : 'rejection'
 }
 
 /**
@@ -162,6 +321,69 @@ export async function getPromptReleaseAuditEntry(
 }
 
 /**
+ * 读取指定 Prompt 治理键的失败审计，聚合门禁拒绝与运行时异常，供治理页排查失败原因。
+ */
+export async function getPromptGovernanceFailureAuditEntry(
+  input: GetPromptGovernanceFailureAuditInput,
+): Promise<PromptGovernanceFailureAudit> {
+  const auditTrail = await listOperationLogsByModuleAndRequestInfoValue(
+    'ai_prompts',
+    'promptKey',
+    input.promptKey,
+    {
+      status: 'error',
+    },
+  )
+
+  const normalizedAuditTrail = auditTrail.map((entry) => {
+    const failureKind = resolvePromptGovernanceFailureKindFromLogEntry(
+      entry.action,
+      entry.requestInfo,
+    )
+
+    return {
+      action: entry.action,
+      createdAt: entry.createdAt.toISOString(),
+      detail: entry.detail,
+      errorMessage: entry.errorMessage,
+      failureKind,
+      id: entry.id,
+      module: entry.module,
+      operatorId: entry.operatorId,
+      originalAction: resolvePromptGovernanceOriginalAction(entry.action, entry.requestInfo),
+      requestId: entry.requestInfo?.requestId ?? null,
+      requestInfo: entry.requestInfo,
+      status: entry.status,
+      targetId: entry.targetId,
+    }
+  })
+  const latestFailureEntry = normalizedAuditTrail[0] ?? null
+  const rejectionEventCount = normalizedAuditTrail.filter(
+    (entry) => entry.failureKind === 'rejection',
+  ).length
+  const exceptionEventCount = normalizedAuditTrail.filter(
+    (entry) => entry.failureKind === 'exception',
+  ).length
+
+  return {
+    auditTrail: normalizedAuditTrail,
+    promptKey: input.promptKey,
+    summary: {
+      exceptionEventCount,
+      hasReleaseGateRejection: normalizedAuditTrail.some(
+        (entry) => entry.requestInfo?.failureCode === 'PromptReleaseGateError',
+      ),
+      hasUnexpectedException: exceptionEventCount > 0,
+      latestFailureAction: latestFailureEntry?.action ?? null,
+      latestFailureKind: latestFailureEntry?.failureKind ?? null,
+      latestFailureRequestId: latestFailureEntry?.requestInfo?.requestId ?? null,
+      rejectionEventCount,
+      totalFailureEventCount: normalizedAuditTrail.length,
+    },
+  }
+}
+
+/**
  * 读取单个 Prompt 版本详情，供治理页查看具体版本状态与门禁证据。
  */
 export async function getPromptVersionEntryById(
@@ -217,6 +439,14 @@ export async function createPromptVersionEntry(
 
     return promptVersionEntry
   } catch (error) {
+    await writePromptGovernanceFailureLog(
+      {
+        action: 'create_prompt_version',
+        promptKey: input.promptKey,
+      },
+      error,
+      context,
+    )
     mapPromptGovernanceError(error)
   }
 }
@@ -251,6 +481,15 @@ export async function attachPromptVersionEvalEvidence(
 
     return promptVersionEntry
   } catch (error) {
+    await writePromptGovernanceFailureLog(
+      {
+        action: 'attach_prompt_eval_evidence',
+        evalRunId: input.evalRunId,
+        promptVersionId: input.promptVersionId,
+      },
+      error,
+      context,
+    )
     mapPromptGovernanceError(error)
   }
 }
@@ -284,6 +523,14 @@ export async function activatePromptVersionEntry(
 
     return promptVersionEntry
   } catch (error) {
+    await writePromptGovernanceFailureLog(
+      {
+        action: 'activate_prompt_version',
+        promptVersionId: input.promptVersionId,
+      },
+      error,
+      context,
+    )
     mapPromptGovernanceError(error)
   }
 }
@@ -318,6 +565,15 @@ export async function rollbackPromptVersionEntry(
 
     return promptVersionEntry
   } catch (error) {
+    await writePromptGovernanceFailureLog(
+      {
+        action: 'rollback_prompt_version',
+        promptKey: input.promptKey,
+        targetVersionId: input.targetVersionId ?? null,
+      },
+      error,
+      context,
+    )
     mapPromptGovernanceError(error)
   }
 }
@@ -357,6 +613,18 @@ export const aiPromptsReleaseAuditProcedure = requireAnyPermission(promptReadPer
   .input(getPromptReleaseAuditInputSchema)
   .output(promptReleaseAuditSchema)
   .handler(async ({ input }) => getPromptReleaseAuditEntry(input))
+
+export const aiPromptsFailureAuditProcedure = requireAnyPermission(promptReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/prompts/failure-audit/:promptKey',
+    tags: ['AI:Prompts'],
+    summary: '读取 Prompt 治理失败审计',
+    description: '返回指定 Prompt 治理键下的拒绝事件、异常事件和失败审计汇总。',
+  })
+  .input(getPromptGovernanceFailureAuditInputSchema)
+  .output(promptGovernanceFailureAuditSchema)
+  .handler(async ({ input }) => getPromptGovernanceFailureAuditEntry(input))
 
 export const aiPromptsCompareProcedure = requireAnyPermission(promptReadPermissions)
   .route({

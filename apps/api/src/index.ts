@@ -37,6 +37,7 @@ import {
   getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
+  getPromptGovernanceFailureAuditInputSchema,
   getPromptReleaseAuditInputSchema,
   getPromptRollbackChainInputSchema,
   getPromptVersionByIdInputSchema,
@@ -63,6 +64,7 @@ import {
   operationLogListResponseSchema,
   permissionEntrySchema,
   permissionListResponseSchema,
+  promptGovernanceFailureAuditSchema,
   promptReleaseAuditSchema,
   promptRollbackChainSchema,
   promptVersionCompareSchema,
@@ -131,6 +133,7 @@ import {
   activatePromptVersionEntry,
   attachPromptVersionEvalEvidence,
   createPromptVersionEntry,
+  getPromptGovernanceFailureAuditEntry,
   getPromptReleaseAuditEntry,
   getPromptRollbackChainEntry,
   getPromptVersionCompareEntry,
@@ -1125,6 +1128,19 @@ app.get('/api/v1/ai/prompts/:id/release-audit', (c) =>
     getPromptReleaseAuditEntry,
     (requestContext) => ({
       id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.get('/api/v1/ai/prompts/failure-audit/:promptKey', (c) =>
+  handleContractFirstGet(
+    c,
+    getPromptGovernanceFailureAuditInputSchema,
+    promptGovernanceFailureAuditSchema,
+    contractFirstReadRequirements.aiPrompts,
+    getPromptGovernanceFailureAuditEntry,
+    (requestContext) => ({
+      promptKey: requestContext.req.param('promptKey'),
     }),
   ),
 )
