@@ -3389,6 +3389,21 @@ export const getPromptVersionByIdInputSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const getPromptReleaseAuditInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: promptVersionIdSchema,
+  }),
+  {
+    title: 'GetPromptReleaseAuditInput',
+    description: '读取单个 Prompt 版本发布审批审计所需的路径参数。',
+    examples: [
+      {
+        id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+      },
+    ],
+  },
+)
+
 export const getPromptVersionHistoryInputSchema = withOpenApiSchemaDoc(
   z.object({
     promptKey: withOpenApiSchemaDoc(promptKeySchema, {
@@ -4100,6 +4115,169 @@ export const promptRollbackChainSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const promptReleaseAuditLogItemSchema = withOpenApiSchemaDoc(
+  operationLogListItemSchema.extend({
+    requestInfo: withOpenApiSchemaDoc(z.record(z.string(), z.string()).nullable(), {
+      title: 'PromptReleaseAuditRequestInfo',
+      description: '与本次审批动作关联的审计上下文，如 evalRunId、promptVersionId、requestId。',
+      examples: [
+        {
+          evalRunId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+          promptVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          requestId: 'req_prompt_release_01',
+        },
+      ],
+    }),
+  }),
+  {
+    title: 'PromptReleaseAuditLogItem',
+    description: 'Prompt 发布审批审计条目，包含审批动作与完整 requestInfo 上下文。',
+    examples: [
+      {
+        action: 'attach_prompt_eval_evidence',
+        createdAt: '2026-04-11T04:40:00.000Z',
+        detail:
+          'Attached eval run 5b7d3be0-6f15-46ec-8ea6-3189d085f001 to prompt admin.copilot.answer version 3.',
+        errorMessage: null,
+        id: '9c29d02d-a283-42f6-a6b3-a61bd59b1001',
+        module: 'ai_prompts',
+        operatorId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+        requestId: 'req_prompt_release_01',
+        requestInfo: {
+          evalRunId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+          promptVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          requestId: 'req_prompt_release_01',
+        },
+        status: 'success',
+        targetId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+      },
+    ],
+  },
+)
+
+export const promptReleaseAuditSchema = withOpenApiSchemaDoc(
+  z.object({
+    auditTrail: withOpenApiSchemaDoc(z.array(promptReleaseAuditLogItemSchema), {
+      title: 'PromptReleaseAuditTrail',
+      description: '当前 Prompt 版本的审批审计轨迹，按时间倒序返回。',
+    }),
+    promptVersion: promptVersionDetailSchema,
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        approvalEventCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptReleaseAuditEventCount',
+          description: '当前版本记录到的审批审计事件总数。',
+          examples: [3],
+        }),
+        hasActivation: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'PromptReleaseAuditHasActivation',
+          description: '当前版本是否已经出现激活审计事件。',
+          examples: [true],
+        }),
+        hasEvalEvidenceAttachment: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'PromptReleaseAuditHasEvalEvidenceAttachment',
+          description: '当前版本是否已经出现评测证据绑定审计事件。',
+          examples: [true],
+        }),
+        hasRollbackTargeted: withOpenApiSchemaDoc(z.boolean(), {
+          title: 'PromptReleaseAuditHasRollbackTargeted',
+          description: '当前版本是否曾作为回滚目标被重新激活。',
+          examples: [false],
+        }),
+        latestAction: withOpenApiSchemaDoc(z.string().nullable(), {
+          title: 'PromptReleaseAuditLatestAction',
+          description: '最近一条审批审计动作；无审计记录时为 `null`。',
+          examples: ['activate_prompt_version'],
+        }),
+        latestRequestId: withOpenApiSchemaDoc(z.string().nullable(), {
+          title: 'PromptReleaseAuditLatestRequestId',
+          description: '最近一条审批审计关联的 requestId；无请求上下文时为 `null`。',
+          examples: ['req_prompt_release_02'],
+        }),
+      }),
+      {
+        title: 'PromptReleaseAuditSummary',
+        description: 'Prompt 发布审批审计摘要，供治理页快速展示关键审批状态。',
+      },
+    ),
+  }),
+  {
+    title: 'PromptReleaseAudit',
+    description: 'Prompt 发布审批审计响应，返回版本详情、审批摘要和完整审计轨迹。',
+    examples: [
+      {
+        auditTrail: [
+          {
+            action: 'activate_prompt_version',
+            createdAt: '2026-04-11T05:00:00.000Z',
+            detail: 'Activated prompt admin.copilot.answer version 3.',
+            errorMessage: null,
+            id: '9c29d02d-a283-42f6-a6b3-a61bd59b1002',
+            module: 'ai_prompts',
+            operatorId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            requestId: 'req_prompt_release_02',
+            requestInfo: {
+              promptVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+              requestId: 'req_prompt_release_02',
+            },
+            status: 'success',
+            targetId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          },
+        ],
+        promptVersion: {
+          activatedAt: '2026-04-11T05:00:00.000Z',
+          activatedByAuthUserId: 'auth_user_01',
+          activatedByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+          createdAt: '2026-04-11T04:20:00.000Z',
+          createdByAuthUserId: 'auth_user_01',
+          createdByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+          evalEvidence: {
+            completedAt: '2026-04-11T04:30:00.000Z',
+            evalKey: 'report-schedule',
+            evalRunId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+            experimentId: 'exp_report_schedule_20260411',
+            scoreAverage: 0.91,
+            scorerSummary: {
+              factuality: {
+                averageScore: 0.93,
+                maxScore: 1,
+                minScore: 0.85,
+                sampleCount: 12,
+              },
+            },
+            status: 'completed',
+          },
+          id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          isActive: true,
+          notes: '第二版提示词，新增风险摘要和更严格门禁。',
+          promptKey: 'admin.copilot.answer',
+          promptText: '你是后台管理 Copilot，请优先返回结构化结论。\\n输出前必须补充风险摘要。',
+          releasePolicy: {
+            minAverageScore: 0.92,
+            scorerThresholds: {
+              factuality: 0.95,
+            },
+          },
+          releaseReady: true,
+          releaseReason: null,
+          rolledBackFromVersionId: null,
+          status: 'active',
+          updatedAt: '2026-04-11T05:00:00.000Z',
+          version: 3,
+        },
+        summary: {
+          approvalEventCount: 3,
+          hasActivation: true,
+          hasEvalEvidenceAttachment: true,
+          hasRollbackTargeted: false,
+          latestAction: 'activate_prompt_version',
+          latestRequestId: 'req_prompt_release_02',
+        },
+      },
+    ],
+  },
+)
+
 // 工具发现 contract-first skeleton。
 export const toolGenKindSchema = withOpenApiSchemaDoc(z.enum(['agent', 'copilot', 'prompt']), {
   title: 'ToolGenKind',
@@ -4437,10 +4615,13 @@ export type AiEvalDetail = z.infer<typeof aiEvalDetailSchema>
 export type AiEvalRunDetail = z.infer<typeof aiEvalRunDetailSchema>
 export type AiEvalRunResult = z.infer<typeof aiEvalRunResultSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
+export type GetPromptReleaseAuditInput = z.infer<typeof getPromptReleaseAuditInputSchema>
 export type GetPromptVersionByIdInput = z.infer<typeof getPromptVersionByIdInputSchema>
 export type GetPromptVersionCompareInput = z.infer<typeof getPromptVersionCompareInputSchema>
 export type GetPromptVersionHistoryInput = z.infer<typeof getPromptVersionHistoryInputSchema>
 export type GetPromptRollbackChainInput = z.infer<typeof getPromptRollbackChainInputSchema>
+export type PromptReleaseAuditLogItem = z.infer<typeof promptReleaseAuditLogItemSchema>
+export type PromptReleaseAudit = z.infer<typeof promptReleaseAuditSchema>
 export type PromptVersionDetail = z.infer<typeof promptVersionDetailSchema>
 export type PromptTextDiff = z.infer<typeof promptTextDiffSchema>
 export type PromptVersionCompare = z.infer<typeof promptVersionCompareSchema>

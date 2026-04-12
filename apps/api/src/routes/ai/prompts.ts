@@ -6,6 +6,7 @@ import {
   getPromptRollbackChainByPromptKey,
   getPromptVersionById,
   getPromptVersionHistoryByPromptKey,
+  listOperationLogsByModuleAndTargetId,
   listPromptVersions,
   PromptActiveVersionNotFoundError,
   PromptCompareMismatchError,
@@ -23,14 +24,17 @@ import {
   attachPromptEvalEvidenceInputSchema,
   type CreatePromptVersionInput,
   createPromptVersionInputSchema,
+  type GetPromptReleaseAuditInput,
   type GetPromptRollbackChainInput,
   type GetPromptVersionByIdInput,
   type GetPromptVersionCompareInput,
   type GetPromptVersionHistoryInput,
+  getPromptReleaseAuditInputSchema,
   getPromptRollbackChainInputSchema,
   getPromptVersionByIdInputSchema,
   getPromptVersionCompareInputSchema,
   getPromptVersionHistoryInputSchema,
+  type PromptReleaseAudit,
   type PromptRollbackChain,
   type PromptVersionCompare,
   type PromptVersionDetail,
@@ -38,6 +42,7 @@ import {
   type PromptVersionHistory,
   type PromptVersionListInput,
   type PromptVersionListResponse,
+  promptReleaseAuditSchema,
   promptRollbackChainSchema,
   promptVersionCompareSchema,
   promptVersionDetailSchema,
@@ -114,6 +119,46 @@ export async function getPromptRollbackChainEntry(
   input: GetPromptRollbackChainInput,
 ): Promise<PromptRollbackChain> {
   return getPromptRollbackChainByPromptKey(input)
+}
+
+/**
+ * 读取指定 Prompt 版本的发布审批审计，供治理页查看证据绑定、激活与回滚命中轨迹。
+ */
+export async function getPromptReleaseAuditEntry(
+  input: GetPromptReleaseAuditInput,
+): Promise<PromptReleaseAudit> {
+  const promptVersion = await getPromptVersionEntryById({
+    id: input.id,
+  })
+  const auditTrail = await listOperationLogsByModuleAndTargetId('ai_prompts', input.id)
+  const latestAuditEntry = auditTrail[0] ?? null
+
+  return {
+    auditTrail: auditTrail.map((entry) => ({
+      action: entry.action,
+      createdAt: entry.createdAt.toISOString(),
+      detail: entry.detail,
+      errorMessage: entry.errorMessage,
+      id: entry.id,
+      module: entry.module,
+      operatorId: entry.operatorId,
+      requestId: entry.requestInfo?.requestId ?? null,
+      requestInfo: entry.requestInfo,
+      status: entry.status,
+      targetId: entry.targetId,
+    })),
+    promptVersion,
+    summary: {
+      approvalEventCount: auditTrail.length,
+      hasActivation: auditTrail.some((entry) => entry.action === 'activate_prompt_version'),
+      hasEvalEvidenceAttachment: auditTrail.some(
+        (entry) => entry.action === 'attach_prompt_eval_evidence',
+      ),
+      hasRollbackTargeted: auditTrail.some((entry) => entry.action === 'rollback_prompt_version'),
+      latestAction: latestAuditEntry?.action ?? null,
+      latestRequestId: latestAuditEntry?.requestInfo?.requestId ?? null,
+    },
+  }
 }
 
 /**
@@ -300,6 +345,18 @@ export const aiPromptsGetByIdProcedure = requireAnyPermission(promptReadPermissi
   .input(getPromptVersionByIdInputSchema)
   .output(promptVersionDetailSchema)
   .handler(async ({ input }) => getPromptVersionEntryById(input))
+
+export const aiPromptsReleaseAuditProcedure = requireAnyPermission(promptReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/prompts/:id/release-audit',
+    tags: ['AI:Prompts'],
+    summary: '读取 Prompt 发布审批审计',
+    description: '返回指定 Prompt 版本的审批摘要、版本详情和完整审批审计轨迹。',
+  })
+  .input(getPromptReleaseAuditInputSchema)
+  .output(promptReleaseAuditSchema)
+  .handler(async ({ input }) => getPromptReleaseAuditEntry(input))
 
 export const aiPromptsCompareProcedure = requireAnyPermission(promptReadPermissions)
   .route({

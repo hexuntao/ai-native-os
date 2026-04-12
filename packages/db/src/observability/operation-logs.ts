@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 
 import { type Database, db } from '../client'
 import { operationLogs } from '../schema'
@@ -127,6 +127,23 @@ export async function listOperationLogsByModule(
     .select()
     .from(operationLogs)
     .where(eq(operationLogs.module, module))
+    .orderBy(desc(operationLogs.createdAt))
+
+  return rows.map(mapOperationLogRow)
+}
+
+/**
+ * 按模块与目标资源主键读取最近的操作日志，供资源级治理审计合同复用。
+ */
+export async function listOperationLogsByModuleAndTargetId(
+  module: string,
+  targetId: string,
+  database: Database = db,
+): Promise<OperationLogRecord[]> {
+  const rows = await database
+    .select()
+    .from(operationLogs)
+    .where(and(eq(operationLogs.module, module), eq(operationLogs.targetId, targetId)))
     .orderBy(desc(operationLogs.createdAt))
 
   return rows.map(mapOperationLogRow)

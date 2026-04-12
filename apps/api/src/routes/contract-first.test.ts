@@ -970,6 +970,34 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   const promptHistorySchema = resolveOpenApiSchema(payload, promptsHistoryJson.schema)
   assert.equal(promptHistorySchema.title, 'PromptVersionHistory')
 
+  const promptsReleaseAuditPath =
+    payload.paths['/api/v1/ai/prompts/:id/release-audit'] ??
+    payload.paths['/api/v1/ai/prompts/{id}/release-audit']
+  assert.ok(
+    promptsReleaseAuditPath && isRecord(promptsReleaseAuditPath),
+    'Expected /api/v1/ai/prompts/:id/release-audit path to exist',
+  )
+  const promptsReleaseAuditGet = promptsReleaseAuditPath.get
+  assert.ok(
+    promptsReleaseAuditGet && isRecord(promptsReleaseAuditGet),
+    'Expected GET operation for ai prompt release audit',
+  )
+  assert.equal(promptsReleaseAuditGet.summary, '读取 Prompt 发布审批审计')
+  const promptsReleaseAuditResponses = promptsReleaseAuditGet.responses
+  const promptsReleaseAuditJson =
+    promptsReleaseAuditResponses &&
+    isRecord(promptsReleaseAuditResponses) &&
+    isRecord(promptsReleaseAuditResponses['200']) &&
+    isRecord(promptsReleaseAuditResponses['200'].content)
+      ? promptsReleaseAuditResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    promptsReleaseAuditJson && isRecord(promptsReleaseAuditJson),
+    'Expected AI prompt release audit JSON response schema',
+  )
+  const promptReleaseAuditSchema = resolveOpenApiSchema(payload, promptsReleaseAuditJson.schema)
+  assert.equal(promptReleaseAuditSchema.title, 'PromptReleaseAudit')
+
   const promptsRollbackChainPath =
     payload.paths['/api/v1/ai/prompts/rollback-chain/:promptKey'] ??
     payload.paths['/api/v1/ai/prompts/rollback-chain/{promptKey}']
@@ -3235,6 +3263,137 @@ test('prompt governance history route exposes ordered release timeline and activ
   assert.equal(historyPayload.json.versions[0]?.releaseReady, true)
   assert.equal(historyPayload.json.versions[1]?.id, baselinePayload.json.id)
   assert.equal(historyPayload.json.versions[1]?.version, baselinePayload.json.version)
+})
+
+test('prompt governance release-audit route exposes approval audit trail for a prompt version', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const promptKey = `admin.release-audit.${randomUUID().slice(0, 8)}`
+
+  const createResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '发布审批审计目标版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请输出结构化结论，并附带审批摘要。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+
+  await runMastraEvalSuite({
+    actorAuthUserId: 'system:prompt-release-audit-test',
+    actorRbacUserId: null,
+    evalId: 'report-schedule',
+    requestId: `prompt-release-audit-${randomUUID()}`,
+    triggerSource: 'test',
+  })
+  const latestEvalRuns = await listAiEvalRunsByEvalKey('report-schedule')
+  const latestEvalRun = latestEvalRuns[0]
+
+  assert.ok(latestEvalRun, 'Expected a persisted eval run for prompt release audit route')
+
+  const attachResponse = await app.request('http://localhost/api/v1/ai/prompts/attach-evidence', {
+    body: JSON.stringify({
+      evalRunId: latestEvalRun.id,
+      promptVersionId: createPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const activateResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: createPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const releaseAuditResponse = await app.request(
+    `http://localhost/api/v1/ai/prompts/${createPayload.json.id}/release-audit`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const releaseAuditPayload = (await releaseAuditResponse.json()) as {
+    json: {
+      auditTrail: Array<{
+        action: string
+        requestInfo: Record<string, string> | null
+        targetId: string | null
+      }>
+      promptVersion: {
+        id: string
+        isActive: boolean
+        releaseReady: boolean
+        status: string
+      }
+      summary: {
+        approvalEventCount: number
+        hasActivation: boolean
+        hasEvalEvidenceAttachment: boolean
+        hasRollbackTargeted: boolean
+        latestAction: string | null
+        latestRequestId: string | null
+      }
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(attachResponse.status, 200)
+  assert.equal(activateResponse.status, 200)
+  assert.equal(releaseAuditResponse.status, 200)
+  assert.equal(releaseAuditPayload.json.promptVersion.id, createPayload.json.id)
+  assert.equal(releaseAuditPayload.json.promptVersion.isActive, true)
+  assert.equal(releaseAuditPayload.json.promptVersion.status, 'active')
+  assert.equal(releaseAuditPayload.json.promptVersion.releaseReady, true)
+  assert.ok(releaseAuditPayload.json.summary.approvalEventCount >= 3)
+  assert.equal(releaseAuditPayload.json.summary.hasActivation, true)
+  assert.equal(releaseAuditPayload.json.summary.hasEvalEvidenceAttachment, true)
+  assert.equal(releaseAuditPayload.json.summary.hasRollbackTargeted, false)
+  assert.ok(releaseAuditPayload.json.summary.latestAction)
+  assert.ok(releaseAuditPayload.json.auditTrail.length >= 3)
+  assert.ok(
+    releaseAuditPayload.json.auditTrail.some((entry) => entry.action === 'create_prompt_version'),
+  )
+  assert.ok(
+    releaseAuditPayload.json.auditTrail.some(
+      (entry) => entry.action === 'attach_prompt_eval_evidence',
+    ),
+  )
+  assert.ok(
+    releaseAuditPayload.json.auditTrail.some((entry) => entry.action === 'activate_prompt_version'),
+  )
+  assert.ok(
+    releaseAuditPayload.json.auditTrail.every((entry) => entry.targetId === createPayload.json.id),
+  )
+  assert.ok(
+    releaseAuditPayload.json.auditTrail.some(
+      (entry) => entry.requestInfo?.promptVersionId === createPayload.json.id,
+    ),
+  )
+  assert.ok(
+    releaseAuditPayload.json.auditTrail.some(
+      (entry) => entry.requestInfo?.evalRunId === latestEvalRun.id,
+    ),
+  )
 })
 
 test('prompt governance rollback-chain route exposes rollback source and target lineage', async () => {
