@@ -942,6 +942,34 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   const promptCompareSchema = resolveOpenApiSchema(payload, promptsCompareJson.schema)
   assert.equal(promptCompareSchema.title, 'PromptVersionCompare')
 
+  const promptsHistoryPath =
+    payload.paths['/api/v1/ai/prompts/history/:promptKey'] ??
+    payload.paths['/api/v1/ai/prompts/history/{promptKey}']
+  assert.ok(
+    promptsHistoryPath && isRecord(promptsHistoryPath),
+    'Expected /api/v1/ai/prompts/history/:promptKey path to exist',
+  )
+  const promptsHistoryGet = promptsHistoryPath.get
+  assert.ok(
+    promptsHistoryGet && isRecord(promptsHistoryGet),
+    'Expected GET operation for ai prompt history',
+  )
+  assert.equal(promptsHistoryGet.summary, '读取 Prompt 发布历史')
+  const promptsHistoryResponses = promptsHistoryGet.responses
+  const promptsHistoryJson =
+    promptsHistoryResponses &&
+    isRecord(promptsHistoryResponses) &&
+    isRecord(promptsHistoryResponses['200']) &&
+    isRecord(promptsHistoryResponses['200'].content)
+      ? promptsHistoryResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    promptsHistoryJson && isRecord(promptsHistoryJson),
+    'Expected AI prompt history JSON response schema',
+  )
+  const promptHistorySchema = resolveOpenApiSchema(payload, promptsHistoryJson.schema)
+  assert.equal(promptHistorySchema.title, 'PromptVersionHistory')
+
   const auditPath = payload.paths['/api/v1/ai/audit']
   assert.ok(auditPath && isRecord(auditPath), 'Expected /api/v1/ai/audit path to exist')
 
@@ -3047,6 +3075,138 @@ test('prompt governance compare route exposes text and release-policy diffs', as
   assert.equal(comparePayload.json.diff.status.changed, false)
   assert.equal(comparePayload.json.diff.status.previousStatus, 'draft')
   assert.equal(comparePayload.json.diff.status.currentStatus, 'draft')
+})
+
+test('prompt governance history route exposes ordered release timeline and active version summary', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const promptKey = `admin.history.${randomUUID().slice(0, 8)}`
+
+  const baselineResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '历史基线版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请输出结构化结论。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const baselinePayload = (await baselineResponse.json()) as {
+    json: {
+      id: string
+      version: number
+    }
+  }
+
+  const targetResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '历史目标版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请输出结构化结论，并补充风险摘要。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const targetPayload = (await targetResponse.json()) as {
+    json: {
+      id: string
+      version: number
+    }
+  }
+
+  await runMastraEvalSuite({
+    actorAuthUserId: 'system:prompt-history-test',
+    actorRbacUserId: null,
+    evalId: 'report-schedule',
+    requestId: `prompt-history-${randomUUID()}`,
+    triggerSource: 'test',
+  })
+  const latestEvalRuns = await listAiEvalRunsByEvalKey('report-schedule')
+  const latestEvalRun = latestEvalRuns[0]
+
+  assert.ok(latestEvalRun, 'Expected a persisted eval run for prompt history route')
+
+  const attachResponse = await app.request('http://localhost/api/v1/ai/prompts/attach-evidence', {
+    body: JSON.stringify({
+      evalRunId: latestEvalRun.id,
+      promptVersionId: targetPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const activateResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: targetPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const historyResponse = await app.request(
+    `http://localhost/api/v1/ai/prompts/history/${promptKey}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const historyPayload = (await historyResponse.json()) as {
+    json: {
+      promptKey: string
+      summary: {
+        activeVersionId: string | null
+        latestVersionId: string | null
+        latestVersionNumber: number | null
+        releaseReadyCount: number
+        totalVersions: number
+      }
+      versions: Array<{
+        id: string
+        isActive: boolean
+        releaseReady: boolean
+        status: string
+        version: number
+      }>
+    }
+  }
+
+  assert.equal(baselineResponse.status, 200)
+  assert.equal(targetResponse.status, 200)
+  assert.equal(attachResponse.status, 200)
+  assert.equal(activateResponse.status, 200)
+  assert.equal(historyResponse.status, 200)
+  assert.equal(historyPayload.json.promptKey, promptKey)
+  assert.equal(historyPayload.json.summary.totalVersions, 2)
+  assert.equal(historyPayload.json.summary.activeVersionId, targetPayload.json.id)
+  assert.equal(historyPayload.json.summary.latestVersionId, targetPayload.json.id)
+  assert.equal(historyPayload.json.summary.latestVersionNumber, targetPayload.json.version)
+  assert.ok(historyPayload.json.summary.releaseReadyCount >= 1)
+  assert.equal(historyPayload.json.versions.length, 2)
+  assert.equal(historyPayload.json.versions[0]?.id, targetPayload.json.id)
+  assert.equal(historyPayload.json.versions[0]?.version, targetPayload.json.version)
+  assert.equal(historyPayload.json.versions[0]?.isActive, true)
+  assert.equal(historyPayload.json.versions[0]?.status, 'active')
+  assert.equal(historyPayload.json.versions[0]?.releaseReady, true)
+  assert.equal(historyPayload.json.versions[1]?.id, baselinePayload.json.id)
+  assert.equal(historyPayload.json.versions[1]?.version, baselinePayload.json.version)
 })
 
 test('super admin can read the contract-first permission list route', async () => {

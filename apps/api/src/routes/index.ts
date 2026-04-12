@@ -23,6 +23,7 @@ import {
   aiPromptsCompareProcedure,
   aiPromptsCreateProcedure,
   aiPromptsGetByIdProcedure,
+  aiPromptsHistoryProcedure,
   aiPromptsListProcedure,
   aiPromptsRollbackProcedure,
 } from './ai/prompts'
@@ -98,6 +99,7 @@ export const appRouter = {
       compare: aiPromptsCompareProcedure,
       create: aiPromptsCreateProcedure,
       getById: aiPromptsGetByIdProcedure,
+      history: aiPromptsHistoryProcedure,
       list: aiPromptsListProcedure,
       rollback: aiPromptsRollbackProcedure,
     },

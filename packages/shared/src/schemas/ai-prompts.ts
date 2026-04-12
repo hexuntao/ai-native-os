@@ -4,7 +4,7 @@ import { aiEvalRunStatusSchema, aiEvalScorerSummarySchema } from './ai-evals'
 import { paginatedResponseSchema } from './common'
 import { withOpenApiSchemaDoc } from './openapi-doc'
 
-const promptKeySchema = withOpenApiSchemaDoc(
+export const promptKeySchema = withOpenApiSchemaDoc(
   z
     .string()
     .trim()

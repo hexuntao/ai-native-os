@@ -15,6 +15,7 @@ import {
 import { aiKnowledgeMetadataSchema } from './ai-knowledge'
 import {
   promptEvalEvidenceSchema,
+  promptKeySchema,
   promptReleasePolicySchema,
   promptVersionEntrySchema,
   promptVersionStatusSchema,
@@ -3388,6 +3389,25 @@ export const getPromptVersionByIdInputSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const getPromptVersionHistoryInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    promptKey: withOpenApiSchemaDoc(promptKeySchema, {
+      title: 'PromptVersionHistoryPromptKey',
+      description: '需要读取发布历史的 Prompt 治理键。',
+      examples: ['admin.copilot.answer'],
+    }),
+  }),
+  {
+    title: 'GetPromptVersionHistoryInput',
+    description: '读取某个 Prompt 治理键发布历史所需的路径参数。',
+    examples: [
+      {
+        promptKey: 'admin.copilot.answer',
+      },
+    ],
+  },
+)
+
 export const getPromptVersionCompareInputSchema = withOpenApiSchemaDoc(
   z.object({
     baselineId: promptVersionBaselineIdSchema,
@@ -3821,6 +3841,112 @@ export const promptVersionCompareSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const promptVersionHistorySchema = withOpenApiSchemaDoc(
+  z.object({
+    promptKey: withOpenApiSchemaDoc(promptKeySchema, {
+      title: 'PromptHistoryPromptKey',
+      description: '本次发布历史查询对应的 Prompt 治理键。',
+      examples: ['admin.copilot.answer'],
+    }),
+    summary: withOpenApiSchemaDoc(
+      z.object({
+        activeVersionId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+          title: 'PromptHistoryActiveVersionId',
+          description: '当前激活版本 UUID；若没有激活版本则为 `null`。',
+          examples: ['b87ecb02-478d-40ff-b2d8-3f62fd9f9001'],
+        }),
+        latestVersionId: withOpenApiSchemaDoc(z.string().uuid().nullable(), {
+          title: 'PromptHistoryLatestVersionId',
+          description: '当前最新版本 UUID；无历史记录时为 `null`。',
+          examples: ['b87ecb02-478d-40ff-b2d8-3f62fd9f9001'],
+        }),
+        latestVersionNumber: withOpenApiSchemaDoc(z.number().int().min(1).nullable(), {
+          title: 'PromptHistoryLatestVersionNumber',
+          description: '当前最新版本号；无历史记录时为 `null`。',
+          examples: [3],
+        }),
+        releaseReadyCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptHistoryReleaseReadyCount',
+          description: '历史版本中已经满足发布门禁的版本数量。',
+          examples: [2],
+        }),
+        totalVersions: withOpenApiSchemaDoc(z.number().int().min(0), {
+          title: 'PromptHistoryTotalVersions',
+          description: '当前 Prompt 治理键下的历史版本总数。',
+          examples: [3],
+        }),
+      }),
+      {
+        title: 'PromptVersionHistorySummary',
+        description: 'Prompt 发布历史摘要，供治理页面展示当前激活版本与版本规模。',
+      },
+    ),
+    versions: withOpenApiSchemaDoc(z.array(promptVersionEntrySchema), {
+      title: 'PromptVersionHistoryVersions',
+      description: '指定 Prompt 治理键的全部历史版本，按版本号倒序返回。',
+    }),
+  }),
+  {
+    title: 'PromptVersionHistory',
+    description: 'Prompt 发布历史响应，返回某个治理键下的完整版本时间线与摘要。',
+    examples: [
+      {
+        promptKey: 'admin.copilot.answer',
+        summary: {
+          activeVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          latestVersionId: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+          latestVersionNumber: 3,
+          releaseReadyCount: 2,
+          totalVersions: 3,
+        },
+        versions: [
+          {
+            activatedAt: '2026-04-11T05:00:00.000Z',
+            activatedByAuthUserId: 'auth_user_01',
+            activatedByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            createdAt: '2026-04-11T04:20:00.000Z',
+            createdByAuthUserId: 'auth_user_01',
+            createdByRbacUserId: '8c8d0f66-c9db-4c4e-9d82-f1c70d6ef001',
+            evalEvidence: {
+              completedAt: '2026-04-11T04:30:00.000Z',
+              evalKey: 'report-schedule',
+              evalRunId: '5b7d3be0-6f15-46ec-8ea6-3189d085f001',
+              experimentId: 'exp_report_schedule_20260411',
+              scoreAverage: 0.91,
+              scorerSummary: {
+                factuality: {
+                  averageScore: 0.93,
+                  maxScore: 1,
+                  minScore: 0.85,
+                  sampleCount: 12,
+                },
+              },
+              status: 'completed',
+            },
+            id: 'b87ecb02-478d-40ff-b2d8-3f62fd9f9001',
+            isActive: true,
+            notes: '第二版提示词，新增风险摘要和更严格门禁。',
+            promptKey: 'admin.copilot.answer',
+            promptText: '你是后台管理 Copilot，请优先返回结构化结论。\n输出前必须补充风险摘要。',
+            releasePolicy: {
+              minAverageScore: 0.92,
+              scorerThresholds: {
+                factuality: 0.95,
+              },
+            },
+            releaseReady: true,
+            releaseReason: null,
+            rolledBackFromVersionId: null,
+            status: 'active',
+            updatedAt: '2026-04-11T05:00:00.000Z',
+            version: 3,
+          },
+        ],
+      },
+    ],
+  },
+)
+
 // 工具发现 contract-first skeleton。
 export const toolGenKindSchema = withOpenApiSchemaDoc(z.enum(['agent', 'copilot', 'prompt']), {
   title: 'ToolGenKind',
@@ -4160,9 +4286,11 @@ export type AiEvalRunResult = z.infer<typeof aiEvalRunResultSchema>
 export type AiEvalListResponse = z.infer<typeof aiEvalListResponseSchema>
 export type GetPromptVersionByIdInput = z.infer<typeof getPromptVersionByIdInputSchema>
 export type GetPromptVersionCompareInput = z.infer<typeof getPromptVersionCompareInputSchema>
+export type GetPromptVersionHistoryInput = z.infer<typeof getPromptVersionHistoryInputSchema>
 export type PromptVersionDetail = z.infer<typeof promptVersionDetailSchema>
 export type PromptTextDiff = z.infer<typeof promptTextDiffSchema>
 export type PromptVersionCompare = z.infer<typeof promptVersionCompareSchema>
+export type PromptVersionHistory = z.infer<typeof promptVersionHistorySchema>
 export type ListToolGenInput = z.infer<typeof listToolGenInputSchema>
 export type ToolGenListResponse = z.infer<typeof toolGenListResponseSchema>
 export type ListToolJobsInput = z.infer<typeof listToolJobsInputSchema>

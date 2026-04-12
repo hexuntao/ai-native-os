@@ -3,11 +3,13 @@ import type {
   AttachPromptEvalEvidenceInput,
   CreatePromptVersionInput,
   GetPromptVersionCompareInput,
+  GetPromptVersionHistoryInput,
   PromptEvalEvidence,
   PromptReleasePolicy,
   PromptTextDiff,
   PromptVersionCompare,
   PromptVersionEntry,
+  PromptVersionHistory,
   PromptVersionListInput,
   PromptVersionListResponse,
   PromptVersionStatus,
@@ -368,6 +370,36 @@ export async function comparePromptVersionsById(
   }
 
   return buildPromptVersionCompare(target, baseline)
+}
+
+/**
+ * 按 promptKey 读取完整发布历史，供治理页面查看激活、回滚和版本时间线。
+ */
+export async function getPromptVersionHistoryByPromptKey(
+  input: GetPromptVersionHistoryInput,
+  database: Database = db,
+): Promise<PromptVersionHistory> {
+  const rows = await database
+    .select()
+    .from(aiPromptVersions)
+    .where(eq(aiPromptVersions.promptKey, input.promptKey))
+    .orderBy(desc(aiPromptVersions.version), desc(aiPromptVersions.createdAt))
+
+  const versions = rows.map(mapPromptVersionRow)
+  const activeVersion = versions.find((entry) => entry.isActive) ?? null
+  const latestVersion = versions[0] ?? null
+
+  return {
+    promptKey: input.promptKey,
+    summary: {
+      activeVersionId: activeVersion?.id ?? null,
+      latestVersionId: latestVersion?.id ?? null,
+      latestVersionNumber: latestVersion?.version ?? null,
+      releaseReadyCount: versions.filter((entry) => entry.releaseReady).length,
+      totalVersions: versions.length,
+    },
+    versions,
+  }
 }
 
 /**

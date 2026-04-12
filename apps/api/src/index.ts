@@ -39,6 +39,7 @@ import {
   getPermissionByIdInputSchema,
   getPromptVersionByIdInputSchema,
   getPromptVersionCompareInputSchema,
+  getPromptVersionHistoryInputSchema,
   getRoleByIdInputSchema,
   getUserByIdInputSchema,
   healthResponseSchema,
@@ -63,6 +64,7 @@ import {
   promptVersionCompareSchema,
   promptVersionDetailSchema,
   promptVersionEntrySchema,
+  promptVersionHistorySchema,
   promptVersionListInputSchema,
   promptVersionListResponseSchema,
   roleEntrySchema,
@@ -127,6 +129,7 @@ import {
   createPromptVersionEntry,
   getPromptVersionCompareEntry,
   getPromptVersionEntryById,
+  getPromptVersionHistoryEntry,
   listPromptVersionEntries,
   rollbackPromptVersionEntry,
 } from '@/routes/ai/prompts'
@@ -1117,6 +1120,19 @@ app.get('/api/v1/ai/prompts/:id/compare/:baselineId', (c) =>
     (requestContext) => ({
       baselineId: requestContext.req.param('baselineId'),
       id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.get('/api/v1/ai/prompts/history/:promptKey', (c) =>
+  handleContractFirstGet(
+    c,
+    getPromptVersionHistoryInputSchema,
+    promptVersionHistorySchema,
+    contractFirstReadRequirements.aiPrompts,
+    getPromptVersionHistoryEntry,
+    (requestContext) => ({
+      promptKey: requestContext.req.param('promptKey'),
     }),
   ),
 )

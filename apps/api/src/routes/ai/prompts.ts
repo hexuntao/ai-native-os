@@ -4,6 +4,7 @@ import {
   comparePromptVersionsById,
   createPromptVersion,
   getPromptVersionById,
+  getPromptVersionHistoryByPromptKey,
   listPromptVersions,
   PromptActiveVersionNotFoundError,
   PromptCompareMismatchError,
@@ -23,16 +24,20 @@ import {
   createPromptVersionInputSchema,
   type GetPromptVersionByIdInput,
   type GetPromptVersionCompareInput,
+  type GetPromptVersionHistoryInput,
   getPromptVersionByIdInputSchema,
   getPromptVersionCompareInputSchema,
+  getPromptVersionHistoryInputSchema,
   type PromptVersionCompare,
   type PromptVersionDetail,
   type PromptVersionEntry,
+  type PromptVersionHistory,
   type PromptVersionListInput,
   type PromptVersionListResponse,
   promptVersionCompareSchema,
   promptVersionDetailSchema,
   promptVersionEntrySchema,
+  promptVersionHistorySchema,
   promptVersionListInputSchema,
   promptVersionListResponseSchema,
   type RollbackPromptVersionInput,
@@ -86,6 +91,15 @@ export async function getPromptVersionCompareEntry(
   } catch (error) {
     mapPromptGovernanceError(error)
   }
+}
+
+/**
+ * 读取指定 Prompt 治理键的完整发布历史，供版本时间线与回滚审阅使用。
+ */
+export async function getPromptVersionHistoryEntry(
+  input: GetPromptVersionHistoryInput,
+): Promise<PromptVersionHistory> {
+  return getPromptVersionHistoryByPromptKey(input)
 }
 
 /**
@@ -284,6 +298,18 @@ export const aiPromptsCompareProcedure = requireAnyPermission(promptReadPermissi
   .input(getPromptVersionCompareInputSchema)
   .output(promptVersionCompareSchema)
   .handler(async ({ input }) => getPromptVersionCompareEntry(input))
+
+export const aiPromptsHistoryProcedure = requireAnyPermission(promptReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/ai/prompts/history/:promptKey',
+    tags: ['AI:Prompts'],
+    summary: '读取 Prompt 发布历史',
+    description: '返回指定 Prompt 治理键的完整版本时间线、当前激活版本和发布就绪统计。',
+  })
+  .input(getPromptVersionHistoryInputSchema)
+  .output(promptVersionHistorySchema)
+  .handler(async ({ input }) => getPromptVersionHistoryEntry(input))
 
 export const aiPromptsCreateProcedure = requireAnyPermission(promptWritePermissions)
   .route({
