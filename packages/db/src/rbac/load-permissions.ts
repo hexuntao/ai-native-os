@@ -5,12 +5,13 @@ import {
   appSubjects,
   type PermissionRule,
 } from '@ai-native-os/shared'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 
 import { type Database, db } from '../client'
 import { permissions, rolePermissions, roles, userRoles, users } from '../schema'
 
 interface ActiveUserRecord {
+  authUserId: string | null
   id: string
 }
 
@@ -101,6 +102,7 @@ async function loadActiveUserById(
 ): Promise<ActiveUserRecord | null> {
   const [user] = await database
     .select({
+      authUserId: users.authUserId,
       id: users.id,
     })
     .from(users)
@@ -116,6 +118,7 @@ async function loadActiveUserByEmail(
 ): Promise<ActiveUserRecord | null> {
   const [user] = await database
     .select({
+      authUserId: users.authUserId,
       id: users.id,
     })
     .from(users)
@@ -123,6 +126,60 @@ async function loadActiveUserByEmail(
     .limit(1)
 
   return user ?? null
+}
+
+async function loadUserByAuthUserId(
+  database: Database,
+  authUserId: string,
+): Promise<ActiveUserRecord | null> {
+  const [user] = await database
+    .select({
+      authUserId: users.authUserId,
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.authUserId, authUserId))
+    .limit(1)
+
+  return user ?? null
+}
+
+/**
+ * 对历史 email 软关联记录做一次性主键回填，避免后续继续以邮箱作为主连接键。
+ */
+async function bindActiveUserToAuthUserIdByEmail(
+  database: Database,
+  authUserId: string,
+  email: string,
+): Promise<ActiveUserRecord | null> {
+  const existingBoundUser = await loadUserByAuthUserId(database, authUserId)
+
+  if (existingBoundUser) {
+    return existingBoundUser
+  }
+
+  const userByEmail = await loadActiveUserByEmail(database, email)
+
+  if (!userByEmail) {
+    return null
+  }
+
+  if (userByEmail.authUserId && userByEmail.authUserId !== authUserId) {
+    return null
+  }
+
+  await database
+    .update(users)
+    .set({
+      authUserId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, userByEmail.id), isNull(users.authUserId)))
+
+  return {
+    authUserId,
+    id: userByEmail.id,
+  }
 }
 
 async function loadRoleCodesForUser(database: Database, userId: string): Promise<string[]> {
@@ -183,11 +240,41 @@ export async function loadUserPermissionProfileByUserId(
   return loadPermissionProfileForUser(database, await loadActiveUserById(database, userId))
 }
 
+export async function loadUserPermissionProfileByAuthUserId(
+  authUserId: string,
+  database: Database = db,
+): Promise<UserPermissionProfile | null> {
+  return loadPermissionProfileForUser(database, await loadUserByAuthUserId(database, authUserId))
+}
+
 export async function loadUserPermissionProfileByEmail(
   email: string,
   database: Database = db,
 ): Promise<UserPermissionProfile | null> {
   return loadPermissionProfileForUser(database, await loadActiveUserByEmail(database, email))
+}
+
+/**
+ * 优先按稳定 auth user 主键加载 RBAC 权限，并在旧数据仍未绑定时做一次受限回填。
+ */
+export async function loadUserPermissionProfileByAuthIdentity(
+  authUserId: string,
+  email: string | null,
+  database: Database = db,
+): Promise<UserPermissionProfile | null> {
+  const userByAuthUserId = await loadUserByAuthUserId(database, authUserId)
+
+  if (userByAuthUserId) {
+    return loadPermissionProfileForUser(database, userByAuthUserId)
+  }
+
+  if (!email) {
+    return null
+  }
+
+  const reboundUser = await bindActiveUserToAuthUserIdByEmail(database, authUserId, email)
+
+  return loadPermissionProfileForUser(database, reboundUser)
 }
 
 export async function loadPermissionRulesForUserId(

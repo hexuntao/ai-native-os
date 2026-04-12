@@ -5,7 +5,7 @@ import test from 'node:test'
 import {
   defaultUsers,
   listAiAuditLogsByToolId,
-  loadUserPermissionProfileByEmail,
+  loadUserPermissionProfileByAuthUserId,
 } from '@ai-native-os/db'
 import type { RequestContext } from '@mastra/core/request-context'
 import { indexKnowledgeDocument } from '../rag/indexing'
@@ -24,9 +24,9 @@ async function createToolRequestContextForRole(
 
   assert.ok(seededUser, `Expected seeded user for role ${roleCode}`)
 
-  const permissionProfile = await loadUserPermissionProfileByEmail(seededUser.email)
+  const permissionProfile = await loadUserPermissionProfileByAuthUserId(seededUser.id)
 
-  assert.ok(permissionProfile, `Expected permission profile for ${seededUser.email}`)
+  assert.ok(permissionProfile, `Expected permission profile for auth user ${seededUser.id}`)
 
   return createMastraRequestContext({
     authUserId: `auth-${roleCode}-${randomUUID()}`,

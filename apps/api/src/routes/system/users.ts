@@ -45,6 +45,7 @@ interface UserMutationContext {
 }
 
 interface UserRowProjection {
+  authUserId: string | null
   createdAt: Date
   email: string
   id: string
@@ -136,6 +137,7 @@ async function loadUserEntryById(
 ): Promise<UserEntry | null> {
   const [row] = await database
     .select({
+      authUserId: users.authUserId,
       createdAt: users.createdAt,
       email: users.email,
       id: users.id,
@@ -155,6 +157,32 @@ async function loadUserEntryById(
   const [entry] = await mapUserRowsWithRoles([row], database)
 
   return entry ?? null
+}
+
+interface AppUserIdentityRecord {
+  authUserId: string | null
+  email: string
+  id: string
+}
+
+/**
+ * 读取应用用户与认证主体的绑定信息，供认证同步写路径复用。
+ */
+async function loadAppUserIdentityById(
+  userId: string,
+  database: DatabaseExecutor = db,
+): Promise<AppUserIdentityRecord | null> {
+  const [row] = await database
+    .select({
+      authUserId: users.authUserId,
+      email: users.email,
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  return row ?? null
 }
 
 /**
@@ -232,10 +260,10 @@ function assertSelfMutationBoundary(
 }
 
 /**
- * 按 app user 主体解析关联的 Better Auth user，兼容历史 email 软关联与新建主键对齐两种情况。
+ * 按 app user 主体解析关联的 Better Auth user，主路径走稳定 authUserId，旧数据仅保留 email 兜底。
  */
 async function findAuthUserForAppUser(
-  entry: UserEntry,
+  identity: AppUserIdentityRecord,
   database: DatabaseExecutor = db,
 ): Promise<{ email: string; id: string } | null> {
   const authRows = await database
@@ -244,12 +272,16 @@ async function findAuthUserForAppUser(
       id: authUsers.id,
     })
     .from(authUsers)
-    .where(or(eq(authUsers.email, entry.email), eq(authUsers.id, entry.id)))
+    .where(
+      identity.authUserId
+        ? or(eq(authUsers.id, identity.authUserId), eq(authUsers.email, identity.email))
+        : eq(authUsers.email, identity.email),
+    )
     .limit(2)
 
   return (
-    authRows.find((authRow) => authRow.email === entry.email) ??
-    authRows.find((authRow) => authRow.id === entry.id) ??
+    (identity.authUserId ? authRows.find((authRow) => authRow.id === identity.authUserId) : null) ??
+    authRows.find((authRow) => authRow.email === identity.email) ??
     null
   )
 }
@@ -391,6 +423,7 @@ export async function listUsers(input: ListUsersInput): Promise<UserListResponse
   const total = totalRow[0]?.total ?? 0
   const pageRows = await db
     .select({
+      authUserId: users.authUserId,
       createdAt: users.createdAt,
       email: users.email,
       id: users.id,
@@ -444,6 +477,7 @@ export async function createUserEntry(
     const [createdUser] = await transaction
       .insert(users)
       .values({
+        authUserId: null,
         email: input.email,
         nickname: input.nickname,
         passwordHash: managedUserPasswordHashPlaceholder,
@@ -473,6 +507,14 @@ export async function createUserEntry(
       name: input.nickname ?? input.username,
       updatedAt: new Date(),
     })
+
+    await transaction
+      .update(users)
+      .set({
+        authUserId: createdUser.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, createdUser.id))
 
     await upsertCredentialAccount(createdUser.id, input.password, transaction)
 
@@ -515,6 +557,7 @@ export async function updateUserEntry(
   }
 
   const normalizedRoleCodes = normalizeRoleCodes(input.roleCodes)
+  const currentIdentity = await loadAppUserIdentityById(input.id)
 
   assertSuperAdminBoundary(context.ability, currentEntry.roleCodes, 'manage')
   assertSuperAdminBoundary(context.ability, normalizedRoleCodes, 'assign')
@@ -525,7 +568,13 @@ export async function updateUserEntry(
     normalizedRoleCodes,
   )
 
-  const currentAuthUser = await findAuthUserForAppUser(currentEntry)
+  if (!currentIdentity) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'User not found',
+    })
+  }
+
+  const currentAuthUser = await findAuthUserForAppUser(currentIdentity)
   const roleRows = await loadAssignableRolesByCodes(normalizedRoleCodes)
   await assertUserUniqueness(input, db, currentEntry.id, currentAuthUser?.id)
 
@@ -533,6 +582,7 @@ export async function updateUserEntry(
     await transaction
       .update(users)
       .set({
+        authUserId: currentAuthUser?.id ?? currentIdentity.authUserId ?? null,
         email: input.email,
         nickname: input.nickname,
         status: input.status,
@@ -557,6 +607,14 @@ export async function updateUserEntry(
         })
         .where(eq(authUsers.id, currentAuthUser.id))
 
+      await transaction
+        .update(users)
+        .set({
+          authUserId: currentAuthUser.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, input.id))
+
       if (input.password) {
         await upsertCredentialAccount(currentAuthUser.id, input.password, transaction)
       }
@@ -569,6 +627,14 @@ export async function updateUserEntry(
         name: input.nickname ?? input.username,
         updatedAt: new Date(),
       })
+
+      await transaction
+        .update(users)
+        .set({
+          authUserId: input.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, input.id))
 
       await upsertCredentialAccount(input.id, input.password, transaction)
     } else {
@@ -622,8 +688,15 @@ export async function deleteUserEntry(
   }
 
   assertSuperAdminBoundary(context.ability, currentEntry.roleCodes, 'delete')
+  const currentIdentity = await loadAppUserIdentityById(input.id)
 
-  const currentAuthUser = await findAuthUserForAppUser(currentEntry)
+  if (!currentIdentity) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'User not found',
+    })
+  }
+
+  const currentAuthUser = await findAuthUserForAppUser(currentIdentity)
 
   await db.transaction(async (transaction) => {
     if (currentAuthUser) {

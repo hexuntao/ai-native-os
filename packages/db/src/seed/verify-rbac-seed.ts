@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { eq } from 'drizzle-orm'
 
 import { db, pool } from '../client'
-import { loadUserPermissionProfileByEmail } from '../rbac/load-permissions'
+import { loadUserPermissionProfileByAuthUserId } from '../rbac/load-permissions'
 import { permissions, rolePermissions, roles } from '../schema'
 import {
   createPermissionKey,
@@ -50,9 +50,9 @@ async function main(): Promise<void> {
   }
 
   for (const seededUser of defaultUsers) {
-    const profile = await loadUserPermissionProfileByEmail(seededUser.email, db)
+    const profile = await loadUserPermissionProfileByAuthUserId(seededUser.id, db)
 
-    assert.ok(profile, `Expected permission profile for ${seededUser.email}`)
+    assert.ok(profile, `Expected permission profile for auth user ${seededUser.id}`)
     assert.deepEqual(profile?.roleCodes, [...seededUser.roleCodes].sort())
 
     const expectedPermissionKeys = seededUser.roleCodes.flatMap(

@@ -8,7 +8,7 @@ import {
   type PermissionRule,
   shouldEnableLocalBootstrapAuth,
 } from '@ai-native-os/shared'
-import { inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 
 import { hashCredentialPassword } from '../auth/credential-password'
 import { type Database, db } from '../client'
@@ -353,7 +353,7 @@ function getPermissionIdByKey(permissionKey: PermissionKey): string {
  *
  * 约束：
  * - 仅在非生产环境生成，避免固定口令进入真实生产库
- * - `user.id` 与应用 RBAC `users.id` 对齐，为后续稳定主键桥接保留空间
+ * - `user.id` 与应用 RBAC `users.authUserId` 对齐，避免认证与权限主体继续依赖 email 软关联
  */
 async function buildLocalBootstrapAuthRows(seededUsers: readonly SeedUserDefinition[]): Promise<{
   authAccountRows: BetterAuthAccountInsert[]
@@ -501,6 +501,7 @@ export async function seedRbacDefaults(database: Database = db): Promise<SeedSum
         .values(userRow)
         .onConflictDoUpdate({
           set: {
+            authUserId: null,
             email: userRow.email,
             nickname: userRow.nickname,
             passwordHash: userRow.passwordHash,
@@ -539,6 +540,16 @@ export async function seedRbacDefaults(database: Database = db): Promise<SeedSum
 
     if (authUserRows.length > 0) {
       await transaction.insert(authUsers).values(authUserRows)
+
+      for (const authUserRow of authUserRows) {
+        await transaction
+          .update(users)
+          .set({
+            authUserId: authUserRow.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, authUserRow.id))
+      }
     }
 
     if (authAccountRows.length > 0) {

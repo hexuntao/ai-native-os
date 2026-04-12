@@ -1,5 +1,9 @@
 import { type AuthSession, auth, getAuthSession } from '@ai-native-os/auth'
-import { loadUserPermissionProfileByEmail, writeOperationLog } from '@ai-native-os/db'
+import {
+  loadUserPermissionProfileByAuthIdentity,
+  loadUserPermissionProfileByEmail,
+  writeOperationLog,
+} from '@ai-native-os/db'
 import { type AppAbility, defineAbilityFor, type PermissionRule } from '@ai-native-os/shared'
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
@@ -141,8 +145,13 @@ export async function handleAuditedAuthRequest<TEnv extends ApiEnv>(
     operationDefinition.action === 'delete_session' ? await getAuthSession(request.headers) : null
   const emailFromRequest = await extractEmailFromAuthRequest(request.clone())
   const actorEmail = emailFromRequest ?? authSessionBefore?.user.email ?? null
+  const actorAuthUserId = authSessionBefore?.user.id ?? null
   const response = await auth.handler(request)
-  const permissionProfile = actorEmail ? await loadUserPermissionProfileByEmail(actorEmail) : null
+  const permissionProfile = actorAuthUserId
+    ? await loadUserPermissionProfileByAuthIdentity(actorAuthUserId, actorEmail)
+    : actorEmail
+      ? await loadUserPermissionProfileByEmail(actorEmail)
+      : null
   const requestId = c.get('requestId')
   const operationStatus = response.ok ? 'success' : 'error'
   const errorMessage =
@@ -183,8 +192,8 @@ export async function handleAuditedAuthRequest<TEnv extends ApiEnv>(
 // 统一解析 Better Auth 会话与 RBAC 权限，避免 API 与 Mastra 维护两套认证上下文逻辑。
 export async function resolveAuthContext(headers: Headers): Promise<ResolvedAuthContext> {
   const authSession = await getAuthSession(headers)
-  const permissionProfile = authSession?.user.email
-    ? await loadUserPermissionProfileByEmail(authSession.user.email)
+  const permissionProfile = authSession?.user.id
+    ? await loadUserPermissionProfileByAuthIdentity(authSession.user.id, authSession.user.email)
     : null
   const permissionRules = permissionProfile?.rules ?? []
   const ability = defineAbilityFor(permissionRules)

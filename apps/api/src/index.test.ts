@@ -256,6 +256,17 @@ test('Mastra request context bridge injects Better Auth and RBAC data', async ()
   assert.deepEqual(payload.roleCodes, ['viewer'])
   assert.ok(payload.rbacUserId)
   assert.ok(payload.userEmail?.includes('@example.com'))
+
+  const [boundUser] = await db
+    .select({
+      authUserId: users.authUserId,
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.id, payload.rbacUserId ?? ''))
+    .limit(1)
+
+  assert.equal(boundUser?.authUserId, payload.authUserId)
 })
 
 test('Mastra OpenAPI route is exposed from the mounted runtime prefix for authenticated users', async () => {

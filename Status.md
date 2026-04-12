@@ -108,6 +108,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | CRD-C10 | Post-P6 | Deliver `ai/prompts` rollback-chain inspection contract with source-target lineage and contract-first OpenAPI | done | CRD-C9 | lint + typecheck + test + build |
 | CRD-C11 | Post-P6 | Deliver `ai/prompts` release-approval audit contract with version-scoped audit trail and contract-first OpenAPI | done | CRD-C10 | lint + typecheck + test + build |
 | GOV-C1 | Post-P6 | Deliver `ai/prompts` rejection and exception audit contract with failure-path operation logging and contract-first OpenAPI | done | CRD-C11 | lint + typecheck + test + build |
+| IAM-C1 | Post-P6 | Harden Better Auth ↔ RBAC principal binding to prefer stable `auth_user_id` with legacy email backfill compatibility | done | GOV-C1 | db:migrate + lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -131,7 +132,8 @@ Priority order as of 2026-04-12:
 - `CRD-C10` is closed; `ai/prompts` now exposes rollback-chain inspection with rollback source-target lineage under the same contract-first OpenAPI baseline.
 - `CRD-C11` is closed; `ai/prompts` now exposes release-approval audit with version-scoped operation-log trail and requestInfo context under the same contract-first OpenAPI baseline.
 - `GOV-C1` is closed; `ai/prompts` now exposes prompt-key-scoped failure audit with rejection vs exception split and failure-path operation logging.
-- the next recommended backlog item is identity and permission hardening, starting with Better Auth ↔ RBAC stable primary-key binding.
+- `IAM-C1` is closed; auth middleware, permission loading, seeded bootstrap users, monitor online sessions, and `system/users` write paths now prefer stable `users.auth_user_id`, while legacy email-linked rows are backfilled on first authenticated access.
+- the next recommended backlog item is web UI / UX hardening, starting with information architecture cleanup and management-form ergonomics.
 
 Auto-unlock rules:
 
@@ -223,7 +225,7 @@ Active phase blockers:
 
 Residual follow-up risks:
 
-- Better Auth principal and app-level RBAC user still map through email / seeded app users; this should be hardened to a stable primary-key bridge in a later hardening pass.
+- Better Auth principal binding is now hardened to stable `auth_user_id`, but legacy rows still rely on first-access backfill; a future data-cleanup pass should eliminate residual null bindings and remove the compatibility path entirely.
 - GitHub Actions, Vercel, Cloudflare, and Trigger deploy paths are repository-ready, but platform-side secrets, authenticated sessions, and environment provisioning remain external operational responsibilities.
 - The current Docker topology keeps `jobs` health internal to compose; release drills now validate it through `docker compose exec`, but there is still no public jobs endpoint by design.
 - Telemetry backends remain `unknown` until real `SENTRY_DSN` and/or `OTEL_EXPORTER_OTLP_ENDPOINT` values are configured.
@@ -232,7 +234,7 @@ Residual follow-up risks:
 Follow-up priority after current E2E remediation sprint:
 
 1. Additional CRUD and documentation-template rollout beyond `system/users`, `system/roles`, `system/permissions`, `system/menus`, and current AI contract surfaces
-2. Better Auth ↔ RBAC stable principal-bridge hardening
+2. Web UI / UX hardening for dashboard layout, form ergonomics, and action density
 3. External platform credential and live deploy verification
 
 ## 7. QA Recording Template
