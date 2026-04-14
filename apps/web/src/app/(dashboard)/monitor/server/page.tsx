@@ -1,8 +1,9 @@
 import {
   Badge,
-  Field,
-  FieldHint,
-  FieldLabel,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Table,
   TableBody,
   TableCell,
@@ -10,18 +11,36 @@ import {
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
 
-import { DataSurfacePage } from '@/components/management/data-surface-page'
+import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { formatCount } from '@/lib/format'
 import { loadServerSummary } from '@/lib/server-management'
 
+/**
+ * 根据健康检查状态推导工作台信号卡片的视觉层级。
+ */
+function resolveHealthTone(status: string): 'neutral' | 'positive' | 'warning' {
+  return status === 'ok' || status === 'enabled' ? 'positive' : 'warning'
+}
+
+/**
+ * 将遥测连通状态汇总为易读的控制台摘要。
+ */
+function summarizeTelemetryStatus(openTelemetry: string, sentry: string): string {
+  const connectedCount = [openTelemetry, sentry].filter((status) => status === 'ok').length
+
+  return `${connectedCount}/2 connected`
+}
+
 export default async function MonitorServerPage(): Promise<ReactNode> {
   const payload = await loadServerSummary()
+  const telemetrySummary = summarizeTelemetryStatus(
+    payload.health.telemetry.openTelemetry,
+    payload.health.telemetry.sentry,
+  )
 
   return (
-    <DataSurfacePage
-      description="Server and runtime summary from the monitor contract. This page keeps the deployment picture visible without reaching into worker or queue infrastructure that is still pending."
-      eyebrow="Monitor Module"
-      facts={[
+    <StatusWorkbenchPage
+      context={[
         {
           label: 'Environment',
           value: payload.environment.nodeEnv,
@@ -31,124 +50,193 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
           value: String(payload.environment.port),
         },
       ]}
-      metrics={[
+      description="运行时控制台优先展示系统健康、AI 能力与依赖状态，避免运维视角继续埋在说明文案和字段表里。"
+      eyebrow="Monitor Module"
+      signals={[
         {
-          detail: 'Registered Mastra tools visible to the runtime summary.',
-          label: 'Tools',
-          value: formatCount(payload.runtime.toolCount),
+          badge: payload.health.api,
+          detail: `database:${payload.health.database} · redis:${payload.health.redis}`,
+          label: 'Overall status',
+          tone: resolveHealthTone(payload.health.status),
+          value: payload.health.status,
         },
         {
-          detail: 'Registered agent count in the current runtime.',
-          label: 'Agents',
-          value: `${formatCount(payload.runtime.enabledAgentCount)}/${formatCount(payload.runtime.agentCount)}`,
+          badge: payload.health.ai.status,
+          detail: payload.health.ai.reason,
+          label: 'AI capability',
+          tone: resolveHealthTone(payload.health.ai.status),
+          value: payload.health.ai.status,
         },
         {
-          detail: 'Registered workflow count in the current runtime.',
-          label: 'Workflows',
-          value: formatCount(payload.runtime.workflowCount),
+          badge: payload.runtime.runtimeStage,
+          detail: `${payload.runtime.enabledAgentCount}/${payload.runtime.agentCount} agents · ${payload.runtime.workflowCount} workflows`,
+          label: 'Runtime registry',
+          tone: payload.runtime.enabledAgentCount > 0 ? 'positive' : 'warning',
+          value: `${formatCount(payload.runtime.toolCount)} tools`,
+        },
+        {
+          badge: telemetrySummary,
+          detail: `otel:${payload.health.telemetry.openTelemetry} · sentry:${payload.health.telemetry.sentry}`,
+          label: 'Telemetry',
+          tone: telemetrySummary === '2/2 connected' ? 'positive' : 'neutral',
+          value: telemetrySummary,
         },
       ]}
+      statusStrip={
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          <div className="grid gap-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              Health strip
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="accent">{payload.health.api}</Badge>
+              <Badge variant={payload.health.ai.status === 'enabled' ? 'accent' : 'secondary'}>
+                ai:{payload.health.ai.status}
+              </Badge>
+              <Badge variant={payload.health.database === 'ok' ? 'accent' : 'secondary'}>
+                database:{payload.health.database}
+              </Badge>
+              <Badge variant={payload.health.redis === 'ok' ? 'accent' : 'secondary'}>
+                redis:{payload.health.redis}
+              </Badge>
+              <Badge
+                variant={payload.health.telemetry.openTelemetry === 'ok' ? 'accent' : 'secondary'}
+              >
+                otel:{payload.health.telemetry.openTelemetry}
+              </Badge>
+              <Badge variant={payload.health.telemetry.sentry === 'ok' ? 'accent' : 'secondary'}>
+                sentry:{payload.health.telemetry.sentry}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="grid gap-1 rounded-[var(--radius-lg)] border border-border/70 bg-background/70 p-4">
+            <p className="text-sm font-medium text-foreground">Runtime boundary</p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              当前页面只覆盖 API 运行态、Mastra 注册表与基础遥测，不直接声称 worker 或 queue
+              的真实生产可用性。
+            </p>
+          </div>
+        </div>
+      }
       title="System Health"
     >
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-          <FieldLabel>Health status</FieldLabel>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant="accent">{payload.health.api}</Badge>
-            <Badge variant={payload.health.ai.status === 'enabled' ? 'accent' : 'secondary'}>
-              ai:{payload.health.ai.status}
-            </Badge>
-            <Badge variant={payload.health.database === 'ok' ? 'accent' : 'secondary'}>
-              database:{payload.health.database}
-            </Badge>
-            <Badge variant={payload.health.redis === 'ok' ? 'accent' : 'secondary'}>
-              redis:{payload.health.redis}
-            </Badge>
-            <Badge
-              variant={payload.health.telemetry.openTelemetry === 'ok' ? 'accent' : 'secondary'}
-            >
-              otel:{payload.health.telemetry.openTelemetry}
-            </Badge>
-            <Badge variant={payload.health.telemetry.sentry === 'ok' ? 'accent' : 'secondary'}>
-              sentry:{payload.health.telemetry.sentry}
-            </Badge>
-            <Badge variant={payload.health.status === 'ok' ? 'accent' : 'secondary'}>
-              overall:{payload.health.status}
-            </Badge>
-          </div>
-        </Field>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
+        <div className="grid gap-4">
+          <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+            <CardHeader className="gap-2 border-b border-border/70">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Dependency status
+              </p>
+              <CardTitle className="text-xl">Core runtime dependencies</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-hidden p-0">
+              <Table>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">API status</TableCell>
+                    <TableCell>{payload.health.api}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Database status</TableCell>
+                    <TableCell>{payload.health.database}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Redis status</TableCell>
+                    <TableCell>{payload.health.redis}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">OpenTelemetry status</TableCell>
+                    <TableCell>{payload.health.telemetry.openTelemetry}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Sentry status</TableCell>
+                    <TableCell>{payload.health.telemetry.sentry}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-        <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-          <FieldLabel>Runtime stage</FieldLabel>
-          <FieldHint>
-            Current Mastra stage: {payload.runtime.runtimeStage}. This reflects registry readiness,
-            not queue or worker deployment completeness.
-          </FieldHint>
-          <FieldHint>AI capability: {payload.health.ai.reason}</FieldHint>
-        </Field>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">API status</TableCell>
-                <TableCell>{payload.health.api}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">AI capability</TableCell>
-                <TableCell>{payload.health.ai.status}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">AI degrade reason</TableCell>
-                <TableCell>{payload.health.ai.reason}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Database status</TableCell>
-                <TableCell>{payload.health.database}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Redis status</TableCell>
-                <TableCell>{payload.health.redis}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">OpenTelemetry status</TableCell>
-                <TableCell>{payload.health.telemetry.openTelemetry}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Sentry status</TableCell>
-                <TableCell>{payload.health.telemetry.sentry}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+          <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+            <CardHeader className="gap-2 border-b border-border/70">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Runtime inventory
+              </p>
+              <CardTitle className="text-xl">Mastra registry footprint</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-hidden p-0">
+              <Table>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">Runtime stage</TableCell>
+                    <TableCell>{payload.runtime.runtimeStage}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Agent count</TableCell>
+                    <TableCell>
+                      {payload.runtime.enabledAgentCount}/{payload.runtime.agentCount}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Tool count</TableCell>
+                    <TableCell>{payload.runtime.toolCount}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Workflow count</TableCell>
+                    <TableCell>{payload.runtime.workflowCount}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">AI degrade reason</TableCell>
+                    <TableCell>{payload.health.ai.reason}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">Runtime stage</TableCell>
-                <TableCell>{payload.runtime.runtimeStage}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Agent count</TableCell>
-                <TableCell>
-                  {payload.runtime.enabledAgentCount}/{payload.runtime.agentCount}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Tool count</TableCell>
-                <TableCell>{payload.runtime.toolCount}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Workflow count</TableCell>
-                <TableCell>{payload.runtime.workflowCount}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+        <div className="grid gap-4">
+          <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+            <CardHeader className="gap-2">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Operator read
+              </p>
+              <CardTitle className="text-xl">What to trust here</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
+              <p>数据库、Redis、AI 能力和遥测状态会影响本页的四张信号卡读数。</p>
+              <p>
+                如果 AI capability 退化，但 overall 仍然是 ok，意味着控制面还活着，但 AI
+                链路不完整。
+              </p>
+              <p>
+                如果 runtime registry 没有启用
+                agent，本页会保留黄色提示，不会把空运行时伪装成正常态。
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+            <CardHeader className="gap-2">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Deployment context
+              </p>
+              <CardTitle className="text-xl">Current exposure</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2">
+                <span>Node environment</span>
+                <span className="font-medium text-foreground">{payload.environment.nodeEnv}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2">
+                <span>Public port</span>
+                <span className="font-medium text-foreground">{payload.environment.port}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </DataSurfacePage>
+    </StatusWorkbenchPage>
   )
 }
