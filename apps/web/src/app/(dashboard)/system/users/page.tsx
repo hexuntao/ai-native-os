@@ -22,6 +22,7 @@ import {
 } from '@/app/(dashboard)/system/users/actions'
 import { GenerativeUsersPanel } from '@/components/generative/generative-users-panel'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
+import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
@@ -391,13 +392,17 @@ export default async function SystemUsersPage({
                             </form>
                           </ManagementDialog>
 
-                          <form action={deleteUserAction}>
-                            <input name="id" type="hidden" value={row.id} />
-                            <input name="returnTo" type="hidden" value={returnTo} />
-                            <Button size="sm" type="submit" variant="ghost">
-                              Delete
-                            </Button>
-                          </form>
+                          <DestructiveActionDialog
+                            action={deleteUserAction}
+                            consequences="删除会移除应用用户主体，并同步清理 Better Auth credential 与角色绑定。"
+                            description="确认后将永久删除该用户。该操作会写入审计日志，且无法从前端直接恢复。"
+                            hiddenFields={[
+                              { name: 'id', value: row.id },
+                              { name: 'returnTo', value: returnTo },
+                            ]}
+                            title={`Delete ${row.username}?`}
+                            triggerLabel="Delete"
+                          />
                         </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">Read only</span>

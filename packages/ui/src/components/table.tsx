@@ -70,7 +70,7 @@ export const TableHead = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <th
     className={cn(
-      'h-11 px-4 text-left align-middle text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground',
+      'sticky top-0 z-10 h-11 border-b border-border/70 bg-background/95 px-4 text-left align-middle text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80',
       className,
     )}
     ref={ref}

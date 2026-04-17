@@ -21,6 +21,7 @@ import {
   updateMenuAction,
 } from '@/app/(dashboard)/system/menus/actions'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
+import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
@@ -589,13 +590,17 @@ export default async function SystemMenusPage({
                                 </form>
                               </ManagementDialog>
 
-                              <form action={deleteMenuAction}>
-                                <input name="id" type="hidden" value={row.id} />
-                                <input name="returnTo" type="hidden" value={returnTo} />
-                                <Button size="sm" type="submit" variant="ghost">
-                                  Delete
-                                </Button>
-                              </form>
+                              <DestructiveActionDialog
+                                action={deleteMenuAction}
+                                consequences="删除前必须先清空全部子节点；系统种子菜单仍由后端只读保护。"
+                                description="确认后将永久删除该自定义菜单节点，并写入标准化操作日志。"
+                                hiddenFields={[
+                                  { name: 'id', value: row.id },
+                                  { name: 'returnTo', value: returnTo },
+                                ]}
+                                title={`Delete ${row.name}?`}
+                                triggerLabel="Delete"
+                              />
                             </div>
                           )
                         ) : (

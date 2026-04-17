@@ -6,6 +6,7 @@ import {
   deleteKnowledgeAction,
   updateKnowledgeAction,
 } from '@/app/(dashboard)/ai/knowledge/actions'
+import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { ManagementDialog } from '@/components/management/management-dialog'
 
 interface KnowledgeDocumentRow {
@@ -83,7 +84,7 @@ export function KnowledgeMutationDialog({
       triggerLabel={dialogCopy.triggerLabel}
       triggerVariant={mode === 'create' ? 'default' : 'secondary'}
     >
-      <form action={action} className="grid gap-4">
+      <form action={action} aria-label={`${dialogCopy.title} form`} className="grid gap-4">
         <input name="returnTo" type="hidden" value={returnTo} />
         {mode === 'replace' && row ? (
           <input name="id" type="hidden" value={row.documentId} />
@@ -95,9 +96,11 @@ export function KnowledgeMutationDialog({
             <Input
               defaultValue={mode === 'replace' && row ? row.title : ''}
               id={`${mode}-knowledge-title`}
+              minLength={3}
               name="title"
               required
             />
+            <FieldHint>标题至少 3 个字符，便于在知识工作台和审计日志中稳定识别。</FieldHint>
           </Field>
 
           <Field>
@@ -105,9 +108,11 @@ export function KnowledgeMutationDialog({
             <Input
               defaultValue={mode === 'replace' && row ? row.sourceType : 'manual'}
               id={`${mode}-knowledge-source-type`}
+              minLength={2}
               name="sourceType"
               required
             />
+            <FieldHint>建议使用稳定来源类型，例如 `manual`、`wiki`、`notion`。</FieldHint>
           </Field>
 
           <Field className="xl:col-span-2">
@@ -126,9 +131,12 @@ export function KnowledgeMutationDialog({
             <Input
               defaultValue="512"
               id={`${mode}-knowledge-chunk-size`}
+              max={4096}
+              min={128}
               name="chunkSize"
               type="number"
             />
+            <FieldHint>建议范围 128-4096，过大 chunk 会降低检索粒度。</FieldHint>
           </Field>
 
           <Field>
@@ -136,9 +144,12 @@ export function KnowledgeMutationDialog({
             <Input
               defaultValue="64"
               id={`${mode}-knowledge-chunk-overlap`}
+              max={1024}
+              min={0}
               name="chunkOverlap"
               type="number"
             />
+            <FieldHint>建议不超过 chunk size 的一半，避免重复索引过多文本。</FieldHint>
           </Field>
 
           <Field className="xl:col-span-2">
@@ -153,6 +164,7 @@ export function KnowledgeMutationDialog({
               id={`${mode}-knowledge-metadata`}
               name="metadata"
             />
+            <FieldHint>必须是 JSON 对象；空对象请显式填写 `{}`。</FieldHint>
           </Field>
 
           <Field className="xl:col-span-2">
@@ -162,6 +174,7 @@ export function KnowledgeMutationDialog({
             <textarea
               className={textAreaClassName}
               id={`${mode}-knowledge-content`}
+              minLength={32}
               name="content"
               placeholder={
                 mode === 'create'
@@ -180,20 +193,20 @@ export function KnowledgeMutationDialog({
       </form>
 
       {mode === 'replace' && row ? (
-        <form
-          action={deleteKnowledgeAction}
-          className="mt-4 flex justify-start border-t border-border/70 pt-4"
-        >
-          <input name="id" type="hidden" value={row.documentId} />
-          <input name="returnTo" type="hidden" value={returnTo} />
-          <Button
-            className="border-red-200 text-red-700 hover:bg-red-50"
-            type="submit"
-            variant="secondary"
-          >
-            Delete document
-          </Button>
-        </form>
+        <div className="mt-4 flex justify-start border-t border-border/70 pt-4">
+          <DestructiveActionDialog
+            action={deleteKnowledgeAction}
+            consequences="删除会移除该文档的全部 chunk 与索引结果；知识检索结果会立即失去这份语料。"
+            description="确认后将永久删除该知识文档，并写入标准化 AI 审计日志。"
+            hiddenFields={[
+              { name: 'id', value: row.documentId },
+              { name: 'returnTo', value: returnTo },
+            ]}
+            title={`Delete ${row.title}?`}
+            triggerLabel="Delete document"
+            triggerVariant="secondary"
+          />
+        </div>
       ) : null}
     </ManagementDialog>
   )

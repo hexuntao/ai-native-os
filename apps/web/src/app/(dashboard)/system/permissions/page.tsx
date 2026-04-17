@@ -21,6 +21,7 @@ import {
   updatePermissionAction,
 } from '@/app/(dashboard)/system/permissions/actions'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
+import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import { PageFeedbackBanner } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
@@ -487,13 +488,17 @@ export default async function SystemPermissionsPage({
                                 </form>
                               </ManagementDialog>
 
-                              <form action={deletePermissionAction}>
-                                <input name="id" type="hidden" value={row.id} />
-                                <input name="returnTo" type="hidden" value={returnTo} />
-                                <Button size="sm" type="submit" variant="ghost">
-                                  Delete
-                                </Button>
-                              </form>
+                              <DestructiveActionDialog
+                                action={deletePermissionAction}
+                                consequences={`当前权限已关联 ${row.roleCount} 个角色时，后端会拒绝删除。`}
+                                description="确认后将永久删除该自定义权限规则，并写入标准化审计日志。"
+                                hiddenFields={[
+                                  { name: 'id', value: row.id },
+                                  { name: 'returnTo', value: returnTo },
+                                ]}
+                                title={`Delete ${row.action}:${row.resource}?`}
+                                triggerLabel="Delete"
+                              />
                             </div>
                           )
                         ) : (

@@ -21,6 +21,7 @@ import {
   updateRoleAction,
 } from '@/app/(dashboard)/system/roles/actions'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
+import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
@@ -438,13 +439,17 @@ export default async function SystemRolesPage({
                                 </form>
                               </ManagementDialog>
 
-                              <form action={deleteRoleAction}>
-                                <input name="id" type="hidden" value={row.id} />
-                                <input name="returnTo" type="hidden" value={returnTo} />
-                                <Button size="sm" type="submit" variant="ghost">
-                                  Delete
-                                </Button>
-                              </form>
+                              <DestructiveActionDialog
+                                action={deleteRoleAction}
+                                consequences="删除前必须先解除所有用户绑定；后端仍会继续校验系统保留角色和在用角色保护。"
+                                description="确认后将永久删除该自定义角色，并写入标准化操作日志。"
+                                hiddenFields={[
+                                  { name: 'id', value: row.id },
+                                  { name: 'returnTo', value: returnTo },
+                                ]}
+                                title={`Delete ${row.name}?`}
+                                triggerLabel="Delete"
+                              />
                             </div>
                           )
                         ) : (
