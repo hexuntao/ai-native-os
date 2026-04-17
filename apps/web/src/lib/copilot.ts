@@ -24,6 +24,14 @@ export interface CopilotRoutePanel {
   workstreams: readonly string[]
 }
 
+export interface CopilotPageHandoff {
+  badge: string
+  note: string
+  prompts: readonly string[]
+  summary: string
+  title: string
+}
+
 function normalizeThreadSegment(value: string): string {
   return value
     .trim()
@@ -165,6 +173,32 @@ export function buildCopilotSuggestions(
         title: 'Boundary read',
       },
     )
+  } else if (pathname.startsWith('/system/logs')) {
+    suggestions.unshift(
+      {
+        message:
+          'Summarize the current audit slice, identify which module is generating the most operator noise, and call out the first row that deserves escalation.',
+        title: 'Trace triage',
+      },
+      {
+        message:
+          'Explain whether this log slice looks healthy, noisy, or incident-shaped, and tell me what evidence is still missing.',
+        title: 'Incident read',
+      },
+    )
+  } else if (pathname.startsWith('/reports')) {
+    suggestions.unshift(
+      {
+        message:
+          'Given the current reports placeholder, explain which workflow, export history, and operator controls are still missing from this surface.',
+        title: 'Module gap',
+      },
+      {
+        message:
+          'Tell me which backend workflow signals should be surfaced first when the report workbench is implemented.',
+        title: 'Future workbench',
+      },
+    )
   } else if (shellState.visibleNavigation.some((item) => item.href === '/ai/knowledge')) {
     suggestions.push({
       message:
@@ -222,6 +256,85 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
         '指出当前切片里最值得升级排查的治理风险。',
         '明确这张表能证明什么、不能证明什么，避免过度解读。',
       ],
+    }
+  }
+
+  return null
+}
+
+/**
+ * 为当前页面返回可直接展示在主工作区里的助手移交摘要，帮助操作员把问题准确交给右侧 Copilot。
+ */
+export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff | null {
+  if (pathname.startsWith('/system/logs')) {
+    return {
+      badge: 'trace-handoff',
+      note: '把问题交给助手时，优先引用当前筛选条件和可见行范围，避免让模型假设它看到了整条审计流。',
+      prompts: [
+        '总结当前页最值得升级排查的一条审计线索。',
+        '判断这一页更像是偶发错误、权限边界触发，还是持续噪声。',
+        '指出当前表格还缺哪类证据，才足够支撑 incident 结论。',
+      ],
+      summary: '适合让助手先读当前审计切片，再帮你判断是噪声、边界命中还是需要升级排查的事件。',
+      title: 'Audit handoff',
+    }
+  }
+
+  if (pathname.startsWith('/reports')) {
+    return {
+      badge: 'workflow-handoff',
+      note: '当前页仍是占位工作台，所以更适合让助手做“缺口梳理”和“优先级建议”，而不是假装已经具备导出执行能力。',
+      prompts: [
+        '说明报表工作台当前还缺哪三块最关键的 operator UI。',
+        '结合现有 workflow 设计，建议最先落到页面上的状态信号。',
+        '给出一条不扩 scope 的最小实现路径，让这页从占位态进入可操作态。',
+      ],
+      summary: '把助手当成产品与运营桥梁，用来梳理报表工作台还缺的状态、动作和安全边界。',
+      title: 'Reports handoff',
+    }
+  }
+
+  if (pathname.startsWith('/ai/knowledge')) {
+    return {
+      badge: 'knowledge-handoff',
+      note: '优先围绕可见文档、metadata 密度和重建索引成本提问，不要让助手虚构页外知识库状态。',
+      prompts: [
+        '指出当前页最值得优先重建索引的文档，并解释原因。',
+        '总结 metadata 最薄弱的文档切片和来源分布风险。',
+        '给出一条安全的下一步治理动作，而不是扩大到全库。',
+      ],
+      summary: '适合把当前文档切片交给助手，让它先做索引治理和覆盖判断，再决定是否执行变更。',
+      title: 'Knowledge handoff',
+    }
+  }
+
+  if (pathname.startsWith('/ai/evals')) {
+    return {
+      badge: 'eval-handoff',
+      note: '当前页偏治理视角，适合让助手先解释失败和覆盖缺口，再决定是否触发新的 eval run。',
+      prompts: [
+        '说明当前页哪些 eval suite 仍然没有形成真实回归纪律。',
+        '指出 last run 失败更可能是 dataset、scorer 还是 runner 问题。',
+        '给出一条最小安全下一步，避免把治理问题误写成模型问题。',
+      ],
+      summary:
+        '适合让助手把表格字段翻译成治理语言，帮助你判断应该补数据、补 scorer 还是补运行纪律。',
+      title: 'Eval handoff',
+    }
+  }
+
+  if (pathname.startsWith('/ai/audit')) {
+    return {
+      badge: 'governance-handoff',
+      note: '先让助手区分 forbidden、error、override 三类信号，再决定是否需要升级人工审批或权限调整。',
+      prompts: [
+        '总结当前页最高风险的治理信号，并解释为什么不是普通错误。',
+        '说明这批审计行能证明什么、还不能证明什么。',
+        '指出最应该优先交给人工复核的一条 override 或 forbidden 记录。',
+      ],
+      summary:
+        '适合把当前审计切片交给助手做边界解读和风险排序，而不是直接要求它给出超出证据面的结论。',
+      title: 'Governance handoff',
     }
   }
 

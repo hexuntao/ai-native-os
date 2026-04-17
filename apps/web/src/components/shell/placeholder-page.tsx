@@ -22,6 +22,7 @@ interface PlaceholderRow {
 }
 
 interface PlaceholderPageProps {
+  assistantHandoff?: ReactNode
   eyebrow: string
   milestones: readonly string[]
   rows: readonly PlaceholderRow[]
@@ -33,6 +34,7 @@ interface PlaceholderPageProps {
  * 用共享卡片、表格和弹层原语承载模块占位内容，避免 Phase 4 前期继续散落页面样式。
  */
 export function PlaceholderPage({
+  assistantHandoff,
   eyebrow,
   milestones,
   rows,
@@ -51,6 +53,8 @@ export function PlaceholderPage({
         </div>
         <CardDescription className="max-w-3xl text-base leading-7">{summary}</CardDescription>
       </CardHeader>
+
+      {assistantHandoff}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="rounded-[var(--radius-xl)] border border-border/70 bg-card-strong/70 p-4 shadow-[var(--shadow-soft)]">

@@ -13,8 +13,10 @@ import {
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
 
+import { AssistantHandoffCard, SurfaceStatePanel } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
+import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
@@ -48,9 +50,21 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
   const neverRunCount = countNeverRunRows(payload.data.map((row) => row.lastRunAt))
   const failedRunCount = countFailedRuns(payload.data.map((row) => row.lastRunStatus ?? null))
   const averageScoreRows = payload.data.filter((row) => row.lastRunAverageScore !== null)
+  const assistantHandoff = resolveCopilotPageHandoff('/ai/evals')
 
   return (
     <StatusWorkbenchPage
+      assistantHandoff={
+        assistantHandoff ? (
+          <AssistantHandoffCard
+            badge={assistantHandoff.badge}
+            description={assistantHandoff.summary}
+            note={assistantHandoff.note}
+            prompts={assistantHandoff.prompts}
+            title={assistantHandoff.title}
+          />
+        ) : undefined
+      }
       context={[
         {
           label: 'Configured',
@@ -132,26 +146,35 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
             <CardTitle className="text-xl">Registered eval suites</CardTitle>
           </CardHeader>
           <CardContent className="overflow-hidden p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Eval</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Datasets</TableHead>
-                  <TableHead>Scorers</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Last run</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payload.data.length === 0 ? (
+            {payload.data.length === 0 ? (
+              <div className="p-6">
+                <SurfaceStatePanel
+                  actionHref="/ai/evals"
+                  actionLabel="Reset filters"
+                  description="当前环境还没有可见的 eval suite。先确认 runtime 是否已配置，再决定是补注册、补 dataset 还是补 scorer。"
+                  eyebrow="Eval empty state"
+                  hints={[
+                    'Configured=no 时，优先排查评测运行时和密钥，而不是要求页面给出不存在的执行结果。',
+                    '如果 suite 应该存在，先放宽筛选，再把问题交给助手解释覆盖缺口。',
+                  ]}
+                  title="No eval suites in this slice"
+                  tone="neutral"
+                />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell className="text-muted-foreground" colSpan={6}>
-                      No eval suites are registered yet.
-                    </TableCell>
+                    <TableHead>Eval</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Datasets</TableHead>
+                    <TableHead>Scorers</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Last run</TableHead>
                   </TableRow>
-                ) : (
-                  payload.data.map((row) => (
+                </TableHeader>
+                <TableBody>
+                  {payload.data.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell className="font-medium">{row.name}</TableCell>
                       <TableCell>
@@ -172,10 +195,10 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
                           : 'never'}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 

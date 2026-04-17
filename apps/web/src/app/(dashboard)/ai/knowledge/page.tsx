@@ -4,7 +4,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  FieldError,
   Table,
   TableBody,
   TableCell,
@@ -16,9 +15,15 @@ import type { ReactNode } from 'react'
 import { KnowledgeMutationDialog } from '@/components/ai/knowledge-mutation-dialog'
 import { GenerativeKnowledgePanel } from '@/components/generative/generative-knowledge-panel'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
+import {
+  AssistantHandoffCard,
+  PageFeedbackBanner,
+  SurfaceStatePanel,
+} from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { canManageKnowledge } from '@/lib/ability'
+import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
@@ -107,6 +112,7 @@ export default async function AiKnowledgePage({
   const metadataCoverageCount = countDocumentsWithMetadata(payload.data)
   const largestChunkCount = resolveLargestChunkCount(payload.data)
   const sourceClassCount = new Set(payload.data.map((row) => row.sourceType)).size
+  const assistantHandoff = resolveCopilotPageHandoff('/ai/knowledge')
 
   return (
     <StatusWorkbenchPage
@@ -126,6 +132,17 @@ export default async function AiKnowledgePage({
       ]}
       description="知识库工作台优先呈现索引覆盖、写入动作和生成式分析，让操作员能在同一页面里完成筛选、重建索引和覆盖判断。"
       eyebrow="AI Module"
+      assistantHandoff={
+        assistantHandoff ? (
+          <AssistantHandoffCard
+            badge={assistantHandoff.badge}
+            description={assistantHandoff.summary}
+            note={assistantHandoff.note}
+            prompts={assistantHandoff.prompts}
+            title={assistantHandoff.title}
+          />
+        ) : undefined
+      }
       signals={[
         {
           badge: 'indexed',
@@ -184,13 +201,7 @@ export default async function AiKnowledgePage({
       title="Knowledge Vault"
     >
       {flashMessage ? (
-        flashMessage.kind === 'error' ? (
-          <FieldError>{flashMessage.message}</FieldError>
-        ) : (
-          <div className="rounded-[var(--radius-md)] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {flashMessage.message}
-          </div>
-        )
+        <PageFeedbackBanner kind={flashMessage.kind} message={flashMessage.message} />
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(22rem,0.95fr)]">
@@ -235,52 +246,69 @@ export default async function AiKnowledgePage({
               </div>
             </CardHeader>
             <CardContent className="overflow-hidden p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Document</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Chunks</TableHead>
-                    <TableHead>URI</TableHead>
-                    <TableHead>Indexed</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payload.data.map((row) => (
-                    <TableRow key={row.documentId}>
-                      <TableCell>
-                        <div className="grid gap-1">
-                          <span className="font-medium">{row.title}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {Object.entries(row.metadata)
-                              .slice(0, 2)
-                              .map(([key, value]) => `${key}: ${String(value)}`)
-                              .join(' · ') || 'No metadata'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{row.sourceType}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{formatCount(row.chunkCount)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.sourceUri ?? 'internal'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDateTime(row.lastIndexedAt)}
-                      </TableCell>
-                      <TableCell>
-                        {canWriteKnowledge ? (
-                          <KnowledgeMutationDialog mode="replace" returnTo={returnTo} row={row} />
-                        ) : (
-                          <Badge variant="secondary">read-only</Badge>
-                        )}
-                      </TableCell>
+              {payload.data.length === 0 ? (
+                <div className="p-6">
+                  <SurfaceStatePanel
+                    actionHref="/ai/knowledge"
+                    actionLabel="Reset filters"
+                    description="当前筛选条件下没有可见知识文档。先放宽来源类型或搜索条件，再决定是否创建新文档。"
+                    eyebrow="Knowledge empty state"
+                    hints={[
+                      '如果你预期这里应该有数据，先检查 sourceType 和 search 是否把切片过滤空了。',
+                      '如果这是新环境，先创建一份知识文档，再让助手评估 metadata 和 chunk 覆盖。',
+                    ]}
+                    title="No knowledge documents in this slice"
+                    tone="neutral"
+                  />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Document</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Chunks</TableHead>
+                      <TableHead>URI</TableHead>
+                      <TableHead>Indexed</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {payload.data.map((row) => (
+                      <TableRow key={row.documentId}>
+                        <TableCell>
+                          <div className="grid gap-1">
+                            <span className="font-medium">{row.title}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {Object.entries(row.metadata)
+                                .slice(0, 2)
+                                .map(([key, value]) => `${key}: ${String(value)}`)
+                                .join(' · ') || 'No metadata'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{row.sourceType}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">{formatCount(row.chunkCount)}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.sourceUri ?? 'internal'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateTime(row.lastIndexedAt)}
+                        </TableCell>
+                        <TableCell>
+                          {canWriteKnowledge ? (
+                            <KnowledgeMutationDialog mode="replace" returnTo={returnTo} row={row} />
+                          ) : (
+                            <Badge variant="secondary">read-only</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>

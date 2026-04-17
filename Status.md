@@ -114,6 +114,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C3 | Post-P6 | Refactor observability and AI governance pages into status-first workbench layouts | done | UI-C2 | lint + typecheck + test + build |
 | UI-C4 | Post-P6 | Refactor `ai/knowledge` and route-aware Copilot surfaces into a deeper AI workbench workflow | done | UI-C3 | lint + typecheck + test + build |
 | UI-C5 | Post-P6 | Deepen Copilot interaction ergonomics with route-specific assistant panels for current `ai/*` surfaces | done | UI-C4 | lint + typecheck + test + build |
+| UI-C6 | Post-P6 | Add consistent empty/loading/error states, accessibility hardening, and page-level assistant handoff patterns across the remaining dashboard surfaces | done | UI-C5 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -143,7 +144,8 @@ Priority order as of 2026-04-12:
 - `UI-C3` is closed; `monitor/server`, `monitor/online`, `ai/audit`, and `ai/evals` now use shared status-first workbench layouts instead of generic list-page framing.
 - `UI-C4` is closed; `ai/knowledge` now uses a workbench-style split layout with dialog-based write flows, and Copilot suggestions now adapt to the knowledge route.
 - `UI-C5` is closed; Copilot now exposes route-specific assistant briefs and prompt suggestions for `ai/knowledge`, `ai/evals`, and `ai/audit` instead of a single generic AI sidebar.
-- the next recommended backlog item is `UI-C6`: add consistent empty/loading/error states, accessibility hardening, and page-level assistant handoff patterns across the remaining dashboard surfaces.
+- `UI-C6` is closed; dashboard routes now share loading/error/not-found shells, CRUD pages now use accessible feedback banners, and `reports`, `system/logs`, `ai/knowledge`, `ai/evals`, and `ai/audit` now expose page-level Copilot handoff cards plus explicit empty-state treatment.
+- the next recommended backlog item is `UI-C7`: tighten form-level accessibility, keyboard focus order, and dense-table responsiveness across the remaining management surfaces.
 
 Auto-unlock rules:
 

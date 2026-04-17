@@ -12,6 +12,7 @@ interface WorkbenchContextFact {
 }
 
 interface StatusWorkbenchPageProps {
+  assistantHandoff?: ReactNode
   children: ReactNode
   context: readonly WorkbenchContextFact[]
   description: string
@@ -25,6 +26,7 @@ interface StatusWorkbenchPageProps {
  * 为状态优先的控制台页面提供统一壳层，突出上下文、运行信号与主工作区三段结构。
  */
 export function StatusWorkbenchPage({
+  assistantHandoff,
   children,
   context,
   description,
@@ -61,6 +63,8 @@ export function StatusWorkbenchPage({
             ))}
           </div>
         </div>
+
+        {assistantHandoff}
 
         {statusStrip ? (
           <Card className="border-border/80 bg-card/94 shadow-[var(--shadow-soft)]">

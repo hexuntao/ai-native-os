@@ -1,10 +1,25 @@
 import type { ReactNode } from 'react'
 
+import { AssistantHandoffCard } from '@/components/management/page-feedback'
 import { PlaceholderPage } from '@/components/shell/placeholder-page'
+import { resolveCopilotPageHandoff } from '@/lib/copilot'
 
 export default function ReportsPage(): ReactNode {
+  const assistantHandoff = resolveCopilotPageHandoff('/reports')
+
   return (
     <PlaceholderPage
+      assistantHandoff={
+        assistantHandoff ? (
+          <AssistantHandoffCard
+            badge={assistantHandoff.badge}
+            description={assistantHandoff.summary}
+            note={assistantHandoff.note}
+            prompts={assistantHandoff.prompts}
+            title={assistantHandoff.title}
+          />
+        ) : undefined
+      }
       eyebrow="Workflow Module"
       milestones={[
         'Connect report schedule workflow status to the page.',

@@ -13,6 +13,7 @@ interface DataSurfaceFact {
 }
 
 interface DataSurfacePageProps {
+  assistantHandoff?: ReactNode
   children: ReactNode
   description: string
   eyebrow: string
@@ -25,6 +26,7 @@ interface DataSurfacePageProps {
  * 为管理台列表页提供统一版式，保持 system、monitor 和 AI 模块使用同一套信息密度与层级语言。
  */
 export function DataSurfacePage({
+  assistantHandoff,
   children,
   description,
   eyebrow,
@@ -60,6 +62,8 @@ export function DataSurfacePage({
             ))}
           </div>
         </div>
+
+        {assistantHandoff}
 
         <div className="grid gap-3 md:grid-cols-3">
           {metrics.map((metric) => (

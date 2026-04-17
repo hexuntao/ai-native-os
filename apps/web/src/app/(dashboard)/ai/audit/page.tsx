@@ -18,8 +18,10 @@ import type { ReactNode } from 'react'
 
 import { AiFeedbackDialog } from '@/components/ai/ai-feedback-dialog'
 import { FilterSelect } from '@/components/management/filter-select'
+import { AssistantHandoffCard, SurfaceStatePanel } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
+import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createAiAuditFilterState,
@@ -62,9 +64,21 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
   const overrideCount = payload.data.filter((row) => row.humanOverride).length
   const errorCount = payload.data.filter((row) => row.status === 'error').length
   const auditStatusSummary = summarizeAuditStatuses(payload.data.map((row) => row.status))
+  const assistantHandoff = resolveCopilotPageHandoff('/ai/audit')
 
   return (
     <StatusWorkbenchPage
+      assistantHandoff={
+        assistantHandoff ? (
+          <AssistantHandoffCard
+            badge={assistantHandoff.badge}
+            description={assistantHandoff.summary}
+            note={assistantHandoff.note}
+            prompts={assistantHandoff.prompts}
+            title={assistantHandoff.title}
+          />
+        ) : undefined
+      }
       context={[
         {
           label: 'Tool filter',
@@ -182,55 +196,72 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
               <CardTitle className="text-xl">Tool execution ledger</CardTitle>
             </CardHeader>
             <CardContent className="overflow-hidden p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tool</TableHead>
-                    <TableHead>Scope</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Feedback</TableHead>
-                    <TableHead>Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payload.data.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <div className="grid gap-1">
-                          <span className="font-medium">{row.toolId}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {row.requestId ?? 'no request id'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.action}:{row.subject}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
-                          {row.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <AiFeedbackDialog
-                          auditLogId={row.id}
-                          feedbackCount={row.feedbackCount}
-                          humanOverride={row.humanOverride}
-                          latestUserAction={row.latestUserAction}
-                          toolId={row.toolId}
-                        />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDateTime(row.createdAt)}
-                      </TableCell>
+              {payload.data.length === 0 ? (
+                <div className="p-6">
+                  <SurfaceStatePanel
+                    actionHref="/ai/audit"
+                    actionLabel="Reset filters"
+                    description="当前筛选条件下没有 AI 审计事件。先确认 toolId 和 status 条件，再判断这是健康空窗还是观测缺口。"
+                    eyebrow="Audit empty state"
+                    hints={[
+                      '空切片不代表系统没有风险，只代表当前过滤器下没有可见审计证据。',
+                      '如果你在追查越权或异常执行，先放宽 status，再让助手做边界解读。',
+                    ]}
+                    title="No AI audit rows in this slice"
+                    tone="neutral"
+                  />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tool</TableHead>
+                      <TableHead>Scope</TableHead>
+                      <TableHead>Actor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Feedback</TableHead>
+                      <TableHead>Created</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {payload.data.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>
+                          <div className="grid gap-1">
+                            <span className="font-medium">{row.toolId}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {row.requestId ?? 'no request id'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.action}:{row.subject}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
+                            {row.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <AiFeedbackDialog
+                            auditLogId={row.id}
+                            feedbackCount={row.feedbackCount}
+                            humanOverride={row.humanOverride}
+                            latestUserAction={row.latestUserAction}
+                            toolId={row.toolId}
+                          />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateTime(row.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>

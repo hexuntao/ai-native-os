@@ -3,7 +3,6 @@ import {
   Badge,
   Button,
   Field,
-  FieldError,
   FieldHint,
   FieldLabel,
   Input,
@@ -23,6 +22,7 @@ import {
 } from '@/app/(dashboard)/system/permissions/actions'
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { ManagementDialog } from '@/components/management/management-dialog'
+import { PageFeedbackBanner } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { canManagePermissions } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -172,13 +172,7 @@ export default async function SystemPermissionsPage({
       title="Permission Center"
     >
       {flashMessage ? (
-        flashMessage.kind === 'error' ? (
-          <FieldError>{flashMessage.message}</FieldError>
-        ) : (
-          <div className="rounded-[var(--radius-md)] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {flashMessage.message}
-          </div>
-        )
+        <PageFeedbackBanner kind={flashMessage.kind} message={flashMessage.message} />
       ) : null}
 
       <form

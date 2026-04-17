@@ -15,7 +15,9 @@ import type { ReactNode } from 'react'
 
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
+import { AssistantHandoffCard, SurfaceStatePanel } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
@@ -32,9 +34,21 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
   const resolvedSearchParams = await searchParams
   const filters = createLogFilterState(resolvedSearchParams)
   const payload = await loadOperationLogsList(filters)
+  const assistantHandoff = resolveCopilotPageHandoff('/system/logs')
 
   return (
     <DataSurfacePage
+      assistantHandoff={
+        assistantHandoff ? (
+          <AssistantHandoffCard
+            badge={assistantHandoff.badge}
+            description={assistantHandoff.summary}
+            note={assistantHandoff.note}
+            prompts={assistantHandoff.prompts}
+            title={assistantHandoff.title}
+          />
+        ) : undefined
+      }
       description="Operational audit stream rendered from the monitor contract. This page is read-only and focuses on traceability, not incident remediation."
       eyebrow="Monitor Module"
       facts={[
@@ -114,36 +128,53 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
       </form>
 
       <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Action</TableHead>
-              <TableHead>Module</TableHead>
-              <TableHead>Detail</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {payload.data.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-medium">{row.action}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{row.module}</Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{row.detail}</TableCell>
-                <TableCell>
-                  <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
-                    {row.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDateTime(row.createdAt)}
-                </TableCell>
+        {payload.data.length === 0 ? (
+          <div className="p-6">
+            <SurfaceStatePanel
+              actionHref="/system/logs"
+              actionLabel="Reset filters"
+              description="当前筛选条件下没有命中任何审计行。先放宽 module、status 或 search，再决定是否把问题交给助手做 slice 解读。"
+              eyebrow="Logs empty state"
+              hints={[
+                '如果你在追查 incident，先确认 module 过滤没有把真正的信号挡掉。',
+                '如果这是全新环境，空日志并不一定是异常，也可能只是还没有操作事件进入审计流。',
+              ]}
+              title="No audit rows in this slice"
+              tone="neutral"
+            />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Action</TableHead>
+                <TableHead>Module</TableHead>
+                <TableHead>Detail</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {payload.data.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="font-medium">{row.action}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{row.module}</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{row.detail}</TableCell>
+                  <TableCell>
+                    <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
+                      {row.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDateTime(row.createdAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
