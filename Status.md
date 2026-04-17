@@ -112,6 +112,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C1 | Post-P6 | Establish web UI design contract and refactor the app shell into a control-console baseline | done | IAM-C1 | lint + typecheck + test + build |
 | UI-C2 | Post-P6 | Refactor directory-style pages toward toolbar + table + dialog-form ergonomics | done | UI-C1 | lint + typecheck + test + build |
 | UI-C3 | Post-P6 | Refactor observability and AI governance pages into status-first workbench layouts | done | UI-C2 | lint + typecheck + test + build |
+| UI-C4 | Post-P6 | Refactor `ai/knowledge` and route-aware Copilot surfaces into a deeper AI workbench workflow | done | UI-C3 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -139,7 +140,8 @@ Priority order as of 2026-04-12:
 - `UI-C1` is closed; the repository now has a dedicated web UI design contract, a neutral control-console token baseline, a left-nav/topbar shell, a collapsible Copilot workspace, and compact data-surface headers.
 - `UI-C2` is closed; `system/users`, `system/roles`, `system/permissions`, and `system/menus` now use action bars plus dialog-based create/edit flows instead of keeping long forms expanded on the page.
 - `UI-C3` is closed; `monitor/server`, `monitor/online`, `ai/audit`, and `ai/evals` now use shared status-first workbench layouts instead of generic list-page framing.
-- the next recommended backlog item is `UI-C4`: refactor `ai/knowledge` and Copilot-assisted AI workbench surfaces into deeper operator workflows.
+- `UI-C4` is closed; `ai/knowledge` now uses a workbench-style split layout with dialog-based write flows, and Copilot suggestions now adapt to the knowledge route.
+- the next recommended backlog item is `UI-C5`: deepen Copilot interaction ergonomics, prompt/governance workbench layouts, and route-specific assistant panels for the remaining `ai/*` surfaces.
 
 Auto-unlock rules:
 
@@ -240,7 +242,7 @@ Residual follow-up risks:
 Follow-up priority after current E2E remediation sprint:
 
 1. Additional CRUD and documentation-template rollout beyond `system/users`, `system/roles`, `system/permissions`, `system/menus`, and current AI contract surfaces
-2. Web UI / UX hardening for AI workbench layouts, knowledge editing workflows, and Copilot-assisted page flows
+2. Web UI / UX hardening for remaining AI governance layouts, richer Copilot interaction ergonomics, and route-specific assistant panels
 3. External platform credential and live deploy verification
 
 ## 7. QA Recording Template

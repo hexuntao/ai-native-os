@@ -294,7 +294,7 @@ export function CopilotPanel({ initialBridgeSummary, shellState }: CopilotPanelP
   const threadId = bridgeSummary
     ? createCopilotThreadId(bridgeSummary.resourceId, pathname)
     : undefined
-  const suggestions = buildCopilotSuggestions(shellState)
+  const suggestions = buildCopilotSuggestions(shellState, pathname)
   const instructions = buildCopilotInstructions(shellState, pathname)
 
   return (

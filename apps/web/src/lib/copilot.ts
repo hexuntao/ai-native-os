@@ -74,6 +74,10 @@ export function buildCopilotInstructions(
   pathname: string,
 ): string {
   const visibleLabels = shellState.visibleNavigation.map((item) => item.label).join(', ')
+  const routeSpecificInstruction =
+    pathname === '/ai/knowledge'
+      ? 'On the knowledge route, prioritize indexed document coverage, source concentration, and safe reindex guidance before suggesting changes.'
+      : 'Stay focused on the current route and explain operational tradeoffs before suggesting actions.'
 
   return [
     'You are the in-dashboard operator copilot for AI Native OS.',
@@ -83,6 +87,7 @@ export function buildCopilotInstructions(
     `Permission rule count: ${shellState.permissionRuleCount}.`,
     'Never imply elevated capabilities that are not available through the runtime tools.',
     'If a requested action is blocked by permissions or missing tools, explain the limit explicitly.',
+    routeSpecificInstruction,
     'Prefer concise operational guidance tied to the current admin console context.',
   ].join(' ')
 }
@@ -92,6 +97,7 @@ export function buildCopilotInstructions(
  */
 export function buildCopilotSuggestions(
   shellState: AuthenticatedShellState,
+  pathname: string,
 ): CopilotChatSuggestion[] {
   const suggestions: CopilotChatSuggestion[] = [
     {
@@ -109,7 +115,20 @@ export function buildCopilotSuggestions(
     },
   ]
 
-  if (shellState.visibleNavigation.some((item) => item.href === '/ai/knowledge')) {
+  if (pathname === '/ai/knowledge') {
+    suggestions.unshift(
+      {
+        message:
+          'Review the visible knowledge documents, call out sparse metadata coverage, and identify which document looks most expensive to reindex.',
+        title: 'Knowledge coverage',
+      },
+      {
+        message:
+          'Explain whether the current knowledge slice looks source-heavy, stale, or metadata-light, and suggest the safest next operator action.',
+        title: 'Index triage',
+      },
+    )
+  } else if (shellState.visibleNavigation.some((item) => item.href === '/ai/knowledge')) {
     suggestions.push({
       message:
         'Search the knowledge workflow and explain how indexed AI knowledge is governed in this environment.',

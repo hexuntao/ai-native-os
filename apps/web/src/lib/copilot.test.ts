@@ -50,12 +50,13 @@ test('buildCopilotInstructions includes route, roles, and visible surfaces', () 
   assert.match(instructions, /Current route: \/ai\/knowledge\./)
   assert.match(instructions, /Authenticated roles: admin\./)
   assert.match(instructions, /Roles Matrix, Knowledge Vault/)
+  assert.match(instructions, /prioritize indexed document coverage/)
 })
 
 test('buildCopilotSuggestions includes knowledge guidance when the surface is visible', () => {
-  const suggestions = buildCopilotSuggestions(authenticatedShellState)
+  const suggestions = buildCopilotSuggestions(authenticatedShellState, '/ai/knowledge')
 
-  assert.ok(suggestions.some((suggestion) => suggestion.title === 'Knowledge context'))
+  assert.ok(suggestions.some((suggestion) => suggestion.title === 'Knowledge coverage'))
 })
 
 test('parseCopilotSessionContextEventData returns null for malformed payloads', () => {

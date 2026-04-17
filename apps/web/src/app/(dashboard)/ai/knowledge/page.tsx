@@ -1,11 +1,10 @@
 import {
   Badge,
-  Button,
-  Field,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   FieldError,
-  FieldHint,
-  FieldLabel,
-  Input,
   Table,
   TableBody,
   TableCell,
@@ -14,15 +13,11 @@ import {
   TableRow,
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
-
-import {
-  createKnowledgeAction,
-  deleteKnowledgeAction,
-  updateKnowledgeAction,
-} from '@/app/(dashboard)/ai/knowledge/actions'
+import { KnowledgeMutationDialog } from '@/components/ai/knowledge-mutation-dialog'
 import { GenerativeKnowledgePanel } from '@/components/generative/generative-knowledge-panel'
-import { DataSurfacePage } from '@/components/management/data-surface-page'
+import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { canManageKnowledge } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
@@ -35,9 +30,6 @@ import { loadKnowledgeList, loadSerializedAbilityPayload } from '@/lib/server-ma
 interface KnowledgePageProps {
   searchParams: Promise<DashboardSearchParams>
 }
-
-const textAreaClassName =
-  'min-h-28 w-full rounded-[var(--radius-md)] border border-border/80 bg-background/70 px-4 py-3 text-sm text-foreground shadow-[var(--shadow-soft)] outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-2'
 
 /**
  * 从搜索参数中提取一次性反馈消息，供服务端页面渲染操作结果提示。
@@ -79,10 +71,25 @@ function createCurrentKnowledgeHref(searchParams: DashboardSearchParams): string
 }
 
 /**
- * 将元数据对象格式化为 JSON 文本，供表单编辑和回显使用。
+ * 统计当前页切片里 metadata 非空的知识文档数量，帮助快速判断治理完备度。
  */
-function stringifyMetadata(metadata: Record<string, string | number | boolean | null>): string {
-  return JSON.stringify(metadata, null, 2)
+function countDocumentsWithMetadata(
+  rows: ReadonlyArray<{
+    metadata: Record<string, string | number | boolean | null>
+  }>,
+): number {
+  return rows.filter((row) => Object.keys(row.metadata).length > 0).length
+}
+
+/**
+ * 计算当前切片里最大的 chunk 数量，用于快速识别重索引成本更高的文档。
+ */
+function resolveLargestChunkCount(
+  rows: ReadonlyArray<{
+    chunkCount: number
+  }>,
+): number {
+  return rows.reduce((maxValue, row) => Math.max(maxValue, row.chunkCount), 0)
 }
 
 export default async function AiKnowledgePage({
@@ -97,12 +104,13 @@ export default async function AiKnowledgePage({
   const flashMessage = readFlashMessage(resolvedSearchParams)
   const returnTo = createCurrentKnowledgeHref(resolvedSearchParams)
   const canWriteKnowledge = abilityPayload ? canManageKnowledge(abilityPayload) : false
+  const metadataCoverageCount = countDocumentsWithMetadata(payload.data)
+  const largestChunkCount = resolveLargestChunkCount(payload.data)
+  const sourceClassCount = new Set(payload.data.map((row) => row.sourceType)).size
 
   return (
-    <DataSurfacePage
-      description="RAG document inventory sourced from the pgvector-backed knowledge contract. This surface now supports audited create, replace, and delete flows at document level while keeping indexing semantics explicit."
-      eyebrow="AI Module"
-      facts={[
+    <StatusWorkbenchPage
+      context={[
         {
           label: 'Search scope',
           value: filters.search ?? 'All titles and content',
@@ -116,23 +124,63 @@ export default async function AiKnowledgePage({
           value: canWriteKnowledge ? 'write-enabled' : 'read-only',
         },
       ]}
-      metrics={[
+      description="知识库工作台优先呈现索引覆盖、写入动作和生成式分析，让操作员能在同一页面里完成筛选、重建索引和覆盖判断。"
+      eyebrow="AI Module"
+      signals={[
         {
-          detail: 'Total knowledge documents currently indexed.',
+          badge: 'indexed',
+          detail: '当前筛选条件下命中的知识文档总数。',
           label: 'Documents',
+          tone: payload.pagination.total > 0 ? 'positive' : 'neutral',
           value: formatCount(payload.pagination.total),
         },
         {
-          detail: 'Chunk rows represented in the current page slice.',
+          badge: `${sourceClassCount} source types`,
+          detail: '当前页切片里累计的 chunk 行数，代表检索负载体积。',
           label: 'Chunks',
+          tone: payload.data.length > 0 ? 'positive' : 'neutral',
           value: formatCount(payload.data.reduce((sum, row) => sum + row.chunkCount, 0)),
         },
         {
-          detail: 'Distinct source types visible in the current page slice.',
-          label: 'Source classes',
-          value: formatCount(new Set(payload.data.map((row) => row.sourceType)).size),
+          badge: payload.data.length === 0 ? 'n/a' : 'coverage',
+          detail: '当前页切片里 metadata 非空的文档数量，越高代表治理信息越完整。',
+          label: 'Metadata coverage',
+          tone: metadataCoverageCount > 0 ? 'positive' : 'warning',
+          value: `${metadataCoverageCount}/${payload.data.length}`,
+        },
+        {
+          badge: 'reindex cost',
+          detail: '当前页中 chunk 数最多的文档，适合优先评估替换索引的成本。',
+          label: 'Largest document',
+          tone: largestChunkCount > 150 ? 'warning' : 'neutral',
+          value: formatCount(largestChunkCount),
         },
       ]}
+      statusStrip={
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <div className="grid gap-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              Knowledge strip
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="accent">search:{filters.search ?? 'all'}</Badge>
+              <Badge variant={filters.sourceType ? 'accent' : 'secondary'}>
+                source:{filters.sourceType ?? 'all'}
+              </Badge>
+              <Badge variant={canWriteKnowledge ? 'accent' : 'secondary'}>
+                write:{canWriteKnowledge ? 'enabled' : 'disabled'}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="grid gap-1 rounded-[var(--radius-lg)] border border-border/70 bg-background/70 p-4">
+            <p className="text-sm font-medium text-foreground">Retrieval note</p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              这里管理的是文档级资源；semantic search、Agent 和 workflow 仍然复用同一份索引数据。
+            </p>
+          </div>
+        </div>
+      }
       title="Knowledge Vault"
     >
       {flashMessage ? (
@@ -145,297 +193,125 @@ export default async function AiKnowledgePage({
         )
       ) : null}
 
-      <form
-        action="/ai/knowledge"
-        className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]"
-        method="GET"
-      >
-        <input name="page" type="hidden" value="1" />
-        <input name="pageSize" type="hidden" value={String(filters.pageSize)} />
-
-        <Field>
-          <FieldLabel htmlFor="search">Search</FieldLabel>
-          <Input
-            defaultValue={filters.search}
-            id="search"
-            name="search"
-            placeholder="Search title or content"
-          />
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="sourceType">Source type</FieldLabel>
-          <Input
-            defaultValue={filters.sourceType}
-            id="sourceType"
-            name="sourceType"
-            placeholder="doc / markdown / policy"
-          />
-        </Field>
-
-        <div className="flex items-end gap-3">
-          <a
-            className="inline-flex h-11 items-center justify-center rounded-full border border-border/80 px-5 text-sm font-medium text-foreground transition-colors hover:bg-card/80"
-            href="/ai/knowledge"
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(22rem,0.95fr)]">
+        <div className="grid gap-4">
+          <FilterToolbar
+            actionHref="/ai/knowledge"
+            pageSize={filters.pageSize}
+            resetHref="/ai/knowledge"
+            searchDefaultValue={filters.search}
+            searchPlaceholder="Search title or content"
           >
-            Reset
-          </a>
-        </div>
-      </form>
-
-      {canWriteKnowledge ? (
-        <form
-          action={createKnowledgeAction}
-          className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/75 p-5 shadow-[var(--shadow-soft)]"
-        >
-          <input name="returnTo" type="hidden" value={returnTo} />
-          <div className="grid gap-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Create knowledge document
-            </p>
-            <p className="text-sm leading-6 text-muted-foreground">
-              创建操作会对完整正文执行 chunking、embedding 和整文档索引。这里不会直接写底层 vector
-              表。
-            </p>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="create-knowledge-title">Title</FieldLabel>
-              <Input id="create-knowledge-title" name="title" required />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-knowledge-source-type">Source type</FieldLabel>
-              <Input
-                defaultValue="manual"
-                id="create-knowledge-source-type"
+            <div className="grid gap-2">
+              <label
+                className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground"
+                htmlFor="sourceType"
+              >
+                Source type
+              </label>
+              <input
+                className="flex h-11 w-full rounded-[var(--radius-md)] border border-border/80 bg-background/70 px-4 py-2 text-sm text-foreground shadow-[var(--shadow-soft)] outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-2"
+                defaultValue={filters.sourceType}
+                id="sourceType"
                 name="sourceType"
-                required
+                placeholder="doc / markdown / policy"
               />
-            </Field>
-            <Field className="xl:col-span-2">
-              <FieldLabel htmlFor="create-knowledge-source-uri">Source URI</FieldLabel>
-              <Input
-                id="create-knowledge-source-uri"
-                name="sourceUri"
-                placeholder="https://internal.example.com/wiki/finance"
-              />
-              <FieldHint>没有外部来源时可留空，系统会归一化为 `null`。</FieldHint>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-knowledge-chunk-size">Chunk size</FieldLabel>
-              <Input
-                defaultValue="512"
-                id="create-knowledge-chunk-size"
-                name="chunkSize"
-                type="number"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="create-knowledge-chunk-overlap">Chunk overlap</FieldLabel>
-              <Input
-                defaultValue="64"
-                id="create-knowledge-chunk-overlap"
-                name="chunkOverlap"
-                type="number"
-              />
-            </Field>
-            <Field className="xl:col-span-2">
-              <FieldLabel htmlFor="create-knowledge-metadata">Metadata (JSON)</FieldLabel>
-              <textarea
-                className={textAreaClassName}
-                defaultValue={'{\n  "category": "finance"\n}'}
-                id="create-knowledge-metadata"
-                name="metadata"
-              />
-            </Field>
-            <Field className="xl:col-span-2">
-              <FieldLabel htmlFor="create-knowledge-content">Document content</FieldLabel>
-              <textarea
-                className={textAreaClassName}
-                id="create-knowledge-content"
-                name="content"
-                placeholder="Paste the full document content here."
-                required
-              />
-              <FieldHint>创建和更新都需要提交完整正文；系统不会自动从旧 chunk 还原原文。</FieldHint>
-            </Field>
-          </div>
+            </div>
+          </FilterToolbar>
 
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button type="submit">Create document</Button>
-          </div>
-        </form>
-      ) : (
-        <div className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 text-sm leading-7 text-muted-foreground">
-          当前主体仅具备知识库只读权限，因此页面不会暴露创建、替换或删除写路径。
-        </div>
-      )}
+          <Card className="overflow-hidden border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+            <CardHeader className="gap-2 border-b border-border/70">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="grid gap-1">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    Document registry
+                  </p>
+                  <CardTitle className="text-xl">Visible knowledge documents</CardTitle>
+                </div>
 
-      <GenerativeKnowledgePanel rows={payload.data} />
-
-      <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Document</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Chunks</TableHead>
-              <TableHead>URI</TableHead>
-              <TableHead>Indexed</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {payload.data.map((row) => (
-              <TableRow key={row.documentId}>
-                <TableCell>
-                  <div className="grid gap-3">
-                    <div className="grid gap-1">
-                      <span className="font-medium">{row.title}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {Object.entries(row.metadata)
-                          .slice(0, 2)
-                          .map(([key, value]) => `${key}: ${String(value)}`)
-                          .join(' · ') || 'No metadata'}
-                      </span>
-                    </div>
-
-                    {canWriteKnowledge ? (
-                      <details className="rounded-[var(--radius-lg)] border border-border/60 bg-background/70 p-4">
-                        <summary className="cursor-pointer text-sm font-medium text-foreground">
-                          Replace index for this document
-                        </summary>
-
-                        <div className="mt-4 grid gap-4">
-                          <form action={updateKnowledgeAction} className="grid gap-4">
-                            <input name="id" type="hidden" value={row.documentId} />
-                            <input name="returnTo" type="hidden" value={returnTo} />
-
-                            <div className="grid gap-4 xl:grid-cols-2">
-                              <Field>
-                                <FieldLabel htmlFor={`title-${row.documentId}`}>Title</FieldLabel>
-                                <Input
-                                  defaultValue={row.title}
-                                  id={`title-${row.documentId}`}
-                                  name="title"
-                                  required
-                                />
-                              </Field>
-                              <Field>
-                                <FieldLabel htmlFor={`source-type-${row.documentId}`}>
-                                  Source type
-                                </FieldLabel>
-                                <Input
-                                  defaultValue={row.sourceType}
-                                  id={`source-type-${row.documentId}`}
-                                  name="sourceType"
-                                  required
-                                />
-                              </Field>
-                              <Field className="xl:col-span-2">
-                                <FieldLabel htmlFor={`source-uri-${row.documentId}`}>
-                                  Source URI
-                                </FieldLabel>
-                                <Input
-                                  defaultValue={row.sourceUri ?? ''}
-                                  id={`source-uri-${row.documentId}`}
-                                  name="sourceUri"
-                                />
-                              </Field>
-                              <Field>
-                                <FieldLabel htmlFor={`chunk-size-${row.documentId}`}>
-                                  Chunk size
-                                </FieldLabel>
-                                <Input
-                                  defaultValue="512"
-                                  id={`chunk-size-${row.documentId}`}
-                                  name="chunkSize"
-                                  type="number"
-                                />
-                              </Field>
-                              <Field>
-                                <FieldLabel htmlFor={`chunk-overlap-${row.documentId}`}>
-                                  Chunk overlap
-                                </FieldLabel>
-                                <Input
-                                  defaultValue="64"
-                                  id={`chunk-overlap-${row.documentId}`}
-                                  name="chunkOverlap"
-                                  type="number"
-                                />
-                              </Field>
-                              <Field className="xl:col-span-2">
-                                <FieldLabel htmlFor={`metadata-${row.documentId}`}>
-                                  Metadata (JSON)
-                                </FieldLabel>
-                                <textarea
-                                  className={textAreaClassName}
-                                  defaultValue={stringifyMetadata(row.metadata)}
-                                  id={`metadata-${row.documentId}`}
-                                  name="metadata"
-                                />
-                              </Field>
-                              <Field className="xl:col-span-2">
-                                <FieldLabel htmlFor={`content-${row.documentId}`}>
-                                  Replacement content
-                                </FieldLabel>
-                                <textarea
-                                  className={textAreaClassName}
-                                  id={`content-${row.documentId}`}
-                                  name="content"
-                                  placeholder="Paste the full replacement content here."
-                                  required
-                                />
-                                <FieldHint>
-                                  更新语义是“整文档重建索引”。系统不会自动回填旧正文，请粘贴完整新内容。
-                                </FieldHint>
-                              </Field>
-                            </div>
-
-                            <div className="flex flex-wrap justify-between gap-3">
-                              <Button type="submit">Replace and reindex</Button>
-                            </div>
-                          </form>
-
-                          <form action={deleteKnowledgeAction} className="flex justify-start">
-                            <input name="id" type="hidden" value={row.documentId} />
-                            <input name="returnTo" type="hidden" value={returnTo} />
-                            <Button
-                              className="border-red-200 text-red-700 hover:bg-red-50"
-                              type="submit"
-                              variant="secondary"
-                            >
-                              Delete document
-                            </Button>
-                          </form>
+                {canWriteKnowledge ? (
+                  <KnowledgeMutationDialog mode="create" returnTo={returnTo} />
+                ) : null}
+              </div>
+            </CardHeader>
+            <CardContent className="overflow-hidden p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Document</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Chunks</TableHead>
+                    <TableHead>URI</TableHead>
+                    <TableHead>Indexed</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payload.data.map((row) => (
+                    <TableRow key={row.documentId}>
+                      <TableCell>
+                        <div className="grid gap-1">
+                          <span className="font-medium">{row.title}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {Object.entries(row.metadata)
+                              .slice(0, 2)
+                              .map(([key, value]) => `${key}: ${String(value)}`)
+                              .join(' · ') || 'No metadata'}
+                          </span>
                         </div>
-                      </details>
-                    ) : null}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{row.sourceType}</Badge>
-                </TableCell>
-                <TableCell className="font-medium">{formatCount(row.chunkCount)}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {row.sourceUri ?? 'internal'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDateTime(row.lastIndexedAt)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{row.sourceType}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{formatCount(row.chunkCount)}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.sourceUri ?? 'internal'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDateTime(row.lastIndexedAt)}
+                      </TableCell>
+                      <TableCell>
+                        {canWriteKnowledge ? (
+                          <KnowledgeMutationDialog mode="replace" returnTo={returnTo} row={row} />
+                        ) : (
+                          <Badge variant="secondary">read-only</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
 
-      <Field className="rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4">
-        <FieldLabel>Retrieval note</FieldLabel>
-        <FieldHint>
-          当前页面管理的是文档级资源，不是直接执行 semantic search。检索 Tool、Agent 和 workflow
-          仍然复用同一份索引数据。
-        </FieldHint>
-      </Field>
+        <div className="grid gap-4">
+          <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+            <CardHeader className="gap-2">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Operator actions
+              </p>
+              <CardTitle className="text-xl">Write workflow</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
+              {canWriteKnowledge ? (
+                <>
+                  <p>创建和替换都要求提交完整正文；系统不会从旧 chunk 反推原文。</p>
+                  <p>优先查看 largest document 和 metadata coverage，再决定是否立即重建索引。</p>
+                  <p>替换索引入口已经收进每行动作里，避免长表单持续挤占主工作区。</p>
+                </>
+              ) : (
+                <>
+                  <p>当前主体只有知识库读取权限，因此不会暴露创建、替换或删除动作。</p>
+                  <p>你仍然可以利用右侧生成式摘要观察来源分布和索引覆盖情况。</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <GenerativeKnowledgePanel rows={payload.data} />
+        </div>
+      </div>
 
       <PaginationControls
         nextHref={
@@ -457,6 +333,6 @@ export default async function AiKnowledgePage({
         total={payload.pagination.total}
         totalPages={payload.pagination.totalPages}
       />
-    </DataSurfacePage>
+    </StatusWorkbenchPage>
   )
 }
