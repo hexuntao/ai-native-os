@@ -21,6 +21,7 @@ import {
   SurfaceStatePanel,
 } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { canManageKnowledge } from '@/lib/ability'
 import { resolveCopilotPageHandoff } from '@/lib/copilot'
@@ -262,52 +263,63 @@ export default async function AiKnowledgePage({
                   />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Document</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Chunks</TableHead>
-                      <TableHead>URI</TableHead>
-                      <TableHead>Indexed</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payload.data.map((row) => (
-                      <TableRow key={row.documentId}>
-                        <TableCell>
-                          <div className="grid gap-1">
-                            <span className="font-medium">{row.title}</span>
-                            <span className="text-sm text-muted-foreground">
-                              {Object.entries(row.metadata)
-                                .slice(0, 2)
-                                .map(([key, value]) => `${key}: ${String(value)}`)
-                                .join(' · ') || 'No metadata'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{row.sourceType}</Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">{formatCount(row.chunkCount)}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {row.sourceUri ?? 'internal'}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDateTime(row.lastIndexedAt)}
-                        </TableCell>
-                        <TableCell>
-                          {canWriteKnowledge ? (
-                            <KnowledgeMutationDialog mode="replace" returnTo={returnTo} row={row} />
-                          ) : (
-                            <Badge variant="secondary">read-only</Badge>
-                          )}
-                        </TableCell>
+                <ResponsiveTableRegion
+                  label="Knowledge documents table"
+                  minWidthClassName="min-w-[60rem]"
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Document</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Chunks</TableHead>
+                        <TableHead>URI</TableHead>
+                        <TableHead>Indexed</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {payload.data.map((row) => (
+                        <TableRow key={row.documentId}>
+                          <TableCell>
+                            <div className="grid gap-1">
+                              <span className="font-medium">{row.title}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {Object.entries(row.metadata)
+                                  .slice(0, 2)
+                                  .map(([key, value]) => `${key}: ${String(value)}`)
+                                  .join(' · ') || 'No metadata'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{row.sourceType}</Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {formatCount(row.chunkCount)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {row.sourceUri ?? 'internal'}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {formatDateTime(row.lastIndexedAt)}
+                          </TableCell>
+                          <TableCell>
+                            {canWriteKnowledge ? (
+                              <KnowledgeMutationDialog
+                                mode="replace"
+                                returnTo={returnTo}
+                                row={row}
+                              />
+                            ) : (
+                              <Badge variant="secondary">read-only</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableRegion>
               )}
             </CardContent>
           </Card>

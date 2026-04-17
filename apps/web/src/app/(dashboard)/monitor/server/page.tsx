@@ -11,6 +11,7 @@ import {
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
 
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { formatCount } from '@/lib/format'
 import { loadServerSummary } from '@/lib/server-management'
@@ -131,30 +132,36 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
               <CardTitle className="text-xl">Core runtime dependencies</CardTitle>
             </CardHeader>
             <CardContent className="overflow-hidden p-0">
-              <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">API status</TableCell>
-                    <TableCell>{payload.health.api}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Database status</TableCell>
-                    <TableCell>{payload.health.database}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Redis status</TableCell>
-                    <TableCell>{payload.health.redis}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">OpenTelemetry status</TableCell>
-                    <TableCell>{payload.health.telemetry.openTelemetry}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Sentry status</TableCell>
-                    <TableCell>{payload.health.telemetry.sentry}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <ResponsiveTableRegion
+                hint="表格在窄屏下仍支持聚焦滚动，适合查看依赖状态这样的两列表格。"
+                label="Server dependency status table"
+                minWidthClassName="min-w-[28rem]"
+              >
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">API status</TableCell>
+                      <TableCell>{payload.health.api}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Database status</TableCell>
+                      <TableCell>{payload.health.database}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Redis status</TableCell>
+                      <TableCell>{payload.health.redis}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">OpenTelemetry status</TableCell>
+                      <TableCell>{payload.health.telemetry.openTelemetry}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Sentry status</TableCell>
+                      <TableCell>{payload.health.telemetry.sentry}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </ResponsiveTableRegion>
             </CardContent>
           </Card>
 
@@ -166,32 +173,38 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
               <CardTitle className="text-xl">Mastra registry footprint</CardTitle>
             </CardHeader>
             <CardContent className="overflow-hidden p-0">
-              <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">Runtime stage</TableCell>
-                    <TableCell>{payload.runtime.runtimeStage}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Agent count</TableCell>
-                    <TableCell>
-                      {payload.runtime.enabledAgentCount}/{payload.runtime.agentCount}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Tool count</TableCell>
-                    <TableCell>{payload.runtime.toolCount}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Workflow count</TableCell>
-                    <TableCell>{payload.runtime.workflowCount}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">AI degrade reason</TableCell>
-                    <TableCell>{payload.health.ai.reason}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <ResponsiveTableRegion
+                hint="运行时库存表格也支持键盘可达滚动，便于在窄屏下读取长字段。"
+                label="Mastra runtime inventory table"
+                minWidthClassName="min-w-[28rem]"
+              >
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">Runtime stage</TableCell>
+                      <TableCell>{payload.runtime.runtimeStage}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Agent count</TableCell>
+                      <TableCell>
+                        {payload.runtime.enabledAgentCount}/{payload.runtime.agentCount}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Tool count</TableCell>
+                      <TableCell>{payload.runtime.toolCount}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Workflow count</TableCell>
+                      <TableCell>{payload.runtime.workflowCount}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">AI degrade reason</TableCell>
+                      <TableCell>{payload.health.ai.reason}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </ResponsiveTableRegion>
             </CardContent>
           </Card>
         </div>

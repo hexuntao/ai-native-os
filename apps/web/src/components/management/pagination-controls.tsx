@@ -22,23 +22,38 @@ export function PaginationControls({
   totalPages,
 }: PaginationControlsProps): ReactNode {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
+    <nav
+      aria-label="Pagination"
+      className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4"
+    >
       <div className="text-sm leading-6 text-muted-foreground">
         Page {page} / {Math.max(totalPages, 1)} · {pageSize} rows per page · {total} total rows
       </div>
 
       <div className="flex items-center gap-2">
-        <Button asChild disabled={!previousHref} size="sm" variant="secondary">
-          <a aria-disabled={!previousHref} href={previousHref ?? '#'}>
+        {previousHref ? (
+          <Button asChild size="sm" variant="secondary">
+            <a aria-label={`Go to page ${Math.max(page - 1, 1)}`} href={previousHref}>
+              Previous
+            </a>
+          </Button>
+        ) : (
+          <span className="inline-flex h-9 items-center justify-center rounded-full border border-border/80 px-4 text-sm text-muted-foreground opacity-60">
             Previous
-          </a>
-        </Button>
-        <Button asChild disabled={!nextHref} size="sm" variant="secondary">
-          <a aria-disabled={!nextHref} href={nextHref ?? '#'}>
+          </span>
+        )}
+        {nextHref ? (
+          <Button asChild size="sm" variant="secondary">
+            <a aria-label={`Go to page ${page + 1}`} href={nextHref}>
+              Next
+            </a>
+          </Button>
+        ) : (
+          <span className="inline-flex h-9 items-center justify-center rounded-full border border-border/80 px-4 text-sm text-muted-foreground opacity-60">
             Next
-          </a>
-        </Button>
+          </span>
+        )}
       </div>
-    </div>
+    </nav>
   )
 }

@@ -26,6 +26,7 @@ import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import { PageFeedbackBanner } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { canManageMenus } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
@@ -223,7 +224,7 @@ export default async function SystemMenusPage({
             title="Create menu"
             triggerLabel="New menu"
           >
-            <form action={createMenuAction} className="grid gap-4">
+            <form action={createMenuAction} aria-label="Create menu form" className="grid gap-4">
               <input name="returnTo" type="hidden" value={returnTo} />
               <div className="grid gap-4 xl:grid-cols-2">
                 <Field>
@@ -365,242 +366,248 @@ export default async function SystemMenusPage({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Menu</TableHead>
-                <TableHead>Path</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Permission</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payload.data.map((row) => {
-                const isProtected = isProtectedSeedMenu(row)
+          <ResponsiveTableRegion label="Menus registry table" minWidthClassName="min-w-[70rem]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Menu</TableHead>
+                  <TableHead>Path</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Permission</TableHead>
+                  <TableHead>State</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payload.data.map((row) => {
+                  const isProtected = isProtectedSeedMenu(row)
 
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell className="align-top">
-                      <div className="grid gap-1">
-                        <span className="font-medium">{row.name}</span>
-                        <span className="text-sm text-muted-foreground">
-                          created {formatDateTime(row.createdAt)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="align-top text-muted-foreground">
-                      {row.path ?? 'no-path'}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <Badge variant="outline">{row.type}</Badge>
-                    </TableCell>
-                    <TableCell className="align-top text-muted-foreground">
-                      {row.permissionAction && row.permissionResource
-                        ? `${row.permissionAction}:${row.permissionResource}`
-                        : 'public shell'}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant={row.visible ? 'accent' : 'secondary'}>
-                          {row.visible ? 'visible' : 'hidden'}
-                        </Badge>
-                        <Badge variant={row.status ? 'outline' : 'secondary'}>
-                          {row.status ? 'active' : 'inactive'}
-                        </Badge>
-                        {isProtected ? <Badge variant="secondary">seeded</Badge> : null}
-                      </div>
-                    </TableCell>
-                    <TableCell className="align-top">
-                      {canWriteMenus ? (
-                        isProtected ? (
-                          <span className="text-sm text-muted-foreground">Seeded</span>
-                        ) : (
-                          <div className="grid gap-3">
-                            <ManagementDialog
-                              contentClassName="w-[min(92vw,52rem)]"
-                              description="更新自定义菜单节点的路径、父子关系、可见性与权限绑定。"
-                              title={`Edit ${row.name}`}
-                              triggerLabel="Edit"
-                              triggerSize="sm"
-                              triggerVariant="secondary"
-                            >
-                              <form action={updateMenuAction} className="grid gap-4">
+                  return (
+                    <TableRow key={row.id}>
+                      <TableCell className="align-top">
+                        <div className="grid gap-1">
+                          <span className="font-medium">{row.name}</span>
+                          <span className="text-sm text-muted-foreground">
+                            created {formatDateTime(row.createdAt)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top text-muted-foreground">
+                        {row.path ?? 'no-path'}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <Badge variant="outline">{row.type}</Badge>
+                      </TableCell>
+                      <TableCell className="align-top text-muted-foreground">
+                        {row.permissionAction && row.permissionResource
+                          ? `${row.permissionAction}:${row.permissionResource}`
+                          : 'public shell'}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant={row.visible ? 'accent' : 'secondary'}>
+                            {row.visible ? 'visible' : 'hidden'}
+                          </Badge>
+                          <Badge variant={row.status ? 'outline' : 'secondary'}>
+                            {row.status ? 'active' : 'inactive'}
+                          </Badge>
+                          {isProtected ? <Badge variant="secondary">seeded</Badge> : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        {canWriteMenus ? (
+                          isProtected ? (
+                            <span className="text-sm text-muted-foreground">Seeded</span>
+                          ) : (
+                            <div className="grid gap-3">
+                              <ManagementDialog
+                                contentClassName="w-[min(92vw,52rem)]"
+                                description="更新自定义菜单节点的路径、父子关系、可见性与权限绑定。"
+                                title={`Edit ${row.name}`}
+                                triggerLabel="Edit"
+                                triggerSize="sm"
+                                triggerVariant="secondary"
+                              >
+                                <form
+                                  action={updateMenuAction}
+                                  aria-label="Update menu form"
+                                  className="grid gap-4"
+                                >
+                                  <input name="id" type="hidden" value={row.id} />
+                                  <input name="returnTo" type="hidden" value={returnTo} />
+
+                                  <div className="grid gap-4 xl:grid-cols-2">
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-name-${row.id}`}>Name</FieldLabel>
+                                      <Input
+                                        defaultValue={row.name}
+                                        id={`menu-name-${row.id}`}
+                                        name="name"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-type-${row.id}`}>Type</FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.type}
+                                        id={`menu-type-${row.id}`}
+                                        name="type"
+                                      >
+                                        <option value="directory">directory</option>
+                                        <option value="menu">menu</option>
+                                        <option value="button">button</option>
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-parent-${row.id}`}>
+                                        Parent directory
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.parentId ?? ''}
+                                        id={`menu-parent-${row.id}`}
+                                        name="parentId"
+                                      >
+                                        <option value="">Top level</option>
+                                        {getDirectoryOptions(menuOptionsPayload.data, row.id).map(
+                                          (menuEntry) => (
+                                            <option key={menuEntry.id} value={menuEntry.id}>
+                                              {menuEntry.name}
+                                            </option>
+                                          ),
+                                        )}
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-sort-order-${row.id}`}>
+                                        Sort order
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={String(row.sortOrder)}
+                                        id={`menu-sort-order-${row.id}`}
+                                        name="sortOrder"
+                                        type="number"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-path-${row.id}`}>Path</FieldLabel>
+                                      <Input
+                                        defaultValue={stringifyNullableValue(row.path)}
+                                        id={`menu-path-${row.id}`}
+                                        name="path"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-component-${row.id}`}>
+                                        Component
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={stringifyNullableValue(row.component)}
+                                        id={`menu-component-${row.id}`}
+                                        name="component"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-icon-${row.id}`}>Icon</FieldLabel>
+                                      <Input
+                                        defaultValue={stringifyNullableValue(row.icon)}
+                                        id={`menu-icon-${row.id}`}
+                                        name="icon"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-visible-${row.id}`}>
+                                        Visibility
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.visible ? 'visible' : 'hidden'}
+                                        id={`menu-visible-${row.id}`}
+                                        name="visible"
+                                      >
+                                        <option value="visible">visible</option>
+                                        <option value="hidden">hidden</option>
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-status-${row.id}`}>
+                                        Status
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.status ? 'active' : 'inactive'}
+                                        id={`menu-status-${row.id}`}
+                                        name="status"
+                                      >
+                                        <option value="active">active</option>
+                                        <option value="inactive">inactive</option>
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-permission-action-${row.id}`}>
+                                        Permission action
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.permissionAction ?? ''}
+                                        id={`menu-permission-action-${row.id}`}
+                                        name="permissionAction"
+                                      >
+                                        <option value="">none</option>
+                                        {appActions.map((action) => (
+                                          <option key={action} value={action}>
+                                            {action}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`menu-permission-resource-${row.id}`}>
+                                        Permission resource
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.permissionResource ?? ''}
+                                        id={`menu-permission-resource-${row.id}`}
+                                        name="permissionResource"
+                                      >
+                                        <option value="">none</option>
+                                        {appSubjects.map((subject) => (
+                                          <option key={subject} value={subject}>
+                                            {subject}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </Field>
+                                  </div>
+
+                                  <div className="flex justify-end">
+                                    <Button type="submit" variant="secondary">
+                                      Save changes
+                                    </Button>
+                                  </div>
+                                </form>
+                              </ManagementDialog>
+
+                              <form action={deleteMenuAction}>
                                 <input name="id" type="hidden" value={row.id} />
                                 <input name="returnTo" type="hidden" value={returnTo} />
-
-                                <div className="grid gap-4 xl:grid-cols-2">
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-name-${row.id}`}>Name</FieldLabel>
-                                    <Input
-                                      defaultValue={row.name}
-                                      id={`menu-name-${row.id}`}
-                                      name="name"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-type-${row.id}`}>Type</FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.type}
-                                      id={`menu-type-${row.id}`}
-                                      name="type"
-                                    >
-                                      <option value="directory">directory</option>
-                                      <option value="menu">menu</option>
-                                      <option value="button">button</option>
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-parent-${row.id}`}>
-                                      Parent directory
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.parentId ?? ''}
-                                      id={`menu-parent-${row.id}`}
-                                      name="parentId"
-                                    >
-                                      <option value="">Top level</option>
-                                      {getDirectoryOptions(menuOptionsPayload.data, row.id).map(
-                                        (menuEntry) => (
-                                          <option key={menuEntry.id} value={menuEntry.id}>
-                                            {menuEntry.name}
-                                          </option>
-                                        ),
-                                      )}
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-sort-order-${row.id}`}>
-                                      Sort order
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={String(row.sortOrder)}
-                                      id={`menu-sort-order-${row.id}`}
-                                      name="sortOrder"
-                                      type="number"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-path-${row.id}`}>Path</FieldLabel>
-                                    <Input
-                                      defaultValue={stringifyNullableValue(row.path)}
-                                      id={`menu-path-${row.id}`}
-                                      name="path"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-component-${row.id}`}>
-                                      Component
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={stringifyNullableValue(row.component)}
-                                      id={`menu-component-${row.id}`}
-                                      name="component"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-icon-${row.id}`}>Icon</FieldLabel>
-                                    <Input
-                                      defaultValue={stringifyNullableValue(row.icon)}
-                                      id={`menu-icon-${row.id}`}
-                                      name="icon"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-visible-${row.id}`}>
-                                      Visibility
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.visible ? 'visible' : 'hidden'}
-                                      id={`menu-visible-${row.id}`}
-                                      name="visible"
-                                    >
-                                      <option value="visible">visible</option>
-                                      <option value="hidden">hidden</option>
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-status-${row.id}`}>
-                                      Status
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.status ? 'active' : 'inactive'}
-                                      id={`menu-status-${row.id}`}
-                                      name="status"
-                                    >
-                                      <option value="active">active</option>
-                                      <option value="inactive">inactive</option>
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-permission-action-${row.id}`}>
-                                      Permission action
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.permissionAction ?? ''}
-                                      id={`menu-permission-action-${row.id}`}
-                                      name="permissionAction"
-                                    >
-                                      <option value="">none</option>
-                                      {appActions.map((action) => (
-                                        <option key={action} value={action}>
-                                          {action}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`menu-permission-resource-${row.id}`}>
-                                      Permission resource
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.permissionResource ?? ''}
-                                      id={`menu-permission-resource-${row.id}`}
-                                      name="permissionResource"
-                                    >
-                                      <option value="">none</option>
-                                      {appSubjects.map((subject) => (
-                                        <option key={subject} value={subject}>
-                                          {subject}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </Field>
-                                </div>
-
-                                <div className="flex justify-end">
-                                  <Button type="submit" variant="secondary">
-                                    Save changes
-                                  </Button>
-                                </div>
+                                <Button size="sm" type="submit" variant="ghost">
+                                  Delete
+                                </Button>
                               </form>
-                            </ManagementDialog>
-
-                            <form action={deleteMenuAction}>
-                              <input name="id" type="hidden" value={row.id} />
-                              <input name="returnTo" type="hidden" value={returnTo} />
-                              <Button size="sm" type="submit" variant="ghost">
-                                Delete
-                              </Button>
-                            </form>
-                          </div>
-                        )
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Read only</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                            </div>
+                          )
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Read only</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </ResponsiveTableRegion>
         </div>
 
         <div className="grid gap-4">

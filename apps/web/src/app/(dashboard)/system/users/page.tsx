@@ -27,6 +27,7 @@ import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import { PageFeedbackBanner } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { canManageUserDirectory } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
@@ -176,7 +177,7 @@ export default async function SystemUsersPage({
             title="Create user"
             triggerLabel="New user"
           >
-            <form action={createUserAction} className="grid gap-4">
+            <form action={createUserAction} aria-label="Create user form" className="grid gap-4">
               <input name="returnTo" type="hidden" value={returnTo} />
               <div className="grid gap-4 xl:grid-cols-2">
                 <Field>
@@ -251,154 +252,162 @@ export default async function SystemUsersPage({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Roles</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payload.data.map((row: UserEntry) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <div className="grid gap-1">
-                      <span className="font-medium">{row.username}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {row.nickname ?? 'No nickname'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{row.email}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      {row.roleCodes.length === 0 ? (
-                        <Badge variant="secondary">unassigned</Badge>
-                      ) : (
-                        row.roleCodes.map((roleCode: string) => (
-                          <Badge key={roleCode} variant="outline">
-                            {roleCode}
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={row.status ? 'accent' : 'secondary'}>
-                      {row.status ? 'active' : 'inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDateTime(row.updatedAt)}
-                  </TableCell>
-                  <TableCell className="align-top">
-                    {canManageUsers ? (
-                      <div className="grid gap-3">
-                        <ManagementDialog
-                          contentClassName="w-[min(92vw,44rem)]"
-                          description="更新用户资料、登录邮箱、可选密码重置和角色绑定。"
-                          title={`Edit ${row.username}`}
-                          triggerLabel="Edit"
-                          triggerSize="sm"
-                          triggerVariant="secondary"
-                        >
-                          <form action={updateUserAction} className="grid gap-3">
+          <ResponsiveTableRegion label="Users directory table" minWidthClassName="min-w-[66rem]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Roles</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payload.data.map((row: UserEntry) => (
+                  <TableRow key={row.id}>
+                    <TableCell>
+                      <div className="grid gap-1">
+                        <span className="font-medium">{row.username}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {row.nickname ?? 'No nickname'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{row.email}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        {row.roleCodes.length === 0 ? (
+                          <Badge variant="secondary">unassigned</Badge>
+                        ) : (
+                          row.roleCodes.map((roleCode: string) => (
+                            <Badge key={roleCode} variant="outline">
+                              {roleCode}
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={row.status ? 'accent' : 'secondary'}>
+                        {row.status ? 'active' : 'inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDateTime(row.updatedAt)}
+                    </TableCell>
+                    <TableCell className="align-top">
+                      {canManageUsers ? (
+                        <div className="grid gap-3">
+                          <ManagementDialog
+                            contentClassName="w-[min(92vw,44rem)]"
+                            description="更新用户资料、登录邮箱、可选密码重置和角色绑定。"
+                            title={`Edit ${row.username}`}
+                            triggerLabel="Edit"
+                            triggerSize="sm"
+                            triggerVariant="secondary"
+                          >
+                            <form
+                              action={updateUserAction}
+                              aria-label="Update user form"
+                              className="grid gap-3"
+                            >
+                              <input name="id" type="hidden" value={row.id} />
+                              <input name="returnTo" type="hidden" value={returnTo} />
+                              <Field>
+                                <FieldLabel htmlFor={`username-${row.id}`}>Username</FieldLabel>
+                                <Input
+                                  defaultValue={row.username}
+                                  id={`username-${row.id}`}
+                                  name="username"
+                                  required
+                                />
+                              </Field>
+                              <Field>
+                                <FieldLabel htmlFor={`email-${row.id}`}>Email</FieldLabel>
+                                <Input
+                                  defaultValue={row.email}
+                                  id={`email-${row.id}`}
+                                  name="email"
+                                  required
+                                  type="email"
+                                />
+                              </Field>
+                              <Field>
+                                <FieldLabel htmlFor={`nickname-${row.id}`}>Nickname</FieldLabel>
+                                <Input
+                                  defaultValue={row.nickname ?? ''}
+                                  id={`nickname-${row.id}`}
+                                  name="nickname"
+                                />
+                              </Field>
+                              <Field>
+                                <FieldLabel htmlFor={`password-${row.id}`}>
+                                  Reset password
+                                </FieldLabel>
+                                <Input
+                                  id={`password-${row.id}`}
+                                  minLength={12}
+                                  name="password"
+                                  type="password"
+                                />
+                                <FieldHint>留空表示不重置密码。</FieldHint>
+                              </Field>
+                              <Field>
+                                <FieldLabel htmlFor={`status-${row.id}`}>Status</FieldLabel>
+                                <select
+                                  className={formControlClassName}
+                                  defaultValue={row.status ? 'active' : 'inactive'}
+                                  id={`status-${row.id}`}
+                                  name="status"
+                                >
+                                  <option value="active">Active</option>
+                                  <option value="inactive">Inactive</option>
+                                </select>
+                              </Field>
+                              <Field>
+                                <FieldLabel htmlFor={`roles-${row.id}`}>Role bindings</FieldLabel>
+                                <select
+                                  className={multiSelectClassName}
+                                  defaultValue={row.roleCodes}
+                                  id={`roles-${row.id}`}
+                                  multiple
+                                  name="roleCodes"
+                                  size={Math.max(3, Math.min(assignableRoles.length, 6))}
+                                >
+                                  {assignableRoles.map((role: AssignableRole) => (
+                                    <option key={role.id} value={role.code}>
+                                      {role.name} ({role.code})
+                                    </option>
+                                  ))}
+                                </select>
+                              </Field>
+                              <div className="flex justify-end">
+                                <Button size="sm" type="submit" variant="secondary">
+                                  Save changes
+                                </Button>
+                              </div>
+                            </form>
+                          </ManagementDialog>
+
+                          <form action={deleteUserAction}>
                             <input name="id" type="hidden" value={row.id} />
                             <input name="returnTo" type="hidden" value={returnTo} />
-                            <Field>
-                              <FieldLabel htmlFor={`username-${row.id}`}>Username</FieldLabel>
-                              <Input
-                                defaultValue={row.username}
-                                id={`username-${row.id}`}
-                                name="username"
-                                required
-                              />
-                            </Field>
-                            <Field>
-                              <FieldLabel htmlFor={`email-${row.id}`}>Email</FieldLabel>
-                              <Input
-                                defaultValue={row.email}
-                                id={`email-${row.id}`}
-                                name="email"
-                                required
-                                type="email"
-                              />
-                            </Field>
-                            <Field>
-                              <FieldLabel htmlFor={`nickname-${row.id}`}>Nickname</FieldLabel>
-                              <Input
-                                defaultValue={row.nickname ?? ''}
-                                id={`nickname-${row.id}`}
-                                name="nickname"
-                              />
-                            </Field>
-                            <Field>
-                              <FieldLabel htmlFor={`password-${row.id}`}>Reset password</FieldLabel>
-                              <Input
-                                id={`password-${row.id}`}
-                                minLength={12}
-                                name="password"
-                                type="password"
-                              />
-                              <FieldHint>留空表示不重置密码。</FieldHint>
-                            </Field>
-                            <Field>
-                              <FieldLabel htmlFor={`status-${row.id}`}>Status</FieldLabel>
-                              <select
-                                className={formControlClassName}
-                                defaultValue={row.status ? 'active' : 'inactive'}
-                                id={`status-${row.id}`}
-                                name="status"
-                              >
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                              </select>
-                            </Field>
-                            <Field>
-                              <FieldLabel htmlFor={`roles-${row.id}`}>Role bindings</FieldLabel>
-                              <select
-                                className={multiSelectClassName}
-                                defaultValue={row.roleCodes}
-                                id={`roles-${row.id}`}
-                                multiple
-                                name="roleCodes"
-                                size={Math.max(3, Math.min(assignableRoles.length, 6))}
-                              >
-                                {assignableRoles.map((role: AssignableRole) => (
-                                  <option key={role.id} value={role.code}>
-                                    {role.name} ({role.code})
-                                  </option>
-                                ))}
-                              </select>
-                            </Field>
-                            <div className="flex justify-end">
-                              <Button size="sm" type="submit" variant="secondary">
-                                Save changes
-                              </Button>
-                            </div>
+                            <Button size="sm" type="submit" variant="ghost">
+                              Delete
+                            </Button>
                           </form>
-                        </ManagementDialog>
-
-                        <form action={deleteUserAction}>
-                          <input name="id" type="hidden" value={row.id} />
-                          <input name="returnTo" type="hidden" value={returnTo} />
-                          <Button size="sm" type="submit" variant="ghost">
-                            Delete
-                          </Button>
-                        </form>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Read only</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Read only</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveTableRegion>
         </div>
 
         <div className="grid gap-4">

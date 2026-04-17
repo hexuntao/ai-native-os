@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   Field,
+  FieldError,
   FieldHint,
   FieldLabel,
   Input,
@@ -168,7 +169,13 @@ export function AiFeedbackDialog({
       </div>
 
       <Dialog onOpenChange={setOpen} open={open}>
-        <Button size="sm" type="button" variant="secondary" onClick={() => setOpen(true)}>
+        <Button
+          aria-haspopup="dialog"
+          size="sm"
+          type="button"
+          variant="secondary"
+          onClick={() => setOpen(true)}
+        >
           Record feedback
         </Button>
         <DialogContent>
@@ -180,7 +187,7 @@ export function AiFeedbackDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <form className="grid gap-4" onSubmit={handleSubmit}>
+          <form aria-label="AI feedback form" className="grid gap-4" onSubmit={handleSubmit}>
             <Field>
               <FieldLabel htmlFor={`feedback-action-${auditLogId}`}>User action</FieldLabel>
               <select
@@ -203,12 +210,15 @@ export function AiFeedbackDialog({
             <Field>
               <FieldLabel htmlFor={`feedback-correction-${auditLogId}`}>Correction</FieldLabel>
               <Input
+                aria-describedby={`feedback-correction-hint-${auditLogId}`}
+                disabled={!requiresCorrection}
                 id={`feedback-correction-${auditLogId}`}
                 placeholder="Describe the human-corrected output"
+                required={requiresCorrection}
                 value={correction}
                 onChange={(event) => setCorrection(event.currentTarget.value)}
               />
-              <FieldHint>
+              <FieldHint id={`feedback-correction-hint-${auditLogId}`}>
                 {requiresCorrection
                   ? 'This action requires a concrete correction.'
                   : 'Optional when the AI response was accepted or simply rejected.'}
@@ -226,9 +236,22 @@ export function AiFeedbackDialog({
               />
             </Field>
 
-            {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+            {errorMessage ? (
+              <FieldError aria-live="assertive" role="alert">
+                {errorMessage}
+              </FieldError>
+            ) : null}
 
             <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setOpen(false)
+                }}
+              >
+                Cancel
+              </Button>
               <Button disabled={submitting} type="submit">
                 {submitting ? 'Saving…' : 'Save feedback'}
               </Button>

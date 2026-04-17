@@ -17,6 +17,7 @@ import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { FilterSelect } from '@/components/management/filter-select'
 import { AssistantHandoffCard, SurfaceStatePanel } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
@@ -82,6 +83,7 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
     >
       <form
         action="/system/logs"
+        aria-label="Audit log filters"
         className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
         method="GET"
       >
@@ -144,36 +146,38 @@ export default async function SystemLogsPage({ searchParams }: LogsPageProps): P
             />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Action</TableHead>
-                <TableHead>Module</TableHead>
-                <TableHead>Detail</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payload.data.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="font-medium">{row.action}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{row.module}</Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{row.detail}</TableCell>
-                  <TableCell>
-                    <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
-                      {row.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDateTime(row.createdAt)}
-                  </TableCell>
+          <ResponsiveTableRegion label="System audit logs table" minWidthClassName="min-w-[52rem]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Module</TableHead>
+                  <TableHead>Detail</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {payload.data.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.action}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{row.module}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{row.detail}</TableCell>
+                    <TableCell>
+                      <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
+                        {row.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDateTime(row.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ResponsiveTableRegion>
         )}
       </div>
 

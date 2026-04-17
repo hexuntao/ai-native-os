@@ -17,6 +17,7 @@ interface ManagementDialogProps {
   contentClassName?: string
   description: string
   title: string
+  triggerAriaLabel?: string
   triggerLabel: string
   triggerSize?: 'default' | 'lg' | 'sm'
   triggerVariant?: 'default' | 'ghost' | 'secondary'
@@ -30,6 +31,7 @@ export function ManagementDialog({
   contentClassName,
   description,
   title,
+  triggerAriaLabel,
   triggerLabel,
   triggerSize = 'default',
   triggerVariant = 'default',
@@ -37,7 +39,13 @@ export function ManagementDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size={triggerSize} type="button" variant={triggerVariant}>
+        <Button
+          aria-haspopup="dialog"
+          aria-label={triggerAriaLabel ?? triggerLabel}
+          size={triggerSize}
+          type="button"
+          variant={triggerVariant}
+        >
           {triggerLabel}
         </Button>
       </DialogTrigger>

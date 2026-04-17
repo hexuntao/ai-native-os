@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 
 import { AssistantHandoffCard, SurfaceStatePanel } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -162,42 +163,44 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
                 />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Eval</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Datasets</TableHead>
-                    <TableHead>Scorers</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Last run</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payload.data.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-medium">{row.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={row.status === 'registered' ? 'accent' : 'secondary'}>
-                          {row.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{row.datasetSize}</TableCell>
-                      <TableCell>{row.scorerCount}</TableCell>
-                      <TableCell className="font-medium">
-                        {row.lastRunAverageScore === null
-                          ? 'n/a'
-                          : `${Math.round(row.lastRunAverageScore * 100)}%`}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.lastRunAt
-                          ? `${formatDateTime(row.lastRunAt)} (${row.lastRunStatus ?? 'unknown'})`
-                          : 'never'}
-                      </TableCell>
+              <ResponsiveTableRegion label="Eval registry table" minWidthClassName="min-w-[58rem]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Eval</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Datasets</TableHead>
+                      <TableHead>Scorers</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Last run</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {payload.data.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-medium">{row.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={row.status === 'registered' ? 'accent' : 'secondary'}>
+                            {row.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{row.datasetSize}</TableCell>
+                        <TableCell>{row.scorerCount}</TableCell>
+                        <TableCell className="font-medium">
+                          {row.lastRunAverageScore === null
+                            ? 'n/a'
+                            : `${Math.round(row.lastRunAverageScore * 100)}%`}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.lastRunAt
+                            ? `${formatDateTime(row.lastRunAt)} (${row.lastRunStatus ?? 'unknown'})`
+                            : 'never'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ResponsiveTableRegion>
             )}
           </CardContent>
         </Card>

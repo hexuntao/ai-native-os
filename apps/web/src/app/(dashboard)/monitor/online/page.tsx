@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
@@ -141,51 +142,53 @@ export default async function MonitorOnlinePage({
             <CardTitle className="text-xl">Authenticated session slice</CardTitle>
           </CardHeader>
           <CardContent className="overflow-hidden p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Operator</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>IP</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Session</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payload.data.map((row) => (
-                  <TableRow key={row.sessionId}>
-                    <TableCell>
-                      <div className="grid gap-1">
-                        <span className="font-medium">{row.name}</span>
-                        <span className="text-sm text-muted-foreground">{row.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-2">
-                        {row.roleCodes.length === 0 ? (
-                          <Badge variant="secondary">unmapped</Badge>
-                        ) : (
-                          row.roleCodes.map((roleCode) => (
-                            <Badge key={roleCode} variant="outline">
-                              {roleCode}
-                            </Badge>
-                          ))
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {row.ipAddress ?? 'unknown'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDateTime(row.expiresAt)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {row.sessionId.slice(0, 8)}…
-                    </TableCell>
+            <ResponsiveTableRegion label="Live sessions table" minWidthClassName="min-w-[58rem]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Operator</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead>IP</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>Session</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {payload.data.map((row) => (
+                    <TableRow key={row.sessionId}>
+                      <TableCell>
+                        <div className="grid gap-1">
+                          <span className="font-medium">{row.name}</span>
+                          <span className="text-sm text-muted-foreground">{row.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          {row.roleCodes.length === 0 ? (
+                            <Badge variant="secondary">unmapped</Badge>
+                          ) : (
+                            row.roleCodes.map((roleCode) => (
+                              <Badge key={roleCode} variant="outline">
+                                {roleCode}
+                              </Badge>
+                            ))
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.ipAddress ?? 'unknown'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDateTime(row.expiresAt)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {row.sessionId.slice(0, 8)}…
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ResponsiveTableRegion>
           </CardContent>
         </Card>
 

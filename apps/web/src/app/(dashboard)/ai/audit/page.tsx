@@ -20,6 +20,7 @@ import { AiFeedbackDialog } from '@/components/ai/ai-feedback-dialog'
 import { FilterSelect } from '@/components/management/filter-select'
 import { AssistantHandoffCard, SurfaceStatePanel } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
+import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
 import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
@@ -152,6 +153,7 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
         <div className="grid gap-4">
           <form
             action="/ai/audit"
+            aria-label="AI audit filters"
             className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]"
             method="GET"
           >
@@ -212,55 +214,60 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
                   />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tool</TableHead>
-                      <TableHead>Scope</TableHead>
-                      <TableHead>Actor</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Feedback</TableHead>
-                      <TableHead>Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payload.data.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>
-                          <div className="grid gap-1">
-                            <span className="font-medium">{row.toolId}</span>
-                            <span className="text-sm text-muted-foreground">
-                              {row.requestId ?? 'no request id'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {row.action}:{row.subject}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
-                            {row.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <AiFeedbackDialog
-                            auditLogId={row.id}
-                            feedbackCount={row.feedbackCount}
-                            humanOverride={row.humanOverride}
-                            latestUserAction={row.latestUserAction}
-                            toolId={row.toolId}
-                          />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDateTime(row.createdAt)}
-                        </TableCell>
+                <ResponsiveTableRegion
+                  label="AI audit ledger table"
+                  minWidthClassName="min-w-[62rem]"
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tool</TableHead>
+                        <TableHead>Scope</TableHead>
+                        <TableHead>Actor</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Feedback</TableHead>
+                        <TableHead>Created</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {payload.data.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell>
+                            <div className="grid gap-1">
+                              <span className="font-medium">{row.toolId}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {row.requestId ?? 'no request id'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {row.action}:{row.subject}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
+                              {row.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <AiFeedbackDialog
+                              auditLogId={row.id}
+                              feedbackCount={row.feedbackCount}
+                              humanOverride={row.humanOverride}
+                              latestUserAction={row.latestUserAction}
+                              toolId={row.toolId}
+                            />
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {formatDateTime(row.createdAt)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ResponsiveTableRegion>
               )}
             </CardContent>
           </Card>

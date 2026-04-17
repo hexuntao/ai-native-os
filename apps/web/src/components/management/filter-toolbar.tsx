@@ -26,7 +26,8 @@ export function FilterToolbar({
   return (
     <form
       action={actionHref}
-      className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 lg:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))_auto]"
+      aria-label="Filter and search controls"
+      className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/70 p-4 md:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))] xl:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))_auto]"
       method="GET"
     >
       <input name="page" type="hidden" value="1" />
