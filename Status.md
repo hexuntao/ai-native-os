@@ -113,6 +113,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C2 | Post-P6 | Refactor directory-style pages toward toolbar + table + dialog-form ergonomics | done | UI-C1 | lint + typecheck + test + build |
 | UI-C3 | Post-P6 | Refactor observability and AI governance pages into status-first workbench layouts | done | UI-C2 | lint + typecheck + test + build |
 | UI-C4 | Post-P6 | Refactor `ai/knowledge` and route-aware Copilot surfaces into a deeper AI workbench workflow | done | UI-C3 | lint + typecheck + test + build |
+| UI-C5 | Post-P6 | Deepen Copilot interaction ergonomics with route-specific assistant panels for current `ai/*` surfaces | done | UI-C4 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -141,7 +142,8 @@ Priority order as of 2026-04-12:
 - `UI-C2` is closed; `system/users`, `system/roles`, `system/permissions`, and `system/menus` now use action bars plus dialog-based create/edit flows instead of keeping long forms expanded on the page.
 - `UI-C3` is closed; `monitor/server`, `monitor/online`, `ai/audit`, and `ai/evals` now use shared status-first workbench layouts instead of generic list-page framing.
 - `UI-C4` is closed; `ai/knowledge` now uses a workbench-style split layout with dialog-based write flows, and Copilot suggestions now adapt to the knowledge route.
-- the next recommended backlog item is `UI-C5`: deepen Copilot interaction ergonomics, prompt/governance workbench layouts, and route-specific assistant panels for the remaining `ai/*` surfaces.
+- `UI-C5` is closed; Copilot now exposes route-specific assistant briefs and prompt suggestions for `ai/knowledge`, `ai/evals`, and `ai/audit` instead of a single generic AI sidebar.
+- the next recommended backlog item is `UI-C6`: add consistent empty/loading/error states, accessibility hardening, and page-level assistant handoff patterns across the remaining dashboard surfaces.
 
 Auto-unlock rules:
 
@@ -242,7 +244,7 @@ Residual follow-up risks:
 Follow-up priority after current E2E remediation sprint:
 
 1. Additional CRUD and documentation-template rollout beyond `system/users`, `system/roles`, `system/permissions`, `system/menus`, and current AI contract surfaces
-2. Web UI / UX hardening for remaining AI governance layouts, richer Copilot interaction ergonomics, and route-specific assistant panels
+2. Web UI / UX hardening for cross-surface state handling, accessibility, and page-level assistant handoff patterns
 3. External platform credential and live deploy verification
 
 ## 7. QA Recording Template

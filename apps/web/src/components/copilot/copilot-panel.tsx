@@ -25,6 +25,7 @@ import {
   createCopilotThreadId,
   fetchCopilotBridgeSummaryFromBrowser,
   parseCopilotSessionContextEventData,
+  resolveCopilotRoutePanel,
 } from '@/lib/copilot'
 
 interface CopilotPanelProps {
@@ -37,6 +38,10 @@ interface GeneratedFocusCard {
   headline: string
   narrative: string
   routeScope: string
+}
+
+interface CopilotRoutePanelCardProps {
+  pathname: string
 }
 
 function resolveStatusBadgeVariant(
@@ -72,6 +77,45 @@ function formatRequestContext(sessionContext: CopilotSessionContextEvent | null)
   }
 
   return `Request ${sessionContext.requestId.slice(0, 8)} · ${sessionContext.roleCodes.join(', ')}`
+}
+
+/**
+ * 为 AI 路由渲染专属助手说明卡，避免知识、评测和审计页面继续共用一套泛化提示。
+ */
+function CopilotRoutePanelCard({ pathname }: CopilotRoutePanelCardProps): ReactNode {
+  const routePanel = resolveCopilotRoutePanel(pathname)
+
+  if (!routePanel) {
+    return null
+  }
+
+  return (
+    <div className="rounded-[var(--radius-xl)] border border-border/80 bg-card-strong/86 p-4 shadow-[var(--shadow-soft)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            Route brief
+          </p>
+          <p className="text-sm font-medium text-foreground">{routePanel.title}</p>
+        </div>
+        <Badge variant="outline">{routePanel.badge}</Badge>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{routePanel.summary}</p>
+      <div className="mt-4 grid gap-2">
+        {routePanel.workstreams.map((workstream) => (
+          <div
+            className="rounded-[var(--radius-md)] border border-border/70 bg-background/70 px-3 py-2 text-sm text-muted-foreground"
+            key={workstream}
+          >
+            {workstream}
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+        Guardrail: {routePanel.guardrail}
+      </p>
+    </div>
+  )
 }
 
 interface CopilotFocusBridgeProps {
@@ -350,6 +394,7 @@ export function CopilotPanel({ initialBridgeSummary, shellState }: CopilotPanelP
               {...(threadId ? { threadId } : {})}
             >
               <div className="grid gap-4">
+                <CopilotRoutePanelCard pathname={pathname} />
                 <CopilotFocusBridge
                   pathname={pathname}
                   sessionContext={sessionContext}

@@ -6,6 +6,7 @@ import {
   buildCopilotSuggestions,
   createCopilotThreadId,
   parseCopilotSessionContextEventData,
+  resolveCopilotRoutePanel,
 } from './copilot'
 
 const authenticatedShellState: AuthenticatedShellState = {
@@ -57,6 +58,26 @@ test('buildCopilotSuggestions includes knowledge guidance when the surface is vi
   const suggestions = buildCopilotSuggestions(authenticatedShellState, '/ai/knowledge')
 
   assert.ok(suggestions.some((suggestion) => suggestion.title === 'Knowledge coverage'))
+})
+
+test('buildCopilotSuggestions adapts to eval and audit routes', () => {
+  const evalSuggestions = buildCopilotSuggestions(authenticatedShellState, '/ai/evals')
+  const auditSuggestions = buildCopilotSuggestions(authenticatedShellState, '/ai/audit')
+
+  assert.ok(evalSuggestions.some((suggestion) => suggestion.title === 'Eval hygiene'))
+  assert.ok(auditSuggestions.some((suggestion) => suggestion.title === 'Audit triage'))
+})
+
+test('resolveCopilotRoutePanel returns route-specific assistant brief for ai pages', () => {
+  const knowledgePanel = resolveCopilotRoutePanel('/ai/knowledge')
+  const evalPanel = resolveCopilotRoutePanel('/ai/evals')
+  const auditPanel = resolveCopilotRoutePanel('/ai/audit')
+  const systemPanel = resolveCopilotRoutePanel('/system/users')
+
+  assert.equal(knowledgePanel?.badge, 'knowledge-workbench')
+  assert.equal(evalPanel?.badge, 'eval-governance')
+  assert.equal(auditPanel?.badge, 'audit-governance')
+  assert.equal(systemPanel, null)
 })
 
 test('parseCopilotSessionContextEventData returns null for malformed payloads', () => {
