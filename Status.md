@@ -120,6 +120,17 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C9 | Post-P6 | Add bulk-selection workflows, command-bar shortcuts, and denser operator toolbars for high-volume directory operations | done | UI-C8 | lint + typecheck + test + build |
 | UI-C10 | Post-P6 | Add row-level quick preview panels and batch-safe export/share flows for high-frequency operator handoff | done | UI-C9 | lint + typecheck + test + build |
 | UI-C11 | Post-P6 | Add saved view presets, denser filter chips, and inline row mutation feedback for repetitive operator triage | done | UI-C10 | lint + typecheck + test + build |
+| UI-C12 | Post-P6 | Add batch result feedback, batch-safe destructive flows, and denser repetitive triage shortcuts for directory operators | done | UI-C11 | lint + typecheck + test + build |
+
+## 3.1 Post-Launch Plans
+
+| Plan | Name | Status | Next Task |
+|---|---|---|---|
+| 1 | Web UI/UX Hardening | in_progress | UI-C13 |
+| 2 | API Platform Consistency | queued | API-C1 |
+| 3 | Identity and Permission Hardening | queued | IAM-C2 |
+| 4 | AI Governance Deepening | queued | GOV-C2 |
+| 5 | Productionization and Operations Maturity | queued | OPS-C1 |
 
 ## 4. Current Ready Queue
 
@@ -155,7 +166,13 @@ Priority order as of 2026-04-12:
 - `UI-C9` is closed; directory pages now expose local bulk-selection, keyboard shortcuts for search/new/select-clear, and denser operator toolbars without changing the underlying contract-first data flow.
 - `UI-C10` is closed; directory pages now expose row-level quick preview context, structured handoff export dialogs, and batch-safe Markdown/JSON copy flows scoped to the current selection set.
 - `UI-C11` is closed; directory pages now persist local saved views, render denser active-filter chips, and expose inline row mutation feedback after successful write actions.
-- the next recommended backlog item is `UI-C12`: add batch result feedback, batch-safe destructive flows, and denser repetitive triage shortcuts for directory operators.
+- `UI-C12` is closed; directory workbenches now expose local batch result feedback, safety confirmation before clearing staged selections or deleting saved views, and denser triage shortcuts including copy and preview stepping.
+- queued plans after Web UI/UX Hardening:
+  - Plan 2 `API Platform Consistency` -> `API-C1`
+  - Plan 3 `Identity and Permission Hardening` -> `IAM-C2`
+  - Plan 4 `AI Governance Deepening` -> `GOV-C2`
+  - Plan 5 `Productionization and Operations Maturity` -> `OPS-C1`
+- the next recommended backlog item after `UI-C12` is `UI-C13`: deepen prompt/eval/audit workbench timelines, evidence review, and governance scan ergonomics.
 
 Auto-unlock rules:
 

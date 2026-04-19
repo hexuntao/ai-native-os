@@ -62,6 +62,11 @@ interface OperatorWorkbenchFilterChip {
   value: string
 }
 
+interface OperatorResultFeedback {
+  message: string
+  tone: 'info' | 'success'
+}
+
 interface OperatorWorkbenchContextValue {
   allSelected: boolean
   focusPreview: (id: string) => void
@@ -258,6 +263,34 @@ function writeStoredPresets(
 }
 
 /**
+ * 生成当前 preview 的前一个或后一个可预览项，供高频排查时用键盘快速切换上下文。
+ */
+function stepPreviewId(
+  previewableItems: readonly OperatorSelectionItem[],
+  currentPreviewId: string | null,
+  direction: 'next' | 'previous',
+): string | null {
+  if (previewableItems.length === 0) {
+    return null
+  }
+
+  const currentIndex = previewableItems.findIndex(
+    (selectionItem) => selectionItem.id === currentPreviewId,
+  )
+
+  if (currentIndex === -1) {
+    return previewableItems[0]?.id ?? null
+  }
+
+  const nextIndex =
+    direction === 'next'
+      ? (currentIndex + 1) % previewableItems.length
+      : (currentIndex - 1 + previewableItems.length) % previewableItems.length
+
+  return previewableItems[nextIndex]?.id ?? null
+}
+
+/**
  * 读取目录页选择上下文，确保行级复选框和工具条共享同一批量状态。
  */
 function useOperatorWorkbenchContext(): OperatorWorkbenchContextValue {
@@ -288,8 +321,11 @@ export function OperatorWorkbench({
 }: OperatorWorkbenchProps): ReactNode {
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([])
   const [copied, setCopied] = useState(false)
+  const [clearSelectionOpen, setClearSelectionOpen] = useState(false)
+  const [deletePresetId, setDeletePresetId] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [focusedPreviewId, setFocusedPreviewId] = useState<string | null>(null)
+  const [resultFeedback, setResultFeedback] = useState<OperatorResultFeedback | null>(null)
   const [presetsOpen, setPresetsOpen] = useState(false)
   const [presetName, setPresetName] = useState('')
   const [storedPresets, setStoredPresets] = useState<readonly OperatorViewPresetRecord[]>([])
@@ -348,6 +384,10 @@ export function OperatorWorkbench({
   const jsonPayload = useMemo(() => createJsonHandoffPayload(exportableItems), [exportableItems])
 
   const allSelected = selectableIds.length > 0 && selectedIds.length === selectableIds.length
+  const deletingPreset = useMemo(
+    () => storedPresets.find((preset) => preset.id === deletePresetId) ?? null,
+    [deletePresetId, storedPresets],
+  )
 
   useEffect(() => {
     if (!presetStorageKey) {
@@ -420,9 +460,53 @@ export function OperatorWorkbench({
         return
       }
 
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'c') {
+        if (selectedItems.length === 0) {
+          return
+        }
+
+        event.preventDefault()
+        void copySelectionToClipboard(selectedItems).then(() => {
+          setCopied(true)
+          setResultFeedback({
+            message: `已复制 ${selectedItems.length} 条目录上下文。`,
+            tone: 'success',
+          })
+        })
+        return
+      }
+
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'j') {
+        event.preventDefault()
+        const nextPreviewId = stepPreviewId(previewableItems, effectivePreviewId, 'next')
+
+        if (nextPreviewId) {
+          setFocusedPreviewId(nextPreviewId)
+          setResultFeedback({
+            message: '已切换到下一条 preview 上下文。',
+            tone: 'info',
+          })
+        }
+        return
+      }
+
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        const previousPreviewId = stepPreviewId(previewableItems, effectivePreviewId, 'previous')
+
+        if (previousPreviewId) {
+          setFocusedPreviewId(previousPreviewId)
+          setResultFeedback({
+            message: '已切换到上一条 preview 上下文。',
+            tone: 'info',
+          })
+        }
+        return
+      }
+
       if (event.key === 'Escape' && selectedIds.length > 0) {
         event.preventDefault()
-        setSelectedIds([])
+        setClearSelectionOpen(true)
       }
     }
 
@@ -433,9 +517,12 @@ export function OperatorWorkbench({
     }
   }, [
     exportableItems.length,
+    effectivePreviewId,
     primaryActionTargetId,
+    previewableItems,
     searchInputId,
     selectableIds,
+    selectedItems,
     selectedIds.length,
   ])
 
@@ -450,6 +537,18 @@ export function OperatorWorkbench({
       window.clearTimeout(timeout)
     }
   }, [copied])
+
+  useEffect(() => {
+    if (!resultFeedback) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => setResultFeedback(null), 2200)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [resultFeedback])
 
   const contextValue: OperatorWorkbenchContextValue = {
     allSelected,
@@ -490,9 +589,15 @@ export function OperatorWorkbench({
               {mutationFeedback ? (
                 <Badge variant="accent">{createMutationBadgeLabel(mutationFeedback)}</Badge>
               ) : null}
+              {resultFeedback ? (
+                <Badge variant={resultFeedback.tone === 'success' ? 'accent' : 'outline'}>
+                  {resultFeedback.tone === 'success' ? 'Batch updated' : 'Workbench updated'}
+                </Badge>
+              ) : null}
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              `/` 聚焦搜索，`Shift+A` 切换全选，`Esc` 清空选择，`N` 打开主操作，`E` 打开交接导出。
+              `/` 聚焦搜索，`Shift+A` 切换全选，`Esc` 安全清空选择，`N` 打开主操作，`E`
+              打开交接导出，`C` 复制，`J/K` 切换 preview。
             </p>
           </div>
 
@@ -507,7 +612,22 @@ export function OperatorWorkbench({
                 {primaryActionLabel}
               </Button>
             ) : null}
-            <Button size="sm" type="button" variant="secondary" onClick={contextValue.toggleAll}>
+            <Button
+              size="sm"
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                const nextSelectedAll = !allSelected
+
+                contextValue.toggleAll()
+                setResultFeedback({
+                  message: nextSelectedAll
+                    ? `已暂存当前可见的 ${selectionItems.length} 条记录。`
+                    : '已撤销当前页批量暂存。',
+                  tone: 'success',
+                })
+              }}
+            >
               {allSelected ? 'Clear visible' : 'Select visible'}
             </Button>
             <Button
@@ -530,6 +650,10 @@ export function OperatorWorkbench({
               onClick={async () => {
                 await copySelectionToClipboard(selectedItems)
                 setCopied(true)
+                setResultFeedback({
+                  message: `已复制 ${selectedItems.length} 条目录上下文。`,
+                  tone: 'success',
+                })
               }}
             >
               Copy selected
@@ -548,6 +672,18 @@ export function OperatorWorkbench({
 
         {filterChips.length > 0 || storedPresets.length > 0 || mutationFeedback ? (
           <div className="grid gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-card/88 px-4 py-3">
+            {resultFeedback ? (
+              <div
+                className={
+                  resultFeedback.tone === 'success'
+                    ? 'rounded-[var(--radius-md)] border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 text-sm text-emerald-700'
+                    : 'rounded-[var(--radius-md)] border border-border/70 bg-background/80 px-3 py-2 text-sm text-foreground'
+                }
+              >
+                {resultFeedback.message}
+              </div>
+            ) : null}
+
             {filterChips.length > 0 ? (
               <div className="grid gap-2">
                 <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
@@ -599,18 +735,7 @@ export function OperatorWorkbench({
                         aria-label={`Delete preset ${preset.name}`}
                         className="px-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                         type="button"
-                        onClick={() => {
-                          if (!presetStorageKey) {
-                            return
-                          }
-
-                          const nextPresets = storedPresets.filter(
-                            (storedPreset) => storedPreset.id !== preset.id,
-                          )
-
-                          writeStoredPresets(presetStorageKey, nextPresets)
-                          setStoredPresets(nextPresets)
-                        }}
+                        onClick={() => setDeletePresetId(preset.id)}
                       >
                         ×
                       </button>
@@ -642,6 +767,42 @@ export function OperatorWorkbench({
                   {selectedIds.includes(previewedItem.id) ? (
                     <Badge variant="accent">selected</Badge>
                   ) : null}
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      const previousPreviewId = stepPreviewId(
+                        previewableItems,
+                        effectivePreviewId,
+                        'previous',
+                      )
+
+                      if (previousPreviewId) {
+                        setFocusedPreviewId(previousPreviewId)
+                      }
+                    }}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      const nextPreviewId = stepPreviewId(
+                        previewableItems,
+                        effectivePreviewId,
+                        'next',
+                      )
+
+                      if (nextPreviewId) {
+                        setFocusedPreviewId(nextPreviewId)
+                      }
+                    }}
+                  >
+                    Next
+                  </Button>
                 </div>
                 <p className="text-sm leading-6 text-muted-foreground">
                   {previewedItem.preview.description ?? previewedItem.label}
@@ -697,6 +858,10 @@ export function OperatorWorkbench({
                     onClick={async () => {
                       await navigator.clipboard.writeText(markdownPayload)
                       setCopied(true)
+                      setResultFeedback({
+                        message: `已复制 ${exportableItems.length} 条交接 Markdown。`,
+                        tone: 'success',
+                      })
                     }}
                   >
                     Copy markdown
@@ -719,6 +884,10 @@ export function OperatorWorkbench({
                     onClick={async () => {
                       await navigator.clipboard.writeText(jsonPayload)
                       setCopied(true)
+                      setResultFeedback({
+                        message: `已复制 ${exportableItems.length} 条交接 JSON。`,
+                        tone: 'success',
+                      })
                     }}
                   >
                     Copy JSON
@@ -803,9 +972,92 @@ export function OperatorWorkbench({
                   setStoredPresets(nextPresets)
                   setPresetName('')
                   setPresetsOpen(false)
+                  setResultFeedback({
+                    message: `已保存视图预设「${normalizedName}」。`,
+                    tone: 'success',
+                  })
                 }}
               >
                 Save preset
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={clearSelectionOpen} onOpenChange={setClearSelectionOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Clear staged selection</DialogTitle>
+              <DialogDescription>
+                这会清空当前目录页已经暂存的批量上下文，但不会删除任何真实数据。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-3 sm:justify-end">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                className="border-destructive/20 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                type="button"
+                variant="default"
+                onClick={() => {
+                  setSelectedIds([])
+                  setClearSelectionOpen(false)
+                  setResultFeedback({
+                    message: '已清空当前批量暂存。',
+                    tone: 'info',
+                  })
+                }}
+              >
+                Clear staged rows
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={deletingPreset !== null}
+          onOpenChange={(open) => !open && setDeletePresetId(null)}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Delete saved view</DialogTitle>
+              <DialogDescription>
+                这会删除本地保存的视图预设
+                {deletingPreset ? `「${deletingPreset.name}」` : ''}，不会影响任何服务端数据。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-3 sm:justify-end">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                className="border-destructive/20 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                type="button"
+                variant="default"
+                onClick={() => {
+                  if (!presetStorageKey || !deletingPreset) {
+                    return
+                  }
+
+                  const nextPresets = storedPresets.filter(
+                    (storedPreset) => storedPreset.id !== deletingPreset.id,
+                  )
+
+                  writeStoredPresets(presetStorageKey, nextPresets)
+                  setStoredPresets(nextPresets)
+                  setDeletePresetId(null)
+                  setResultFeedback({
+                    message: `已删除视图预设「${deletingPreset.name}」。`,
+                    tone: 'info',
+                  })
+                }}
+              >
+                Delete preset
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -520,3 +520,133 @@ Main parallel lanes:
   - Move task state to `failed`
   - Re-open the smallest corrective task
   - Do not advance the phase until corrective task passes
+
+## 9. Post-Launch Optimization Program
+
+Planning note:
+- Phase 1 through Phase 6 are complete.
+- The repository is now in optimization mode rather than net-new phase construction.
+- Execution still follows the same scheduler discipline:
+  - only execute ready tasks
+  - one clear-scope task at a time
+  - update `Status.md` after each task
+  - run QA gate before closing the task
+
+### Plan 1: Web UI/UX Hardening
+
+Goal:
+- Improve high-frequency operator efficiency and make AI governance surfaces feel like production workbenches rather than generalized admin pages.
+
+Milestones:
+- UI-C12 Batch feedback and repetitive triage safety
+  - Outputs: batch result feedback, batch-safe destructive confirmation flows, denser repetitive triage shortcuts
+  - Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`
+- UI-C13 AI governance workbench deepening
+  - Outputs: richer prompt/eval/audit timelines, evidence panels, denser governance review ergonomics
+  - Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`
+- UI-C14 Observability triage workbench
+  - Outputs: anomaly-first monitor views, stronger incident scan paths, clearer runtime dependency prioritization
+  - Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`
+- UI-C15 Copilot handoff deepening
+  - Outputs: stronger route-specific assistant handoff cards, higher-signal operator prompts, tighter workflow context transfer
+  - Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`
+
+Dependencies:
+- UI-C12 depends on UI-C11
+- UI-C13 depends on UI-C12
+- UI-C14 depends on UI-C13
+- UI-C15 depends on UI-C14
+
+Definition of Done:
+- Directory pages support high-frequency repetitive operator loops with low-friction feedback.
+- AI and monitor pages present denser operator context without widening API contract scope.
+- Copilot guidance remains route-specific and auditable.
+
+### Plan 2: API Platform Consistency
+
+Goal:
+- Bring the remaining management and helper surfaces to the same long-term contract quality as the completed CRUD modules.
+
+Milestones:
+- API-C1 Deliver `system/config` and `system/dicts` full CRUD with audit-safe write paths and contract-first OpenAPI
+- API-C2 Standardize API error contracts, error codes, and OpenAPI error examples
+- API-C3 Extract shared pagination/filter/sort helpers to reduce route drift
+- API-C4 Expand API regression matrix and cross-surface smoke coverage
+
+Dependencies:
+- API-C1 depends on current Post-P6 baseline
+- API-C2 depends on API-C1
+- API-C3 depends on API-C2
+- API-C4 depends on API-C3
+
+Definition of Done:
+- Remaining system helper resources reach the same contract-first quality bar.
+- Error contracts are stable and documented across the API.
+- Regression tests catch route drift before release.
+
+### Plan 3: Identity and Permission Hardening
+
+Goal:
+- Remove long-tail identity ambiguity and make authorization behavior easier to evolve safely.
+
+Milestones:
+- IAM-C2 Remove residual email fallback from steady-state identity resolution
+- IAM-C3 Add principal repair/backfill tooling for legacy records
+- IAM-C4 Expand permission regression coverage across resource, field, and conditional cases
+- IAM-C5 Add permission-change impact and audit inspection views
+
+Dependencies:
+- IAM-C2 depends on current IAM-C1 baseline
+- IAM-C3 depends on IAM-C2
+- IAM-C4 depends on IAM-C3
+- IAM-C5 depends on IAM-C4
+
+Definition of Done:
+- Stable principal binding no longer relies on email compatibility in steady-state flows.
+- Permission regressions are detectable through automated coverage.
+- Identity and authorization drift are visible and repairable.
+
+### Plan 4: AI Governance Deepening
+
+Goal:
+- Extend the current prompt/eval/audit baseline into a fuller governance operating model.
+
+Milestones:
+- GOV-C2 Extend rejection, exception, and override governance contracts
+- GOV-C3 Connect eval evidence, prompt release gates, and operator review surfaces
+- GOV-C4 Add approval/failure/exception read models for audit inspection
+- GOV-C5 Unify prompt/eval/audit/feedback governance workflows
+
+Dependencies:
+- GOV-C2 depends on GOV-C1
+- GOV-C3 depends on GOV-C2
+- GOV-C4 depends on GOV-C3
+- GOV-C5 depends on GOV-C4
+
+Definition of Done:
+- Failure, release, and override paths are auditable and queryable end-to-end.
+- Governance operators can review AI changes without reconstructing context from raw logs.
+
+### Plan 5: Productionization and Operations Maturity
+
+Goal:
+- Move from repository-level deployment readiness to stronger real-environment and operational maturity.
+
+Milestones:
+- OPS-C1 Strengthen Redis/jobs/worker/trigger health probes and runtime summaries
+- OPS-C2 Deepen backup, rollback, and release-smoke automation
+- OPS-C3 Validate remote Vercel/Cloudflare/Trigger environments with real credentials and staging proof
+- OPS-C4 Expand incident triage and recovery playbooks
+- OPS-C5 Add deployment/config drift detection in CI
+
+Dependencies:
+- OPS-C1 depends on current Phase 6 baseline
+- OPS-C2 depends on OPS-C1
+- OPS-C3 depends on OPS-C2
+- OPS-C4 depends on OPS-C3
+- OPS-C5 depends on OPS-C4
+
+Definition of Done:
+- At least one remote deployment path is validated beyond dry-run level.
+- Recovery and release trust are supported by repeatable automation.
+- Operational drift can be detected before it becomes a production incident.
