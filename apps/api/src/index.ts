@@ -12,7 +12,11 @@ import {
   aiFeedbackEntrySchema,
   aiFeedbackListResponseSchema,
   attachPromptEvalEvidenceInputSchema,
+  configListItemSchema,
+  configListResponseSchema,
   createAiFeedbackInputSchema,
+  createConfigInputSchema,
+  createDictInputSchema,
   createKnowledgeInputSchema,
   createMenuInputSchema,
   createPermissionInputSchema,
@@ -20,6 +24,10 @@ import {
   createRoleInputSchema,
   createUserInputSchema,
   currentPermissionsResponseSchema,
+  deleteConfigInputSchema,
+  deleteConfigResultSchema,
+  deleteDictInputSchema,
+  deleteDictResultSchema,
   deleteKnowledgeInputSchema,
   deleteKnowledgeResultSchema,
   deleteMenuInputSchema,
@@ -30,10 +38,14 @@ import {
   deleteRoleResultSchema,
   deleteUserInputSchema,
   deleteUserResultSchema,
+  dictListItemSchema,
+  dictListResponseSchema,
   getAiAuditLogByIdInputSchema,
   getAiEvalByIdInputSchema,
   getAiEvalRunByIdInputSchema,
   getAiFeedbackByIdInputSchema,
+  getConfigByIdInputSchema,
+  getDictByIdInputSchema,
   getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
   getPermissionByIdInputSchema,
@@ -51,6 +63,8 @@ import {
   listAiAuditLogsInputSchema,
   listAiEvalsInputSchema,
   listAiFeedbackInputSchema,
+  listConfigsInputSchema,
+  listDictsInputSchema,
   listKnowledgeInputSchema,
   listMenusInputSchema,
   listOnlineUsersInputSchema,
@@ -78,6 +92,8 @@ import {
   rollbackPromptVersionInputSchema,
   runAiEvalInputSchema,
   serializedAbilityResponseSchema,
+  updateConfigInputSchema,
+  updateDictInputSchema,
   updateKnowledgeInputSchema,
   updateMenuInputSchema,
   updatePermissionInputSchema,
@@ -105,6 +121,7 @@ import {
   handleAgUiRuntimeSummaryRequest,
   handleCopilotKitRequest,
 } from '@/copilotkit/runtime'
+import { createApiErrorPayload, createValidationErrorPayload, jsonApiError } from '@/lib/api-errors'
 import { getApiHealthSnapshot } from '@/lib/health'
 import { generateOpenApiDocument } from '@/lib/openapi'
 import { initializeTelemetry } from '@/lib/telemetry'
@@ -144,6 +161,20 @@ import {
 } from '@/routes/ai/prompts'
 import { listMonitorLogs } from '@/routes/monitor/logs'
 import { listOnlineUsers } from '@/routes/monitor/online'
+import {
+  createConfigEntry,
+  deleteConfigEntry,
+  getConfigById,
+  listConfigs,
+  updateConfigEntry,
+} from '@/routes/system/config'
+import {
+  createDictEntry,
+  deleteDictEntry,
+  getDictById,
+  listDicts,
+  updateDictEntry,
+} from '@/routes/system/dicts'
 import {
   createMenuEntry,
   deleteMenuEntry,
@@ -209,6 +240,14 @@ const contractFirstReadRequirements = {
     { action: 'read', subject: 'Menu' },
     { action: 'manage', subject: 'Menu' },
   ],
+  config: [
+    { action: 'read', subject: 'Config' },
+    { action: 'manage', subject: 'Config' },
+  ],
+  dicts: [
+    { action: 'read', subject: 'Dict' },
+    { action: 'manage', subject: 'Dict' },
+  ],
   monitorLogs: [
     { action: 'read', subject: 'OperationLog' },
     { action: 'manage', subject: 'all' },
@@ -254,6 +293,14 @@ const contractFirstWriteRequirements = {
     { action: 'manage', subject: 'Menu' },
     { action: 'manage', subject: 'all' },
   ],
+  config: [
+    { action: 'manage', subject: 'Config' },
+    { action: 'manage', subject: 'all' },
+  ],
+  dicts: [
+    { action: 'manage', subject: 'Dict' },
+    { action: 'manage', subject: 'all' },
+  ],
   permissions: [
     { action: 'manage', subject: 'Permission' },
     { action: 'manage', subject: 'all' },
@@ -278,26 +325,14 @@ const contractFirstWriteRequirements = {
  * 统一输出标准未认证响应，避免 REST 兼容入口与 oRPC 错误语义分叉。
  */
 function jsonUnauthorized<TEnv extends AppEnv>(c: Context<TEnv>): Response {
-  return c.json(
-    {
-      code: 'UNAUTHORIZED',
-      message: 'Authentication required',
-    },
-    401,
-  )
+  return jsonApiError(c, 'UNAUTHORIZED', 401, 'Authentication required')
 }
 
 /**
  * 统一输出标准权限不足响应，确保兼容入口不会绕过现有 RBAC 边界。
  */
 function jsonForbidden<TEnv extends AppEnv>(c: Context<TEnv>, message: string): Response {
-  return c.json(
-    {
-      code: 'FORBIDDEN',
-      message,
-    },
-    403,
-  )
+  return jsonApiError(c, 'FORBIDDEN', 403, message)
 }
 
 /**
@@ -308,14 +343,7 @@ function jsonBadRequest<TEnv extends AppEnv>(
   error: z.ZodError,
   message = 'Invalid query parameters',
 ): Response {
-  return c.json(
-    {
-      code: 'BAD_REQUEST',
-      issues: error.flatten(),
-      message,
-    },
-    400,
-  )
+  return c.json(createValidationErrorPayload(error, c.get('requestId'), message), 400)
 }
 
 /**
@@ -337,23 +365,11 @@ function jsonOrpcError<TEnv extends AppEnv>(
   }
 
   if (error.code === 'BAD_REQUEST') {
-    return c.json(
-      {
-        code: 'BAD_REQUEST',
-        message: error.message,
-      },
-      400,
-    )
+    return c.json(createApiErrorPayload('BAD_REQUEST', 400, error.message, c.get('requestId')), 400)
   }
 
   if (error.code === 'NOT_FOUND') {
-    return c.json(
-      {
-        code: 'NOT_FOUND',
-        message: error.message,
-      },
-      404,
-    )
+    return c.json(createApiErrorPayload('NOT_FOUND', 404, error.message, c.get('requestId')), 404)
   }
 
   throw error
@@ -711,6 +727,150 @@ app.delete('/api/v1/system/roles/:id', (c) =>
   ),
 )
 
+app.get('/api/v1/system/config', (c) =>
+  handleContractFirstGet(
+    c,
+    listConfigsInputSchema,
+    configListResponseSchema,
+    contractFirstReadRequirements.config,
+    listConfigs,
+  ),
+)
+
+app.get('/api/v1/system/config/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getConfigByIdInputSchema,
+    configListItemSchema,
+    contractFirstReadRequirements.config,
+    getConfigById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/system/config', (c) =>
+  handleContractFirstPost(
+    c,
+    createConfigInputSchema,
+    configListItemSchema,
+    contractFirstWriteRequirements.config,
+    async (input, context) =>
+      createConfigEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.put('/api/v1/system/config/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    updateConfigInputSchema,
+    configListItemSchema,
+    contractFirstWriteRequirements.config,
+    async (input, context) =>
+      updateConfigEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext, requestJson) => ({
+      ...(typeof requestJson === 'object' && requestJson !== null ? requestJson : {}),
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.delete('/api/v1/system/config/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    deleteConfigInputSchema,
+    deleteConfigResultSchema,
+    contractFirstWriteRequirements.config,
+    async (input, context) =>
+      deleteConfigEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.get('/api/v1/system/dicts', (c) =>
+  handleContractFirstGet(
+    c,
+    listDictsInputSchema,
+    dictListResponseSchema,
+    contractFirstReadRequirements.dicts,
+    listDicts,
+  ),
+)
+
+app.get('/api/v1/system/dicts/:id', (c) =>
+  handleContractFirstGet(
+    c,
+    getDictByIdInputSchema,
+    dictListItemSchema,
+    contractFirstReadRequirements.dicts,
+    getDictById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.post('/api/v1/system/dicts', (c) =>
+  handleContractFirstPost(
+    c,
+    createDictInputSchema,
+    dictListItemSchema,
+    contractFirstWriteRequirements.dicts,
+    async (input, context) =>
+      createDictEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
+app.put('/api/v1/system/dicts/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    updateDictInputSchema,
+    dictListItemSchema,
+    contractFirstWriteRequirements.dicts,
+    async (input, context) =>
+      updateDictEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext, requestJson) => ({
+      ...(typeof requestJson === 'object' && requestJson !== null ? requestJson : {}),
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.delete('/api/v1/system/dicts/:id', (c) =>
+  handleContractFirstPost(
+    c,
+    deleteDictInputSchema,
+    deleteDictResultSchema,
+    contractFirstWriteRequirements.dicts,
+    async (input, context) =>
+      deleteDictEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
 app.get('/api/v1/system/permissions', (c) =>
   handleContractFirstGet(
     c,
@@ -726,10 +886,7 @@ app.get('/api/v1/system/permissions/current', async (c) => {
 
   if (!context.session) {
     return c.json(
-      {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required',
-      },
+      createApiErrorPayload('UNAUTHORIZED', 401, 'Authentication required', c.get('requestId')),
       401,
     )
   }
@@ -749,10 +906,7 @@ app.get('/api/v1/system/permissions/ability', async (c) => {
 
   if (!context.session) {
     return c.json(
-      {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required',
-      },
+      createApiErrorPayload('UNAUTHORIZED', 401, 'Authentication required', c.get('requestId')),
       401,
     )
   }

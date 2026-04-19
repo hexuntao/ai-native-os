@@ -1343,6 +1343,54 @@ export const menuListResponseSchema = withOpenApiSchemaDoc(
 )
 
 // 系统字典 contract-first skeleton。
+const dictIdSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(120), {
+  title: 'DictId',
+  description: '字典稳定标识；内置字典使用固定前缀，自定义字典使用 UUID。',
+  examples: ['dict:ability-actions', '9cc190cb-a270-4ebf-9648-a0d1ebd9950c'],
+})
+
+const dictCodeSchema = withOpenApiSchemaDoc(
+  z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9_:-]+$/),
+  {
+    title: 'DictCode',
+    description: '字典稳定编码，仅允许小写字母、数字、下划线、冒号与中划线。',
+    examples: ['ability_actions', 'custom_operator_states'],
+  },
+)
+
+const dictNameSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(80), {
+  title: 'DictName',
+  description: '字典显示名称。',
+  examples: ['权限动作', '自定义运营状态'],
+})
+
+const nullableDictDescriptionSchema = withOpenApiSchemaDoc(
+  z.string().trim().min(1).max(200).nullable(),
+  {
+    title: 'DictDescription',
+    description: '字典说明；未填写时返回 `null`。',
+    examples: ['系统内置 CASL 动作集合。', null],
+  },
+)
+
+const dictSourceSchema = withOpenApiSchemaDoc(z.enum(['custom', 'runtime', 'seed']), {
+  title: 'DictSource',
+  description:
+    '字典来源；`custom` 表示后台自定义字典，`seed` 表示种子字典，`runtime` 表示运行时字典。',
+  examples: ['custom'],
+})
+
+const dictStatusFieldSchema = withOpenApiSchemaDoc(z.boolean(), {
+  title: 'DictStatus',
+  description: '字典启用状态。',
+  examples: [true],
+})
+
 export const dictEntrySchema = withOpenApiSchemaDoc(
   z.object({
     label: withOpenApiSchemaDoc(z.string(), {
@@ -1371,9 +1419,10 @@ export const dictEntrySchema = withOpenApiSchemaDoc(
 export const listDictsInputSchema = withOpenApiSchemaDoc(
   baseSearchSchema
     .extend({
-      source: withOpenApiSchemaDoc(z.enum(['runtime', 'seed']).optional(), {
+      source: withOpenApiSchemaDoc(dictSourceSchema.optional(), {
         title: 'DictSourceFilter',
-        description: '按字典来源过滤；`seed` 表示种子字典，`runtime` 表示运行时字典。',
+        description:
+          '按字典来源过滤；`custom` 表示后台自定义字典，`seed` 表示种子字典，`runtime` 表示运行时字典。',
         examples: ['seed'],
       }),
       status: withOpenApiSchemaDoc(booleanQuerySchema.optional(), {
@@ -1396,21 +1445,13 @@ export const listDictsInputSchema = withOpenApiSchemaDoc(
 
 export const dictListItemSchema = withOpenApiSchemaDoc(
   z.object({
-    code: withOpenApiSchemaDoc(z.string(), {
-      title: 'DictCode',
-      description: '字典稳定编码。',
-      examples: ['ability_actions'],
-    }),
+    code: dictCodeSchema,
     createdAt: withOpenApiSchemaDoc(z.string(), {
       title: 'DictCreatedAt',
       description: '字典创建时间，ISO 8601 字符串。',
       examples: ['2026-04-02T00:00:00.000Z'],
     }),
-    description: withOpenApiSchemaDoc(z.string().nullable(), {
-      title: 'DictDescription',
-      description: '字典说明；未填写时为 `null`。',
-      examples: ['系统内置 CASL 动作集合。'],
-    }),
+    description: nullableDictDescriptionSchema,
     entries: withOpenApiSchemaDoc(z.array(dictEntrySchema), {
       title: 'DictEntries',
       description: '当前字典包含的条目列表。',
@@ -1421,26 +1462,15 @@ export const dictListItemSchema = withOpenApiSchemaDoc(
       description: '字典条目数量。',
       examples: [4],
     }),
-    id: withOpenApiSchemaDoc(z.string(), {
-      title: 'DictId',
-      description: '字典稳定标识。',
-      examples: ['dict:ability-actions'],
+    id: dictIdSchema,
+    mutable: withOpenApiSchemaDoc(z.boolean(), {
+      title: 'DictMutable',
+      description: '该字典是否允许在管理面修改；内置种子与运行时字典固定为 `false`。',
+      examples: [false],
     }),
-    name: withOpenApiSchemaDoc(z.string(), {
-      title: 'DictName',
-      description: '字典显示名称。',
-      examples: ['权限动作'],
-    }),
-    source: withOpenApiSchemaDoc(z.enum(['runtime', 'seed']), {
-      title: 'DictSource',
-      description: '字典来源。',
-      examples: ['seed'],
-    }),
-    status: withOpenApiSchemaDoc(z.boolean(), {
-      title: 'DictStatus',
-      description: '字典启用状态。',
-      examples: [true],
-    }),
+    name: dictNameSchema,
+    source: dictSourceSchema,
+    status: dictStatusFieldSchema,
     updatedAt: withOpenApiSchemaDoc(z.string(), {
       title: 'DictUpdatedAt',
       description: '字典更新时间，ISO 8601 字符串。',
@@ -1458,6 +1488,7 @@ export const dictListItemSchema = withOpenApiSchemaDoc(
         entries: [{ label: 'read', sortOrder: 1, value: 'read' }],
         entryCount: 4,
         id: 'dict:ability-actions',
+        mutable: false,
         name: '权限动作',
         source: 'seed',
         status: true,
@@ -1482,6 +1513,7 @@ export const dictListResponseSchema = withOpenApiSchemaDoc(
             entries: [{ label: 'read', sortOrder: 1, value: 'read' }],
             entryCount: 4,
             id: 'dict:ability-actions',
+            mutable: false,
             name: '权限动作',
             source: 'seed',
             status: true,
@@ -1494,7 +1526,179 @@ export const dictListResponseSchema = withOpenApiSchemaDoc(
   },
 )
 
+export const dictEntryInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    label: withOpenApiSchemaDoc(z.string().trim().min(1).max(80), {
+      title: 'DictEntryInputLabel',
+      description: '字典项显示名称。',
+      examples: ['处理中'],
+    }),
+    sortOrder: withOpenApiSchemaDoc(z.coerce.number().int().min(0).max(9999), {
+      title: 'DictEntryInputSortOrder',
+      description: '字典项排序值；数值越小越靠前。',
+      examples: [10],
+    }),
+    value: withOpenApiSchemaDoc(z.string().trim().min(1).max(120), {
+      title: 'DictEntryInputValue',
+      description: '字典项稳定值。',
+      examples: ['processing'],
+    }),
+  }),
+  {
+    title: 'DictEntryInput',
+    description: '创建或更新自定义字典时使用的字典项输入。',
+    examples: [{ label: '处理中', sortOrder: 10, value: 'processing' }],
+  },
+)
+
+export const getDictByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: dictIdSchema,
+  }),
+  {
+    title: 'GetDictByIdInput',
+    description: '按字典标识读取单个字典详情；支持读取内置字典和自定义字典。',
+    examples: [{ id: 'dict:ability-actions' }],
+  },
+)
+
+export const createDictInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    code: dictCodeSchema,
+    description: withOpenApiSchemaDoc(nullableDictDescriptionSchema.default(null), {
+      title: 'CreateDictDescription',
+      description: '新字典说明；未填写时归一化为 `null`。',
+      examples: ['运营工单状态字典。', null],
+      default: null,
+    }),
+    entries: withOpenApiSchemaDoc(z.array(dictEntryInputSchema).min(1).max(100), {
+      title: 'CreateDictEntries',
+      description: '自定义字典项列表，至少一项。',
+      examples: [[{ label: '处理中', sortOrder: 10, value: 'processing' }]],
+    }),
+    name: dictNameSchema,
+    status: withOpenApiSchemaDoc(dictStatusFieldSchema.default(true), {
+      title: 'CreateDictStatus',
+      description: '新字典启用状态；默认 `true`。',
+      examples: [true],
+      default: true,
+    }),
+  }),
+  {
+    title: 'CreateDictInput',
+    description: '创建自定义系统字典；系统会校验编码唯一性、条目值唯一性并记录审计日志。',
+    examples: [
+      {
+        code: 'custom_operator_states',
+        name: '运营状态',
+        description: '运营工单状态字典。',
+        status: true,
+        entries: [
+          { label: '处理中', sortOrder: 10, value: 'processing' },
+          { label: '已关闭', sortOrder: 20, value: 'closed' },
+        ],
+      },
+    ],
+  },
+)
+
+export const updateDictInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    code: dictCodeSchema,
+    description: withOpenApiSchemaDoc(nullableDictDescriptionSchema.default(null), {
+      title: 'UpdateDictDescription',
+      description: '更新后的字典说明；未填写时归一化为 `null`。',
+      examples: ['运营工单状态字典。', null],
+      default: null,
+    }),
+    entries: withOpenApiSchemaDoc(z.array(dictEntryInputSchema).min(1).max(100), {
+      title: 'UpdateDictEntries',
+      description: '更新后的字典项列表，至少一项。',
+      examples: [[{ label: '处理中', sortOrder: 10, value: 'processing' }]],
+    }),
+    id: dictIdSchema,
+    name: dictNameSchema,
+    status: dictStatusFieldSchema,
+  }),
+  {
+    title: 'UpdateDictInput',
+    description: '更新自定义系统字典；内置种子与运行时字典会被拒绝修改。',
+    examples: [
+      {
+        id: '9cc190cb-a270-4ebf-9648-a0d1ebd9950c',
+        code: 'custom_operator_states',
+        name: '运营状态',
+        description: '运营工单状态字典。',
+        status: true,
+        entries: [
+          { label: '处理中', sortOrder: 10, value: 'processing' },
+          { label: '待复核', sortOrder: 15, value: 'review' },
+        ],
+      },
+    ],
+  },
+)
+
+export const deleteDictInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: dictIdSchema,
+  }),
+  {
+    title: 'DeleteDictInput',
+    description: '删除自定义系统字典的请求参数。',
+    examples: [{ id: '9cc190cb-a270-4ebf-9648-a0d1ebd9950c' }],
+  },
+)
+
+export const deleteDictResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    deleted: withOpenApiSchemaDoc(z.literal(true), {
+      title: 'DeleteDictSuccessFlag',
+      description: '字典删除成功标志，固定为 `true`。',
+      examples: [true],
+    }),
+    id: dictIdSchema,
+  }),
+  {
+    title: 'DeleteDictResult',
+    description: '字典删除成功后的标准响应。',
+    examples: [{ deleted: true, id: '9cc190cb-a270-4ebf-9648-a0d1ebd9950c' }],
+  },
+)
+
 // 系统配置 contract-first skeleton。
+const configIdSchema = withOpenApiSchemaDoc(z.string().trim().min(1).max(120), {
+  title: 'ConfigId',
+  description: '配置资源标识；内置运行时配置使用固定前缀，自定义配置使用 UUID。',
+  examples: ['config:security-rate-limit', '6d0b2cb6-1ac6-4f2c-9b53-f1eab4f3df67'],
+})
+
+const configKeySchema = withOpenApiSchemaDoc(
+  z
+    .string()
+    .trim()
+    .min(2)
+    .max(120)
+    .regex(/^[a-z0-9_.:-]+$/),
+  {
+    title: 'ConfigKey',
+    description: '配置项稳定键名，仅允许小写字母、数字、点、冒号、下划线和中划线。',
+    examples: ['security.rate_limit', 'custom.dashboard_notice'],
+  },
+)
+
+const configStatusSchema = withOpenApiSchemaDoc(z.boolean(), {
+  title: 'ConfigStatus',
+  description: '配置项启用状态；`false` 表示仅保留记录，不参与前端启用列表。',
+  examples: [true],
+})
+
+const configSourceSchema = withOpenApiSchemaDoc(z.enum(['custom', 'env', 'runtime', 'static']), {
+  title: 'ConfigSource',
+  description: '配置来源；`custom` 表示后台自定义配置，`env`/`runtime`/`static` 表示内置只读配置。',
+  examples: ['custom'],
+})
+
 export const configScopeSchema = withOpenApiSchemaDoc(
   z.enum(['ai', 'application', 'deploy', 'security']),
   {
@@ -1507,10 +1711,21 @@ export const configScopeSchema = withOpenApiSchemaDoc(
 export const listConfigsInputSchema = withOpenApiSchemaDoc(
   baseSearchSchema
     .extend({
+      source: withOpenApiSchemaDoc(configSourceSchema.optional(), {
+        title: 'ConfigSourceFilter',
+        description:
+          '按配置来源过滤；`custom` 表示后台自定义配置，`env`/`runtime`/`static` 表示内置只读配置。',
+        examples: ['custom'],
+      }),
       scope: withOpenApiSchemaDoc(configScopeSchema.optional(), {
         title: 'ConfigScopeFilter',
         description: '按配置作用域过滤。',
         examples: ['security'],
+      }),
+      status: withOpenApiSchemaDoc(booleanQuerySchema.optional(), {
+        title: 'ConfigStatusFilter',
+        description: '按配置启用状态过滤；省略时返回全部状态。',
+        examples: [true],
       }),
     })
     .default({
@@ -1520,7 +1735,7 @@ export const listConfigsInputSchema = withOpenApiSchemaDoc(
   {
     title: 'ListConfigsInput',
     description: '系统运行时配置分页查询参数。',
-    examples: [{ page: 1, pageSize: 10, scope: 'security' }],
+    examples: [{ page: 1, pageSize: 10, scope: 'security', source: 'custom', status: true }],
     default: { page: 1, pageSize: 10 },
   },
 )
@@ -1532,22 +1747,16 @@ export const configListItemSchema = withOpenApiSchemaDoc(
       description: '配置项用途说明。',
       examples: ['API 基础限流模式与通用配额。'],
     }),
-    key: withOpenApiSchemaDoc(z.string(), {
-      title: 'ConfigKey',
-      description: '配置项稳定键名。',
-      examples: ['security.rate_limit'],
-    }),
+    id: configIdSchema,
+    key: configKeySchema,
     mutable: withOpenApiSchemaDoc(z.boolean(), {
       title: 'ConfigMutable',
       description: '该配置是否允许通过管理面修改。',
       examples: [false],
     }),
     scope: configScopeSchema,
-    source: withOpenApiSchemaDoc(z.enum(['env', 'runtime', 'static']), {
-      title: 'ConfigSource',
-      description: '配置项来源。',
-      examples: ['runtime'],
-    }),
+    source: configSourceSchema,
+    status: configStatusSchema,
     updatedAt: withOpenApiSchemaDoc(z.string(), {
       title: 'ConfigUpdatedAt',
       description: '配置摘要最近更新时间，ISO 8601 字符串。',
@@ -1565,10 +1774,12 @@ export const configListItemSchema = withOpenApiSchemaDoc(
     examples: [
       {
         description: 'API 基础限流模式与通用配额。',
+        id: 'config:security-rate-limit',
         key: 'security.rate_limit',
         mutable: false,
         scope: 'security',
         source: 'runtime',
+        status: true,
         updatedAt: '2026-04-11T06:30:00.000Z',
         value: 'enabled:120/60000ms',
       },
@@ -1586,10 +1797,12 @@ export const configListResponseSchema = withOpenApiSchemaDoc(
         data: [
           {
             description: 'API 基础限流模式与通用配额。',
+            id: 'config:security-rate-limit',
             key: 'security.rate_limit',
             mutable: false,
             scope: 'security',
             source: 'runtime',
+            status: true,
             updatedAt: '2026-04-11T06:30:00.000Z',
             value: 'enabled:120/60000ms',
           },
@@ -1597,6 +1810,113 @@ export const configListResponseSchema = withOpenApiSchemaDoc(
         pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
       },
     ],
+  },
+)
+
+export const getConfigByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: configIdSchema,
+  }),
+  {
+    title: 'GetConfigByIdInput',
+    description: '按配置资源标识读取单个配置摘要；支持读取内置运行时配置和自定义配置。',
+    examples: [{ id: 'config:security-rate-limit' }],
+  },
+)
+
+export const createConfigInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    description: withOpenApiSchemaDoc(z.string().trim().min(1).max(200), {
+      title: 'CreateConfigDescription',
+      description: '新配置项用途说明。',
+      examples: ['后台全局提示文案。'],
+    }),
+    key: configKeySchema,
+    scope: configScopeSchema,
+    status: withOpenApiSchemaDoc(configStatusSchema.default(true), {
+      title: 'CreateConfigStatus',
+      description: '新配置项启用状态；默认 `true`。',
+      examples: [true],
+      default: true,
+    }),
+    value: withOpenApiSchemaDoc(z.string().trim().min(1).max(500), {
+      title: 'CreateConfigValue',
+      description: '脱敏后的配置值或状态摘要；不允许写入 secret 原文。',
+      examples: ['公告：本周五 22:00 进行升级窗口。'],
+    }),
+  }),
+  {
+    title: 'CreateConfigInput',
+    description: '创建自定义系统配置摘要；仅允许写入可公开展示的安全配置值，并记录审计日志。',
+    examples: [
+      {
+        key: 'custom.dashboard_notice',
+        scope: 'application',
+        description: '后台全局提示文案。',
+        value: '公告：本周五 22:00 进行升级窗口。',
+        status: true,
+      },
+    ],
+  },
+)
+
+export const updateConfigInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    description: withOpenApiSchemaDoc(z.string().trim().min(1).max(200), {
+      title: 'UpdateConfigDescription',
+      description: '更新后的配置用途说明。',
+      examples: ['后台全局提示文案。'],
+    }),
+    id: configIdSchema,
+    key: configKeySchema,
+    scope: configScopeSchema,
+    status: configStatusSchema,
+    value: withOpenApiSchemaDoc(z.string().trim().min(1).max(500), {
+      title: 'UpdateConfigValue',
+      description: '更新后的脱敏配置值或状态摘要；不允许写入 secret 原文。',
+      examples: ['公告：本周六 01:00 完成升级窗口。'],
+    }),
+  }),
+  {
+    title: 'UpdateConfigInput',
+    description: '更新自定义系统配置摘要；内置运行时配置会被拒绝修改。',
+    examples: [
+      {
+        id: '6d0b2cb6-1ac6-4f2c-9b53-f1eab4f3df67',
+        key: 'custom.dashboard_notice',
+        scope: 'application',
+        description: '后台全局提示文案。',
+        value: '公告：本周六 01:00 完成升级窗口。',
+        status: true,
+      },
+    ],
+  },
+)
+
+export const deleteConfigInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: configIdSchema,
+  }),
+  {
+    title: 'DeleteConfigInput',
+    description: '删除自定义系统配置摘要的请求参数。',
+    examples: [{ id: '6d0b2cb6-1ac6-4f2c-9b53-f1eab4f3df67' }],
+  },
+)
+
+export const deleteConfigResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    deleted: withOpenApiSchemaDoc(z.literal(true), {
+      title: 'DeleteConfigSuccessFlag',
+      description: '配置删除成功标志，固定为 `true`。',
+      examples: [true],
+    }),
+    id: configIdSchema,
+  }),
+  {
+    title: 'DeleteConfigResult',
+    description: '配置删除成功后的标准响应。',
+    examples: [{ deleted: true, id: '6d0b2cb6-1ac6-4f2c-9b53-f1eab4f3df67' }],
   },
 )
 
@@ -4771,9 +5091,21 @@ export type MenuEntry = z.infer<typeof menuEntrySchema>
 export type MenuListResponse = z.infer<typeof menuListResponseSchema>
 export type DeleteMenuResult = z.infer<typeof deleteMenuResultSchema>
 export type ListDictsInput = z.infer<typeof listDictsInputSchema>
+export type GetDictByIdInput = z.infer<typeof getDictByIdInputSchema>
+export type CreateDictInput = z.infer<typeof createDictInputSchema>
+export type UpdateDictInput = z.infer<typeof updateDictInputSchema>
+export type DeleteDictInput = z.infer<typeof deleteDictInputSchema>
+export type DictEntry = z.infer<typeof dictListItemSchema>
 export type DictListResponse = z.infer<typeof dictListResponseSchema>
+export type DeleteDictResult = z.infer<typeof deleteDictResultSchema>
 export type ListConfigsInput = z.infer<typeof listConfigsInputSchema>
+export type GetConfigByIdInput = z.infer<typeof getConfigByIdInputSchema>
+export type CreateConfigInput = z.infer<typeof createConfigInputSchema>
+export type UpdateConfigInput = z.infer<typeof updateConfigInputSchema>
+export type DeleteConfigInput = z.infer<typeof deleteConfigInputSchema>
+export type ConfigEntry = z.infer<typeof configListItemSchema>
 export type ConfigListResponse = z.infer<typeof configListResponseSchema>
+export type DeleteConfigResult = z.infer<typeof deleteConfigResultSchema>
 export type ListOperationLogsInput = z.infer<typeof listOperationLogsInputSchema>
 export type OperationLogListResponse = z.infer<typeof operationLogListResponseSchema>
 export type ListOnlineUsersInput = z.infer<typeof listOnlineUsersInputSchema>

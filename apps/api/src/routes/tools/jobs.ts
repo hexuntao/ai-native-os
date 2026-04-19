@@ -8,7 +8,11 @@ import {
 
 import { getMastraRuntimeSummary } from '@/mastra'
 import { requireAnyPermission } from '@/orpc/procedures'
-import { createPagination, paginateArray } from '@/routes/lib/pagination'
+import {
+  matchesCatalogSearch,
+  normalizeCatalogSearchTerm,
+  paginateCatalog,
+} from '@/routes/lib/catalog-query'
 
 type ToolJobListItem = ToolJobsListResponse['data'][number]
 
@@ -42,25 +46,19 @@ export async function listToolJobs(
   input: ListToolJobsInput | undefined,
 ): Promise<ToolJobsListResponse> {
   const resolvedInput = listToolJobsInputSchema.parse(input)
-  const normalizedSearch = resolvedInput.search?.trim().toLowerCase()
+  const normalizedSearch = normalizeCatalogSearchTerm(resolvedInput.search)
   const catalog = buildToolJobsCatalog().filter((item) => {
     if (resolvedInput.mode && item.mode !== resolvedInput.mode) {
       return false
     }
 
-    if (!normalizedSearch) {
-      return true
-    }
-
-    return [item.id, item.name, item.description].some((field) =>
-      field.toLowerCase().includes(normalizedSearch),
-    )
+    return matchesCatalogSearch([item.id, item.name, item.description], normalizedSearch)
   })
-  const pagedData = paginateArray(catalog, resolvedInput.page, resolvedInput.pageSize)
+  const paged = paginateCatalog(catalog, resolvedInput.page, resolvedInput.pageSize)
 
   return {
-    data: pagedData,
-    pagination: createPagination(resolvedInput.page, resolvedInput.pageSize, catalog.length),
+    data: paged.data,
+    pagination: paged.pagination,
     summary: {
       registeredCount: catalog.length,
       scheduledCount: catalog.filter((item) => item.mode === 'scheduled').length,

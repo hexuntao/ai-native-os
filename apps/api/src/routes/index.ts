@@ -35,8 +35,20 @@ import { monitorOnlineListProcedure } from './monitor/online'
 import { monitorServerSummaryProcedure } from './monitor/server'
 import { aiAuditLogsProcedure } from './system/ai-audit-logs'
 import { aiToolCatalogProcedure } from './system/ai-tool-catalog'
-import { configListProcedure } from './system/config'
-import { dictsListProcedure } from './system/dicts'
+import {
+  configCreateProcedure,
+  configDeleteProcedure,
+  configGetByIdProcedure,
+  configListProcedure,
+  configUpdateProcedure,
+} from './system/config'
+import {
+  dictsCreateProcedure,
+  dictsDeleteProcedure,
+  dictsGetByIdProcedure,
+  dictsListProcedure,
+  dictsUpdateProcedure,
+} from './system/dicts'
 import {
   menusCreateProcedure,
   menusDeleteProcedure,
@@ -124,8 +136,20 @@ export const appRouter = {
         catalog: aiToolCatalogProcedure,
       },
     },
-    config: configListProcedure,
-    dicts: dictsListProcedure,
+    config: {
+      create: configCreateProcedure,
+      delete: configDeleteProcedure,
+      getById: configGetByIdProcedure,
+      list: configListProcedure,
+      update: configUpdateProcedure,
+    },
+    dicts: {
+      create: dictsCreateProcedure,
+      delete: dictsDeleteProcedure,
+      getById: dictsGetByIdProcedure,
+      list: dictsListProcedure,
+      update: dictsUpdateProcedure,
+    },
     menus: {
       create: menusCreateProcedure,
       delete: menusDeleteProcedure,

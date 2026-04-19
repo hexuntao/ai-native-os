@@ -124,13 +124,17 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C13 | Post-P6 | Deepen AI governance workbench timelines, review queues, and evidence ergonomics for `ai/evals` and `ai/audit` | done | UI-C12 | lint + typecheck + test + build |
 | UI-C14 | Post-P6 | Deepen observability workbench triage with anomaly-first monitor views and incident prioritization | done | UI-C13 | lint + typecheck + test + build |
 | UI-C15 | Post-P6 | Deepen route-specific Copilot handoff and assistant guidance for monitor and governance surfaces | done | UI-C14 | lint + typecheck + test + build |
+| API-C1 | Post-P6 | Deliver `system/config` and `system/dicts` full CRUD with audit-safe custom write paths and contract-first OpenAPI while keeping built-in resources read-only | done | Post-P6 baseline | db:migrate + lint + typecheck + test + build |
+| API-C2 | Post-P6 | Standardize API error contracts, error codes, and OpenAPI error examples across REST-compatible routes | done | API-C1 | lint + typecheck + test + build |
+| API-C3 | Post-P6 | Extract shared pagination/filter/sort helpers for catalog-style API routes to reduce route drift | done | API-C2 | lint + typecheck + test + build |
+| API-C4 | Post-P6 | Expand API regression matrix and cross-surface smoke coverage for helper and contract-first surfaces | done | API-C3 | lint + typecheck + test + build |
 
 ## 3.1 Post-Launch Plans
 
 | Plan | Name | Status | Next Task |
 |---|---|---|---|
 | 1 | Web UI/UX Hardening | done | none |
-| 2 | API Platform Consistency | queued | API-C1 |
+| 2 | API Platform Consistency | done | none |
 | 3 | Identity and Permission Hardening | queued | IAM-C2 |
 | 4 | AI Governance Deepening | queued | GOV-C2 |
 | 5 | Productionization and Operations Maturity | queued | OPS-C1 |
@@ -170,15 +174,15 @@ Priority order as of 2026-04-12:
 - `UI-C10` is closed; directory pages now expose row-level quick preview context, structured handoff export dialogs, and batch-safe Markdown/JSON copy flows scoped to the current selection set.
 - `UI-C11` is closed; directory pages now persist local saved views, render denser active-filter chips, and expose inline row mutation feedback after successful write actions.
 - `UI-C12` is closed; directory workbenches now expose local batch result feedback, safety confirmation before clearing staged selections or deleting saved views, and denser triage shortcuts including copy and preview stepping.
-- queued plans after Web UI/UX Hardening:
-  - Plan 2 `API Platform Consistency` -> `API-C1`
+- queued plans after completed optimization programs:
   - Plan 3 `Identity and Permission Hardening` -> `IAM-C2`
   - Plan 4 `AI Governance Deepening` -> `GOV-C2`
   - Plan 5 `Productionization and Operations Maturity` -> `OPS-C1`
 - `UI-C13` is closed; `ai/evals` and `ai/audit` now expose denser governance review queues and persisted evidence timelines.
 - `UI-C14` is closed; `monitor/server` and `monitor/online` now prioritize incident-like signals instead of acting as plain status tables.
 - `UI-C15` is closed; Copilot now exposes route-specific brief/suggestion/handoff contracts for `monitor/server` and `monitor/online` in addition to existing AI routes.
-- Plan 1 `Web UI/UX Hardening` is complete; the next recommended backlog item is `API-C1` under Plan 2 `API Platform Consistency`.
+- Plan 1 `Web UI/UX Hardening` is complete.
+- Plan 2 `API Platform Consistency` is complete; the next recommended backlog item is `IAM-C2` under Plan 3 `Identity and Permission Hardening`.
 
 Auto-unlock rules:
 

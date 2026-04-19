@@ -9,7 +9,11 @@ import { defaultCopilotAgentId } from '@/copilotkit/runtime'
 import { mastraAgentRegistry } from '@/mastra/agents'
 import { resolveMastraEnvironment } from '@/mastra/env'
 import { requireAnyPermission } from '@/orpc/procedures'
-import { createPagination, paginateArray } from '@/routes/lib/pagination'
+import {
+  matchesCatalogSearch,
+  normalizeCatalogSearchTerm,
+  paginateCatalog,
+} from '@/routes/lib/catalog-query'
 
 type ToolGenListItem = ToolGenListResponse['data'][number]
 
@@ -82,7 +86,7 @@ export async function listToolGen(
   input: ListToolGenInput | undefined,
 ): Promise<ToolGenListResponse> {
   const resolvedInput = listToolGenInputSchema.parse(input)
-  const normalizedSearch = resolvedInput.search?.trim().toLowerCase()
+  const normalizedSearch = normalizeCatalogSearchTerm(resolvedInput.search)
   const catalog = buildToolGenCatalog().filter((item) => {
     if (resolvedInput.kind && item.kind !== resolvedInput.kind) {
       return false
@@ -92,19 +96,13 @@ export async function listToolGen(
       return false
     }
 
-    if (!normalizedSearch) {
-      return true
-    }
-
-    return [item.id, item.name, item.description].some((field) =>
-      field.toLowerCase().includes(normalizedSearch),
-    )
+    return matchesCatalogSearch([item.id, item.name, item.description], normalizedSearch)
   })
-  const pagedData = paginateArray(catalog, resolvedInput.page, resolvedInput.pageSize)
+  const paged = paginateCatalog(catalog, resolvedInput.page, resolvedInput.pageSize)
 
   return {
-    data: pagedData,
-    pagination: createPagination(resolvedInput.page, resolvedInput.pageSize, catalog.length),
+    data: paged.data,
+    pagination: paged.pagination,
     summary: {
       availableCount: catalog.filter((item) => item.status === 'available').length,
       plannedCount: catalog.filter((item) => item.status === 'planned').length,

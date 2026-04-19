@@ -1,5 +1,6 @@
-import { ErrorCodes } from '@ai-native-os/shared'
 import type { Context, MiddlewareHandler } from 'hono'
+
+import { createRateLimitErrorPayload } from '@/lib/api-errors'
 
 const defaultExemptPathPrefixes = ['/health'] as const
 const authRoutePrefix = '/api/auth'
@@ -205,10 +206,7 @@ function createRateLimitExceededResponse(
   context.header('Retry-After', String(decision.retryAfterSeconds))
 
   return context.json(
-    {
-      code: ErrorCodes.RATE_LIMITED.code,
-      message: ErrorCodes.RATE_LIMITED.message,
-    },
+    createRateLimitErrorPayload(decision.retryAfterSeconds, context.get('requestId')),
     429,
   )
 }

@@ -262,7 +262,13 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
     '/api/v1/system/menus/{id}' in payload.paths || '/api/v1/system/menus/:id' in payload.paths,
   )
   assert.ok('/api/v1/system/dicts' in payload.paths)
+  assert.ok(
+    '/api/v1/system/dicts/{id}' in payload.paths || '/api/v1/system/dicts/:id' in payload.paths,
+  )
   assert.ok('/api/v1/system/config' in payload.paths)
+  assert.ok(
+    '/api/v1/system/config/{id}' in payload.paths || '/api/v1/system/config/:id' in payload.paths,
+  )
   assert.ok('/api/v1/monitor/logs' in payload.paths)
   assert.ok('/api/v1/monitor/online' in payload.paths)
   assert.ok('/api/v1/monitor/server' in payload.paths)
@@ -482,6 +488,41 @@ test('OpenAPI document exposes rich schema metadata for system roles and permiss
       permissionEntrySchema.properties.inverted.description ===
         '是否为反向规则；`true` 表示禁止规则，`false` 表示允许规则。',
   )
+})
+
+test('OpenAPI document exposes standardized error components for contract-first operations', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+  const components = payload.components as {
+    responses?: Record<string, unknown>
+    schemas?: Record<string, unknown>
+  }
+
+  assert.ok(components && isRecord(components), 'Expected OpenAPI components to exist')
+  assert.ok(isRecord(components.responses), 'Expected standardized OpenAPI responses to exist')
+  assert.ok(isRecord(components.schemas), 'Expected standardized OpenAPI schemas to exist')
+  assert.ok('BadRequestError' in components.responses)
+  assert.ok('UnauthorizedError' in components.responses)
+  assert.ok('ForbiddenError' in components.responses)
+  assert.ok('NotFoundError' in components.responses)
+  assert.ok('RateLimitedError' in components.responses)
+  assert.ok('ApiError' in components.schemas)
+  assert.ok('ValidationError' in components.schemas)
+  assert.ok('RateLimitError' in components.schemas)
+
+  const configPath = payload.paths['/api/v1/system/config']
+
+  assert.ok(configPath && isRecord(configPath), 'Expected /api/v1/system/config path to exist')
+
+  const postOperation = configPath.post
+
+  assert.ok(postOperation && isRecord(postOperation), 'Expected POST operation for system config')
+  assert.ok(isRecord(postOperation.responses), 'Expected standardized responses on config POST')
+  assert.ok('400' in postOperation.responses)
+  assert.ok('401' in postOperation.responses)
+  assert.ok('403' in postOperation.responses)
+  assert.ok('404' in postOperation.responses)
+  assert.ok('429' in postOperation.responses)
 })
 
 test('OpenAPI document exposes rich schema metadata for system permission write contracts', async () => {
@@ -2334,10 +2375,306 @@ test('viewer cannot create users through the contract-first write route', async 
   assert.match(payload.message, /manage:User|manage:all/)
 })
 
-test('super_admin can consume the contract-first config and tools skeleton routes', async () => {
+test('super_admin can perform full contract-first CRUD on custom system config entries', async () => {
   const authHeaders = await createSessionForRole('super_admin')
-  const [configResponse, genResponse, jobsResponse] = await Promise.all([
+  const configSuffix = randomUUID().slice(0, 8)
+  const createResponse = await app.request('http://localhost/api/v1/system/config', {
+    body: JSON.stringify({
+      description: 'Contract CRUD Config',
+      key: `custom.dashboard_notice.${configSuffix}`,
+      scope: 'application',
+      status: true,
+      value: '公告：本周五 22:00 进入升级窗口。',
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      id: string
+      key: string
+      mutable: boolean
+      source: string
+      status: boolean
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.source, 'custom')
+  assert.equal(createPayload.json.mutable, true)
+  assert.equal(createPayload.json.status, true)
+
+  const readResponse = await app.request(
+    `http://localhost/api/v1/system/config/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const readPayload = (await readResponse.json()) as {
+    json: {
+      id: string
+      key: string
+      value: string
+    }
+  }
+
+  assert.equal(readResponse.status, 200)
+  assert.equal(readPayload.json.id, createPayload.json.id)
+  assert.equal(readPayload.json.key, `custom.dashboard_notice.${configSuffix}`)
+
+  const updateResponse = await app.request(
+    `http://localhost/api/v1/system/config/${createPayload.json.id}`,
+    {
+      body: JSON.stringify({
+        description: 'Contract CRUD Config Updated',
+        key: `custom.dashboard_notice.updated.${configSuffix}`,
+        scope: 'application',
+        status: false,
+        value: '公告：升级窗口已经调整到周六 01:00。',
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const updatePayload = (await updateResponse.json()) as {
+    json: {
+      id: string
+      key: string
+      status: boolean
+      value: string
+    }
+  }
+
+  assert.equal(updateResponse.status, 200)
+  assert.equal(updatePayload.json.id, createPayload.json.id)
+  assert.equal(updatePayload.json.key, `custom.dashboard_notice.updated.${configSuffix}`)
+  assert.equal(updatePayload.json.status, false)
+  assert.equal(updatePayload.json.value, '公告：升级窗口已经调整到周六 01:00。')
+
+  const deleteResponse = await app.request(
+    `http://localhost/api/v1/system/config/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const deletePayload = (await deleteResponse.json()) as {
+    json: {
+      deleted: boolean
+      id: string
+    }
+  }
+
+  assert.equal(deleteResponse.status, 200)
+  assert.equal(deletePayload.json.deleted, true)
+  assert.equal(deletePayload.json.id, createPayload.json.id)
+
+  const deletedReadResponse = await app.request(
+    `http://localhost/api/v1/system/config/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const deletedReadPayload = (await deletedReadResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(deletedReadResponse.status, 404)
+  assert.equal(deletedReadPayload.code, 'NOT_FOUND')
+  assert.match(deletedReadPayload.message, /Config/)
+
+  const configLogs = await listOperationLogsByModule('system_configs')
+  const targetLogs = configLogs.filter((log) => log.targetId === createPayload.json.id)
+
+  assert.ok(targetLogs.some((log) => log.action === 'create'))
+  assert.ok(targetLogs.some((log) => log.action === 'update'))
+  assert.ok(targetLogs.some((log) => log.action === 'delete'))
+})
+
+test('runtime config entries remain read-only through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const response = await app.request(
+    'http://localhost/api/v1/system/config/config:security-rate-limit',
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 400)
+  assert.equal(payload.code, 'BAD_REQUEST')
+  assert.match(payload.message, /read-only|cannot be deleted/)
+})
+
+test('super_admin can perform full contract-first CRUD on custom system dictionaries', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const dictSuffix = randomUUID().slice(0, 8)
+  const createResponse = await app.request('http://localhost/api/v1/system/dicts', {
+    body: JSON.stringify({
+      code: `custom_operator_states_${dictSuffix}`,
+      description: 'Contract CRUD Dict',
+      entries: [
+        { label: '处理中', sortOrder: 10, value: 'processing' },
+        { label: '已关闭', sortOrder: 20, value: 'closed' },
+      ],
+      name: '运营状态',
+      status: true,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const createPayload = (await createResponse.json()) as {
+    json: {
+      code: string
+      entryCount: number
+      id: string
+      mutable: boolean
+      source: string
+    }
+  }
+
+  assert.equal(createResponse.status, 200)
+  assert.equal(createPayload.json.code, `custom_operator_states_${dictSuffix}`)
+  assert.equal(createPayload.json.entryCount, 2)
+  assert.equal(createPayload.json.mutable, true)
+  assert.equal(createPayload.json.source, 'custom')
+
+  const readResponse = await app.request(
+    `http://localhost/api/v1/system/dicts/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const readPayload = (await readResponse.json()) as {
+    json: {
+      entries: Array<{ value: string }>
+      id: string
+    }
+  }
+
+  assert.equal(readResponse.status, 200)
+  assert.equal(readPayload.json.id, createPayload.json.id)
+  assert.deepEqual(
+    readPayload.json.entries.map((entry) => entry.value),
+    ['processing', 'closed'],
+  )
+
+  const updateResponse = await app.request(
+    `http://localhost/api/v1/system/dicts/${createPayload.json.id}`,
+    {
+      body: JSON.stringify({
+        code: `custom_operator_states_updated_${dictSuffix}`,
+        description: 'Contract CRUD Dict Updated',
+        entries: [
+          { label: '处理中', sortOrder: 10, value: 'processing' },
+          { label: '待复核', sortOrder: 15, value: 'review' },
+          { label: '已关闭', sortOrder: 20, value: 'closed' },
+        ],
+        name: '运营状态升级版',
+        status: false,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'PUT',
+    },
+  )
+  const updatePayload = (await updateResponse.json()) as {
+    json: {
+      code: string
+      entryCount: number
+      id: string
+      name: string
+      status: boolean
+    }
+  }
+
+  assert.equal(updateResponse.status, 200)
+  assert.equal(updatePayload.json.id, createPayload.json.id)
+  assert.equal(updatePayload.json.code, `custom_operator_states_updated_${dictSuffix}`)
+  assert.equal(updatePayload.json.name, '运营状态升级版')
+  assert.equal(updatePayload.json.entryCount, 3)
+  assert.equal(updatePayload.json.status, false)
+
+  const deleteResponse = await app.request(
+    `http://localhost/api/v1/system/dicts/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+      method: 'DELETE',
+    },
+  )
+  const deletePayload = (await deleteResponse.json()) as {
+    json: {
+      deleted: boolean
+      id: string
+    }
+  }
+
+  assert.equal(deleteResponse.status, 200)
+  assert.equal(deletePayload.json.deleted, true)
+  assert.equal(deletePayload.json.id, createPayload.json.id)
+
+  const deletedReadResponse = await app.request(
+    `http://localhost/api/v1/system/dicts/${createPayload.json.id}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const deletedReadPayload = (await deletedReadResponse.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(deletedReadResponse.status, 404)
+  assert.equal(deletedReadPayload.code, 'NOT_FOUND')
+  assert.match(deletedReadPayload.message, /Dictionary/)
+
+  const dictLogs = await listOperationLogsByModule('system_dicts')
+  const targetLogs = dictLogs.filter((log) => log.targetId === createPayload.json.id)
+
+  assert.ok(targetLogs.some((log) => log.action === 'create'))
+  assert.ok(targetLogs.some((log) => log.action === 'update'))
+  assert.ok(targetLogs.some((log) => log.action === 'delete'))
+})
+
+test('built-in dictionaries remain read-only through the contract-first write route', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const response = await app.request('http://localhost/api/v1/system/dicts/dict:ability-actions', {
+    headers: authHeaders,
+    method: 'DELETE',
+  })
+  const payload = (await response.json()) as {
+    code: string
+    message: string
+  }
+
+  assert.equal(response.status, 400)
+  assert.equal(payload.code, 'BAD_REQUEST')
+  assert.match(payload.message, /read-only|cannot be deleted/)
+})
+
+test('super_admin can consume the contract-first config, dict, and tools routes', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const [configResponse, dictsResponse, genResponse, jobsResponse] = await Promise.all([
     app.request('http://localhost/api/v1/system/config?page=1&pageSize=10', {
+      headers: authHeaders,
+    }),
+    app.request('http://localhost/api/v1/system/dicts?page=1&pageSize=10', {
       headers: authHeaders,
     }),
     app.request('http://localhost/api/v1/tools/gen?page=1&pageSize=10', {
@@ -2351,6 +2688,12 @@ test('super_admin can consume the contract-first config and tools skeleton route
   const configPayload = (await configResponse.json()) as {
     json: {
       data: Array<{ key: string; scope: string; value: string }>
+      pagination: { total: number }
+    }
+  }
+  const dictPayload = (await dictsResponse.json()) as {
+    json: {
+      data: Array<{ code: string; entryCount: number }>
       pagination: { total: number }
     }
   }
@@ -2375,14 +2718,19 @@ test('super_admin can consume the contract-first config and tools skeleton route
   }
 
   assert.equal(configResponse.status, 200)
+  assert.equal(dictsResponse.status, 200)
   assert.equal(genResponse.status, 200)
   assert.equal(jobsResponse.status, 200)
   assert.ok(configPayload.json.pagination.total >= 1)
+  assert.ok(dictPayload.json.pagination.total >= 1)
   assert.ok(
     configPayload.json.data.some(
       (item) =>
         item.key === 'security.rate_limit' && item.scope === 'security' && item.value.length > 0,
     ),
+  )
+  assert.ok(
+    dictPayload.json.data.some((item) => item.code === 'role_codes' && item.entryCount >= 1),
   )
   assert.ok(
     genPayload.json.data.some(

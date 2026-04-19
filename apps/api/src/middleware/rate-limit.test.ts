@@ -86,8 +86,12 @@ test('createApiRateLimitMiddleware returns 429 after the configured threshold is
   assert.equal(firstResponse.status, 200)
   assert.equal(secondResponse.status, 429)
   assert.deepEqual(await readJsonBody(secondResponse), {
-    code: ErrorCodes.RATE_LIMITED.code,
+    code: 'RATE_LIMITED',
+    errorCode: ErrorCodes.RATE_LIMITED.code,
     message: ErrorCodes.RATE_LIMITED.message,
+    requestId: secondResponse.headers.get('x-request-id') ?? undefined,
+    retryAfterSeconds: 60,
+    status: 429,
   })
   assert.equal(secondResponse.headers.get('retry-after'), '60')
   assert.equal(secondResponse.headers.get('x-ratelimit-limit'), '1')

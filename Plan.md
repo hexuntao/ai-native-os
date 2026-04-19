@@ -567,6 +567,12 @@ Definition of Done:
 Goal:
 - Bring the remaining management and helper surfaces to the same long-term contract quality as the completed CRUD modules.
 
+Completion note:
+- `API-C1` through `API-C4` are complete.
+- `system/config` and `system/dicts` now expose audited custom CRUD while preserving built-in runtime/seed resources as read-only contract surfaces.
+- Error payloads now share a stable schema and OpenAPI response component set across REST-compatible routes.
+- Shared catalog query helpers and expanded regression coverage now guard route drift at the contract layer.
+
 Milestones:
 - API-C1 Deliver `system/config` and `system/dicts` full CRUD with audit-safe write paths and contract-first OpenAPI
 - API-C2 Standardize API error contracts, error codes, and OpenAPI error examples

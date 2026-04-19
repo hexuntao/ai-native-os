@@ -1,4 +1,5 @@
 export const ErrorCodes = {
+  BAD_REQUEST: { code: 40000, message: '请求参数不合法' },
   UNAUTHORIZED: { code: 40100, message: '未登录' },
   TOKEN_EXPIRED: { code: 40101, message: 'Token 已过期' },
   INVALID_TOKEN: { code: 40102, message: '无效 Token' },
