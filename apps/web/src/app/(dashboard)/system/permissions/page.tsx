@@ -24,6 +24,7 @@ import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
   OperatorWorkbench,
@@ -337,6 +338,23 @@ export default async function SystemPermissionsPage({
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.action}:${row.resource}`,
+              preview: {
+                description: row.description ?? '该权限规则没有补充说明。',
+                eyebrow: 'Permission preview',
+                facts: [
+                  { label: 'Mode', value: row.inverted ? 'deny' : 'allow' },
+                  {
+                    label: 'Fields',
+                    value: row.fields?.length ? row.fields.join(', ') : 'all fields',
+                  },
+                  { label: 'Roles', value: formatCount(row.roleCount) },
+                  {
+                    label: 'Conditions',
+                    value: row.conditions ? JSON.stringify(row.conditions) : 'none',
+                  },
+                ],
+                title: `${row.action}:${row.resource}`,
+              },
             }))}
             surfaceLabel="Permissions operator workbench"
           >
@@ -404,6 +422,7 @@ export default async function SystemPermissionsPage({
                               </div>
                             ) : (
                               <div className="grid gap-3">
+                                <OperatorPreviewButton itemId={row.id} label="Preview" />
                                 <ManagementDialog
                                   contentClassName="w-[min(92vw,48rem)]"
                                   description="更新自定义权限规则；若当前已被角色引用，语义变更仍受后端保护。"

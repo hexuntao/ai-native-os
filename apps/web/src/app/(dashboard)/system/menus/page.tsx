@@ -26,6 +26,7 @@ import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
   OperatorWorkbench,
@@ -379,6 +380,23 @@ export default async function SystemMenusPage({
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.name} · ${row.path ?? 'no-path'}`,
+              preview: {
+                description: row.path ?? '当前节点没有路由路径。',
+                eyebrow: 'Menu preview',
+                facts: [
+                  { label: 'Type', value: row.type },
+                  { label: 'Visibility', value: row.visible ? 'visible' : 'hidden' },
+                  { label: 'Status', value: row.status ? 'active' : 'inactive' },
+                  {
+                    label: 'Permission',
+                    value:
+                      row.permissionAction && row.permissionResource
+                        ? `${row.permissionAction}:${row.permissionResource}`
+                        : 'public shell',
+                  },
+                ],
+                title: row.name,
+              },
             }))}
             surfaceLabel="Menus operator workbench"
           >
@@ -445,6 +463,7 @@ export default async function SystemMenusPage({
                               <span className="text-sm text-muted-foreground">Seeded</span>
                             ) : (
                               <div className="grid gap-3">
+                                <OperatorPreviewButton itemId={row.id} label="Preview" />
                                 <ManagementDialog
                                   contentClassName="w-[min(92vw,52rem)]"
                                   description="更新自定义菜单节点的路径、父子关系、可见性与权限绑定。"

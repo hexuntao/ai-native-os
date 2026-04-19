@@ -1,12 +1,35 @@
 'use client'
 
-import { Badge, Button } from '@ai-native-os/ui'
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+
+interface OperatorPreviewFact {
+  label: string
+  value: string
+}
+
+interface OperatorPreviewPayload {
+  description?: string | undefined
+  eyebrow?: string | undefined
+  facts?: readonly OperatorPreviewFact[] | undefined
+  title: string
+}
 
 interface OperatorSelectionItem {
   id: string
   label: string
+  preview?: OperatorPreviewPayload | undefined
 }
 
 interface OperatorWorkbenchProps {
@@ -20,7 +43,9 @@ interface OperatorWorkbenchProps {
 
 interface OperatorWorkbenchContextValue {
   allSelected: boolean
+  focusPreview: (id: string) => void
   isSelected: (id: string) => boolean
+  previewedId: string | null
   selectedCount: number
   toggleAll: () => void
   toggleOne: (id: string) => void
@@ -89,6 +114,43 @@ async function copySelectionToClipboard(
 }
 
 /**
+ * 把当前选中集序列化为 Markdown 交接块，便于运营和审计场景直接贴给他人。
+ */
+function createMarkdownHandoffPayload(selectionItems: readonly OperatorSelectionItem[]): string {
+  return selectionItems
+    .map((selectionItem) => {
+      const preview = selectionItem.preview
+      const factLines =
+        preview?.facts?.map((fact) => `- ${fact.label}: ${fact.value}`).join('\n') ?? ''
+
+      return [
+        `## ${preview?.title ?? selectionItem.label}`,
+        preview?.description ?? selectionItem.label,
+        factLines,
+        `- id: ${selectionItem.id}`,
+      ]
+        .filter((line) => line.length > 0)
+        .join('\n')
+    })
+    .join('\n\n')
+}
+
+/**
+ * 把当前选中集序列化为结构化 JSON，便于后续导入工单、聊天或审计系统。
+ */
+function createJsonHandoffPayload(selectionItems: readonly OperatorSelectionItem[]): string {
+  return JSON.stringify(
+    selectionItems.map((selectionItem) => ({
+      id: selectionItem.id,
+      label: selectionItem.label,
+      preview: selectionItem.preview ?? null,
+    })),
+    null,
+    2,
+  )
+}
+
+/**
  * 读取目录页选择上下文，确保行级复选框和工具条共享同一批量状态。
  */
 function useOperatorWorkbenchContext(): OperatorWorkbenchContextValue {
@@ -114,6 +176,8 @@ export function OperatorWorkbench({
 }: OperatorWorkbenchProps): ReactNode {
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([])
   const [copied, setCopied] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [focusedPreviewId, setFocusedPreviewId] = useState<string | null>(null)
   const selectableIds = useMemo(
     () => selectionItems.map((selectionItem) => selectionItem.id),
     [selectionItems],
@@ -123,6 +187,37 @@ export function OperatorWorkbench({
     () => selectionItems.filter((selectionItem) => selectedIds.includes(selectionItem.id)),
     [selectedIds, selectionItems],
   )
+  const previewableItems = useMemo(
+    () => selectionItems.filter((selectionItem) => selectionItem.preview),
+    [selectionItems],
+  )
+  const effectivePreviewId = useMemo(() => {
+    if (
+      focusedPreviewId &&
+      previewableItems.some((selectionItem) => selectionItem.id === focusedPreviewId)
+    ) {
+      return focusedPreviewId
+    }
+
+    const selectedPreviewItem = selectedItems.find((selectionItem) => selectionItem.preview)
+
+    if (selectedPreviewItem) {
+      return selectedPreviewItem.id
+    }
+
+    return previewableItems[0]?.id ?? null
+  }, [focusedPreviewId, previewableItems, selectedItems])
+  const previewedItem = useMemo(
+    () => selectionItems.find((selectionItem) => selectionItem.id === effectivePreviewId) ?? null,
+    [effectivePreviewId, selectionItems],
+  )
+  const exportableItems =
+    selectedItems.length > 0 ? selectedItems : previewedItem ? [previewedItem] : []
+  const markdownPayload = useMemo(
+    () => createMarkdownHandoffPayload(exportableItems),
+    [exportableItems],
+  )
+  const jsonPayload = useMemo(() => createJsonHandoffPayload(exportableItems), [exportableItems])
 
   const allSelected = selectableIds.length > 0 && selectedIds.length === selectableIds.length
 
@@ -131,6 +226,17 @@ export function OperatorWorkbench({
       currentSelection.filter((selectedId) => selectableIds.includes(selectedId)),
     )
   }, [selectableIds])
+
+  useEffect(() => {
+    if (
+      focusedPreviewId &&
+      selectionItems.some((selectionItem) => selectionItem.id === focusedPreviewId)
+    ) {
+      return
+    }
+
+    setFocusedPreviewId(null)
+  }, [focusedPreviewId, selectionItems])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -168,6 +274,16 @@ export function OperatorWorkbench({
         return
       }
 
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'e') {
+        if (exportableItems.length === 0) {
+          return
+        }
+
+        event.preventDefault()
+        setExportOpen(true)
+        return
+      }
+
       if (event.key === 'Escape' && selectedIds.length > 0) {
         event.preventDefault()
         setSelectedIds([])
@@ -179,7 +295,13 @@ export function OperatorWorkbench({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [primaryActionTargetId, searchInputId, selectableIds, selectedIds.length])
+  }, [
+    exportableItems.length,
+    primaryActionTargetId,
+    searchInputId,
+    selectableIds,
+    selectedIds.length,
+  ])
 
   useEffect(() => {
     if (!copied) {
@@ -195,7 +317,11 @@ export function OperatorWorkbench({
 
   const contextValue: OperatorWorkbenchContextValue = {
     allSelected,
+    focusPreview: (id: string): void => {
+      setFocusedPreviewId(id)
+    },
     isSelected: (id: string): boolean => selectedIds.includes(id),
+    previewedId: effectivePreviewId,
     selectedCount: selectedIds.length,
     toggleAll: (): void => {
       setSelectedIds((currentSelection) =>
@@ -226,7 +352,7 @@ export function OperatorWorkbench({
               {copied ? <Badge variant="outline">Copied</Badge> : null}
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              `/` 聚焦搜索，`Shift+A` 切换全选，`Esc` 清空选择，`N` 打开主操作。
+              `/` 聚焦搜索，`Shift+A` 切换全选，`Esc` 清空选择，`N` 打开主操作，`E` 打开交接导出。
             </p>
           </div>
 
@@ -256,10 +382,131 @@ export function OperatorWorkbench({
             >
               Copy selected
             </Button>
+            <Button
+              disabled={exportableItems.length === 0}
+              size="sm"
+              type="button"
+              variant="secondary"
+              onClick={() => setExportOpen(true)}
+            >
+              Export handoff
+            </Button>
           </div>
         </div>
 
+        {previewedItem?.preview ? (
+          <div className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/72 p-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div className="grid gap-3">
+              <div className="grid gap-1">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  {previewedItem.preview.eyebrow ?? 'Quick preview'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {previewedItem.preview.title}
+                  </h3>
+                  {selectedIds.includes(previewedItem.id) ? (
+                    <Badge variant="accent">selected</Badge>
+                  ) : null}
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {previewedItem.preview.description ?? previewedItem.label}
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {(previewedItem.preview.facts ?? []).map((fact) => (
+                  <div
+                    className="rounded-[var(--radius-lg)] border border-border/70 bg-card/85 px-4 py-3"
+                    key={`${previewedItem.id}-${fact.label}`}
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                      {fact.label}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-foreground">{fact.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-card/80 p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Handoff guardrails
+              </p>
+              <div className="grid gap-2 text-sm leading-6 text-muted-foreground">
+                <p>只导出当前可见且已选中的行，避免误把整页数据发送给外部协作者。</p>
+                <p>未显式选择时，导出会退回到当前 preview 项，而不是整页全量数据。</p>
+                <p>Preview 按钮只切换本地上下文，不触发任何后端写操作。</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {children}
+
+        <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Export operator handoff</DialogTitle>
+              <DialogDescription>
+                导出当前选中集的交接摘要与结构化 JSON；未选择任何行时，会导出当前 preview 项。
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-foreground">Markdown handoff</p>
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(markdownPayload)
+                      setCopied(true)
+                    }}
+                  >
+                    Copy markdown
+                  </Button>
+                </div>
+                <textarea
+                  className="min-h-72 w-full rounded-[var(--radius-lg)] border border-border/70 bg-card/85 px-4 py-3 font-mono text-xs leading-6 text-foreground outline-none"
+                  readOnly
+                  value={markdownPayload}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-foreground">JSON payload</p>
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(jsonPayload)
+                      setCopied(true)
+                    }}
+                  >
+                    Copy JSON
+                  </Button>
+                </div>
+                <textarea
+                  className="min-h-72 w-full rounded-[var(--radius-lg)] border border-border/70 bg-card/85 px-4 py-3 font-mono text-xs leading-6 text-foreground outline-none"
+                  readOnly
+                  value={jsonPayload}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-3 sm:justify-end">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Close
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </OperatorWorkbenchContext.Provider>
   )
@@ -318,5 +565,29 @@ export function OperatorSelectionCheckbox({
         onChange={() => toggleOne(itemId)}
       />
     </div>
+  )
+}
+
+interface OperatorPreviewButtonProps {
+  itemId: string
+  label: string
+}
+
+/**
+ * 渲染行级 preview 触发器，用于把当前行提升为工作台右侧的预览上下文。
+ */
+export function OperatorPreviewButton({ itemId, label }: OperatorPreviewButtonProps): ReactNode {
+  const { focusPreview, previewedId } = useOperatorWorkbenchContext()
+
+  return (
+    <Button
+      aria-pressed={previewedId === itemId}
+      size="sm"
+      type="button"
+      variant={previewedId === itemId ? 'default' : 'secondary'}
+      onClick={() => focusPreview(itemId)}
+    >
+      {previewedId === itemId ? `${label} previewing` : label}
+    </Button>
   )
 }

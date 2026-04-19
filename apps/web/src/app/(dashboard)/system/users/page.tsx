@@ -27,6 +27,7 @@ import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
   OperatorWorkbench,
@@ -265,6 +266,20 @@ export default async function SystemUsersPage({
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.username} · ${row.email}`,
+              preview: {
+                description: row.nickname ?? '该用户尚未配置昵称。',
+                eyebrow: 'User preview',
+                facts: [
+                  { label: 'Email', value: row.email },
+                  {
+                    label: 'Roles',
+                    value: row.roleCodes.length > 0 ? row.roleCodes.join(', ') : 'unassigned',
+                  },
+                  { label: 'Status', value: row.status ? 'active' : 'inactive' },
+                  { label: 'Updated', value: formatDateTime(row.updatedAt) },
+                ],
+                title: row.username,
+              },
             }))}
             surfaceLabel="Users operator workbench"
           >
@@ -325,6 +340,7 @@ export default async function SystemUsersPage({
                       <TableCell className="align-top">
                         {canManageUsers ? (
                           <div className="grid gap-3">
+                            <OperatorPreviewButton itemId={row.id} label="Preview" />
                             <ManagementDialog
                               contentClassName="w-[min(92vw,44rem)]"
                               description="更新用户资料、登录邮箱、可选密码重置和角色绑定。"

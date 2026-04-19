@@ -26,6 +26,7 @@ import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
   OperatorWorkbench,
@@ -281,6 +282,17 @@ export default async function SystemRolesPage({
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.name} · ${row.code}`,
+              preview: {
+                description: row.description ?? '该角色没有补充说明。',
+                eyebrow: 'Role preview',
+                facts: [
+                  { label: 'Code', value: row.code },
+                  { label: 'Users', value: formatCount(row.userCount) },
+                  { label: 'Permissions', value: formatCount(row.permissionCount) },
+                  { label: 'Status', value: row.status ? 'active' : 'inactive' },
+                ],
+                title: row.name,
+              },
             }))}
             surfaceLabel="Roles operator workbench"
           >
@@ -359,6 +371,7 @@ export default async function SystemRolesPage({
                               </div>
                             ) : (
                               <div className="grid gap-3">
+                                <OperatorPreviewButton itemId={row.id} label="Preview" />
                                 <ManagementDialog
                                   contentClassName="w-[min(92vw,48rem)]"
                                   description="更新自定义角色的名称、状态、排序和权限绑定。"
