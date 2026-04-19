@@ -13,8 +13,15 @@ import type { ReactNode } from 'react'
 
 import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
+import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount } from '@/lib/format'
 import { loadServerSummary } from '@/lib/server-management'
+
+interface ServerIncidentRow {
+  detail: string
+  label: string
+  tone: 'critical' | 'neutral' | 'warning'
+}
 
 /**
  * 根据健康检查状态推导工作台信号卡片的视觉层级。
@@ -32,15 +39,69 @@ function summarizeTelemetryStatus(openTelemetry: string, sentry: string): string
   return `${connectedCount}/2 connected`
 }
 
+/**
+ * 汇总当前运行态里最值得优先排查的异常点，帮助页面按异常优先而不是字段优先展示。
+ */
+function createServerIncidentQueue(
+  payload: Awaited<ReturnType<typeof loadServerSummary>>,
+): ServerIncidentRow[] {
+  const incidents: ServerIncidentRow[] = []
+
+  if (payload.health.database !== 'ok') {
+    incidents.push({
+      detail: '数据库健康异常会直接影响后台读写与 AI 治理证据持久化。',
+      label: 'Database degraded',
+      tone: 'critical',
+    })
+  }
+
+  if (payload.health.ai.status !== 'enabled') {
+    incidents.push({
+      detail: payload.health.ai.reason,
+      label: 'AI capability degraded',
+      tone: 'warning',
+    })
+  }
+
+  if (payload.runtime.enabledAgentCount === 0) {
+    incidents.push({
+      detail: '当前运行时没有启用 agent，Copilot 与 AI 控制面只剩受限只读能力。',
+      label: 'No enabled agents',
+      tone: 'warning',
+    })
+  }
+
+  if (payload.health.telemetry.openTelemetry !== 'ok' || payload.health.telemetry.sentry !== 'ok') {
+    incidents.push({
+      detail: '遥测不完整会降低故障定位速度，尤其影响发布后事故回放。',
+      label: 'Telemetry partial',
+      tone: 'neutral',
+    })
+  }
+
+  return incidents.length > 0
+    ? incidents
+    : [
+        {
+          detail: '当前页没有发现需要立即升级排查的运行时异常。',
+          label: 'No urgent incident',
+          tone: 'neutral',
+        },
+      ]
+}
+
 export default async function MonitorServerPage(): Promise<ReactNode> {
   const payload = await loadServerSummary()
   const telemetrySummary = summarizeTelemetryStatus(
     payload.health.telemetry.openTelemetry,
     payload.health.telemetry.sentry,
   )
+  const incidentQueue = createServerIncidentQueue(payload)
+  const assistantHandoff = resolveCopilotPageHandoff('/monitor/server')
 
   return (
     <StatusWorkbenchPage
+      assistantHandoff={undefined}
       context={[
         {
           label: 'Environment',
@@ -210,6 +271,61 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
         </div>
 
         <div className="grid gap-4">
+          {assistantHandoff ? (
+            <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+              <CardHeader className="gap-2">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Copilot handoff
+                </p>
+                <CardTitle className="text-xl">{assistantHandoff.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
+                <p>{assistantHandoff.summary}</p>
+                {assistantHandoff.prompts.map((prompt) => (
+                  <div
+                    className="rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3"
+                    key={prompt}
+                  >
+                    {prompt}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
+            <CardHeader className="gap-2">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                Incident queue
+              </p>
+              <CardTitle className="text-xl">What deserves attention first</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
+              {incidentQueue.map((incident) => (
+                <div
+                  className="grid gap-1 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3"
+                  key={incident.label}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-foreground">{incident.label}</span>
+                    <Badge
+                      variant={
+                        incident.tone === 'critical'
+                          ? 'outline'
+                          : incident.tone === 'warning'
+                            ? 'secondary'
+                            : 'accent'
+                      }
+                    >
+                      {incident.tone}
+                    </Badge>
+                  </div>
+                  <p>{incident.detail}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
             <CardHeader className="gap-2">
               <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">

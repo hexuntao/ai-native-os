@@ -121,12 +121,15 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C10 | Post-P6 | Add row-level quick preview panels and batch-safe export/share flows for high-frequency operator handoff | done | UI-C9 | lint + typecheck + test + build |
 | UI-C11 | Post-P6 | Add saved view presets, denser filter chips, and inline row mutation feedback for repetitive operator triage | done | UI-C10 | lint + typecheck + test + build |
 | UI-C12 | Post-P6 | Add batch result feedback, batch-safe destructive flows, and denser repetitive triage shortcuts for directory operators | done | UI-C11 | lint + typecheck + test + build |
+| UI-C13 | Post-P6 | Deepen AI governance workbench timelines, review queues, and evidence ergonomics for `ai/evals` and `ai/audit` | done | UI-C12 | lint + typecheck + test + build |
+| UI-C14 | Post-P6 | Deepen observability workbench triage with anomaly-first monitor views and incident prioritization | done | UI-C13 | lint + typecheck + test + build |
+| UI-C15 | Post-P6 | Deepen route-specific Copilot handoff and assistant guidance for monitor and governance surfaces | done | UI-C14 | lint + typecheck + test + build |
 
 ## 3.1 Post-Launch Plans
 
 | Plan | Name | Status | Next Task |
 |---|---|---|---|
-| 1 | Web UI/UX Hardening | in_progress | UI-C13 |
+| 1 | Web UI/UX Hardening | done | none |
 | 2 | API Platform Consistency | queued | API-C1 |
 | 3 | Identity and Permission Hardening | queued | IAM-C2 |
 | 4 | AI Governance Deepening | queued | GOV-C2 |
@@ -172,7 +175,10 @@ Priority order as of 2026-04-12:
   - Plan 3 `Identity and Permission Hardening` -> `IAM-C2`
   - Plan 4 `AI Governance Deepening` -> `GOV-C2`
   - Plan 5 `Productionization and Operations Maturity` -> `OPS-C1`
-- the next recommended backlog item after `UI-C12` is `UI-C13`: deepen prompt/eval/audit workbench timelines, evidence review, and governance scan ergonomics.
+- `UI-C13` is closed; `ai/evals` and `ai/audit` now expose denser governance review queues and persisted evidence timelines.
+- `UI-C14` is closed; `monitor/server` and `monitor/online` now prioritize incident-like signals instead of acting as plain status tables.
+- `UI-C15` is closed; Copilot now exposes route-specific brief/suggestion/handoff contracts for `monitor/server` and `monitor/online` in addition to existing AI routes.
+- Plan 1 `Web UI/UX Hardening` is complete; the next recommended backlog item is `API-C1` under Plan 2 `API Platform Consistency`.
 
 Auto-unlock rules:
 

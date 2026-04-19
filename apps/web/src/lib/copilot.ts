@@ -96,7 +96,11 @@ export function buildCopilotInstructions(
       ? 'On the eval route, prioritize failed last runs, never-run suites, dataset coverage, and scorer reliability before suggesting changes.'
       : pathname.startsWith('/ai/audit')
         ? 'On the audit route, prioritize forbidden calls, execution errors, human overrides, and explicit governance boundaries before suggesting changes.'
-        : 'Stay focused on the current route and explain operational tradeoffs before suggesting actions.'
+        : pathname.startsWith('/monitor/server')
+          ? 'On the server monitor route, prioritize degraded dependencies, AI capability gaps, and runtime registry anomalies before suggesting changes.'
+          : pathname.startsWith('/monitor/online')
+            ? 'On the live-session route, prioritize unmapped sessions, expiring sessions, and role-density anomalies before suggesting changes.'
+            : 'Stay focused on the current route and explain operational tradeoffs before suggesting actions.'
 
   return [
     'You are the in-dashboard operator copilot for AI Native OS.',
@@ -171,6 +175,32 @@ export function buildCopilotSuggestions(
         message:
           'Explain what the current audit table can prove, what it cannot prove yet, and which signal deserves operator attention first.',
         title: 'Boundary read',
+      },
+    )
+  } else if (pathname.startsWith('/monitor/server')) {
+    suggestions.unshift(
+      {
+        message:
+          'Summarize the current degraded dependencies, AI capability gaps, and telemetry blind spots, then identify the first incident worth escalation.',
+        title: 'Incident triage',
+      },
+      {
+        message:
+          'Explain whether the current server summary looks deploy-ready, partially degraded, or incident-shaped, and call out the missing evidence.',
+        title: 'Runtime read',
+      },
+    )
+  } else if (pathname.startsWith('/monitor/online')) {
+    suggestions.unshift(
+      {
+        message:
+          'Summarize unmapped sessions, expiring sessions, and role-density anomalies in the current slice, then identify the first operator follow-up.',
+        title: 'Session triage',
+      },
+      {
+        message:
+          'Explain whether this live-session slice suggests stable identity coverage or fragile RBAC/session alignment.',
+        title: 'Identity read',
       },
     )
   } else if (pathname.startsWith('/system/logs')) {
@@ -259,6 +289,37 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
     }
   }
 
+  if (pathname.startsWith('/monitor/server')) {
+    return {
+      badge: 'runtime-triage',
+      guardrail:
+        '只基于当前健康检查、运行时注册表和遥测连通性给出建议，不假设 worker 或外部平台已经验证完毕。',
+      summary:
+        '优先帮助操作员识别 degraded dependency、AI capability 缺口和 registry 异常，而不是重复状态字段。',
+      title: 'Runtime assistant brief',
+      workstreams: [
+        '把依赖降级、AI capability 缺失和 telemetry partial 区分开。',
+        '先指出最需要升级排查的一条 incident 线索，再补充影响面。',
+        '明确当前页的证据边界，避免过度声称生产健康性。',
+      ],
+    }
+  }
+
+  if (pathname.startsWith('/monitor/online')) {
+    return {
+      badge: 'presence-triage',
+      guardrail: '只基于 Better Auth 会话和 RBAC 映射解释在线态，不把它伪装成实时 heartbeat 遥测。',
+      summary:
+        '优先帮助操作员识别 unmapped session、即将过期会话和角色密度异常，而不是只读会话表。',
+      title: 'Presence assistant brief',
+      workstreams: [
+        '区分身份桥接问题、会话寿命问题和权限面过宽问题。',
+        '指出当前切片里最值得先复核的会话主体。',
+        '提醒这张表是认证平面近似值，不是实时在线证明。',
+      ],
+    }
+  }
+
   return null
 }
 
@@ -335,6 +396,34 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
       summary:
         '适合把当前审计切片交给助手做边界解读和风险排序，而不是直接要求它给出超出证据面的结论。',
       title: 'Governance handoff',
+    }
+  }
+
+  if (pathname.startsWith('/monitor/server')) {
+    return {
+      badge: 'runtime-handoff',
+      note: '把问题交给助手时，优先引用当前 degraded dependency、AI capability 状态和 telemetry 缺口，不要要求它猜测页外运行环境。',
+      prompts: [
+        '总结当前页最值得优先升级排查的一条 incident 线索。',
+        '判断现在更像依赖故障、AI runtime 缺口，还是可观测性盲区。',
+        '指出还缺哪类证据，才足以支撑生产事故结论。',
+      ],
+      summary: '适合把当前运行态快照交给助手做 incident triage，而不是直接跳到修复动作。',
+      title: 'Runtime handoff',
+    }
+  }
+
+  if (pathname.startsWith('/monitor/online')) {
+    return {
+      badge: 'presence-handoff',
+      note: '优先让助手解释 unmapped、expiring 和 role-density 信号，再决定是否需要身份回填或会话治理动作。',
+      prompts: [
+        '指出当前页最需要优先复核的在线会话，并解释原因。',
+        '说明这批会话更像身份桥接问题，还是登录态寿命问题。',
+        '给出一条不扩 scope 的最小后续动作，帮助收紧在线面风险。',
+      ],
+      summary: '适合把当前在线切片交给助手做身份与会话稳定性解读，再决定是否升级处理。',
+      title: 'Presence handoff',
     }
   }
 

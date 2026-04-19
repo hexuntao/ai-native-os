@@ -35,6 +35,13 @@ interface AiAuditPageProps {
   searchParams: Promise<DashboardSearchParams>
 }
 
+interface AuditHotspotRow {
+  detail: string
+  id: string
+  label: string
+  tone: 'critical' | 'neutral' | 'warning'
+}
+
 /**
  * 将审计行状态压缩为当前页切片的治理摘要，供右侧工作台快速阅读。
  */
@@ -57,6 +64,56 @@ function summarizeAuditStatuses(
   ]
 }
 
+/**
+ * 提炼当前审计切片里最值得人工优先复核的事件，优先级按 error -> forbidden -> override 排序。
+ */
+function createAuditHotspots(
+  rows: Awaited<ReturnType<typeof loadAiAuditLogsList>>['data'],
+): AuditHotspotRow[] {
+  return rows
+    .map((row) => {
+      if (row.status === 'error') {
+        return {
+          detail: '执行错误说明不是单纯权限命中，优先检查工具链和运行环境。',
+          id: row.id,
+          label: row.toolId,
+          tone: 'critical' as const,
+        }
+      }
+
+      if (row.status === 'forbidden') {
+        return {
+          detail: '权限边界或安全策略命中，适合优先复核主体、资源和工具声明。',
+          id: row.id,
+          label: row.toolId,
+          tone: 'warning' as const,
+        }
+      }
+
+      if (row.humanOverride) {
+        return {
+          detail: '已经有人类接管，适合先看 override 是否形成稳定治理模式。',
+          id: row.id,
+          label: row.toolId,
+          tone: 'warning' as const,
+        }
+      }
+
+      return {
+        detail: '当前是成功执行，可作为治理基线参考。',
+        id: row.id,
+        label: row.toolId,
+        tone: 'neutral' as const,
+      }
+    })
+    .sort((left, right) => {
+      const score = { critical: 0, warning: 1, neutral: 2 }
+
+      return score[left.tone] - score[right.tone]
+    })
+    .slice(0, 6)
+}
+
 export default async function AiAuditPage({ searchParams }: AiAuditPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
   const filters = createAiAuditFilterState(resolvedSearchParams)
@@ -65,6 +122,8 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
   const overrideCount = payload.data.filter((row) => row.humanOverride).length
   const errorCount = payload.data.filter((row) => row.status === 'error').length
   const auditStatusSummary = summarizeAuditStatuses(payload.data.map((row) => row.status))
+  const auditHotspots = createAuditHotspots(payload.data)
+  const recentEvidenceRows = [...payload.data].slice(0, 5)
   const assistantHandoff = resolveCopilotPageHandoff('/ai/audit')
 
   return (
@@ -277,18 +336,31 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
           <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
             <CardHeader className="gap-2">
               <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                Slice status
+                Governance queue
               </p>
-              <CardTitle className="text-xl">Current query distribution</CardTitle>
+              <CardTitle className="text-xl">What needs review first</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-2">
-              {auditStatusSummary.map((entry) => (
+            <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
+              {auditHotspots.map((hotspot) => (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2 text-sm"
-                  key={entry.label}
+                  className="grid gap-1 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3"
+                  key={hotspot.id}
                 >
-                  <span className="text-muted-foreground">{entry.label}</span>
-                  <span className="font-medium text-foreground">{entry.value}</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-foreground">{hotspot.label}</span>
+                    <Badge
+                      variant={
+                        hotspot.tone === 'critical'
+                          ? 'outline'
+                          : hotspot.tone === 'warning'
+                            ? 'secondary'
+                            : 'accent'
+                      }
+                    >
+                      {hotspot.tone}
+                    </Badge>
+                  </div>
+                  <p>{hotspot.detail}</p>
                 </div>
               ))}
             </CardContent>
@@ -297,14 +369,43 @@ export default async function AiAuditPage({ searchParams }: AiAuditPageProps): P
           <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
             <CardHeader className="gap-2">
               <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                Governance read
+                Evidence timeline
               </p>
-              <CardTitle className="text-xl">What this page means</CardTitle>
+              <CardTitle className="text-xl">Latest visible evidence</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
-              <p>Forbidden 上升通常表示 tool permission 或上下文桥接发生变化。</p>
-              <p>Override 上升说明模型结果还不稳定，但当前团队仍在用人工兜底维持链路。</p>
-              <p>Error 上升更值得优先排查，因为它通常不是权限问题，而是执行问题。</p>
+              {recentEvidenceRows.map((row) => (
+                <div
+                  className="grid gap-1 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3"
+                  key={row.id}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-foreground">
+                      {row.action}:{row.subject}
+                    </span>
+                    <Badge variant={row.status === 'success' ? 'accent' : 'secondary'}>
+                      {row.status}
+                    </Badge>
+                  </div>
+                  <p>{row.toolId}</p>
+                  <p>{formatDateTime(row.createdAt)}</p>
+                  <p>
+                    feedback:{row.feedbackCount} · override:{row.humanOverride ? 'yes' : 'no'} ·
+                    latest:{row.latestUserAction ?? 'none'}
+                  </p>
+                </div>
+              ))}
+              <div className="grid gap-2">
+                {auditStatusSummary.map((entry) => (
+                  <div
+                    className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2 text-sm"
+                    key={entry.label}
+                  >
+                    <span className="text-muted-foreground">{entry.label}</span>
+                    <span className="font-medium text-foreground">{entry.value}</span>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -12,11 +12,12 @@ import {
   TableRow,
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
-
 import { FilterToolbar } from '@/components/management/filter-toolbar'
+import { AssistantHandoffCard } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
 import { StatusWorkbenchPage } from '@/components/management/status-workbench-page'
+import { resolveCopilotPageHandoff } from '@/lib/copilot'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
@@ -27,6 +28,13 @@ import { loadOnlineUsersList } from '@/lib/server-management'
 
 interface OnlinePageProps {
   searchParams: Promise<DashboardSearchParams>
+}
+
+interface SessionRiskRow {
+  detail: string
+  id: string
+  label: string
+  tone: 'critical' | 'neutral' | 'warning'
 }
 
 /**
@@ -43,6 +51,61 @@ function countSessionsExpiringSoon(expiresAtValues: readonly string[]): number {
   }).length
 }
 
+/**
+ * 提炼在线会话切片里最值得优先复核的主体，优先关注未映射、即将过期和高角色密度会话。
+ */
+function createSessionRiskQueue(
+  rows: Awaited<ReturnType<typeof loadOnlineUsersList>>['data'],
+): SessionRiskRow[] {
+  const now = Date.now()
+  const twentyFourHours = 24 * 60 * 60 * 1000
+
+  return rows
+    .map((row) => {
+      const expiresDelta = new Date(row.expiresAt).getTime() - now
+
+      if (row.roleCodes.length === 0) {
+        return {
+          detail: '认证会话存在但没有 RBAC 角色归因，优先检查主体桥接和权限同步。',
+          id: row.sessionId,
+          label: row.email,
+          tone: 'critical' as const,
+        }
+      }
+
+      if (expiresDelta > 0 && expiresDelta <= twentyFourHours) {
+        return {
+          detail: '会话将在 24 小时内到期，适合用来观察登录态抖动和续期体验。',
+          id: row.sessionId,
+          label: row.email,
+          tone: 'warning' as const,
+        }
+      }
+
+      if (row.roleCodes.length >= 3) {
+        return {
+          detail: '单个主体绑定较多角色，适合确认是否存在权限面过宽或职责漂移。',
+          id: row.sessionId,
+          label: row.email,
+          tone: 'warning' as const,
+        }
+      }
+
+      return {
+        detail: '当前会话角色归因清晰，可作为在线面基线参考。',
+        id: row.sessionId,
+        label: row.email,
+        tone: 'neutral' as const,
+      }
+    })
+    .sort((left, right) => {
+      const score = { critical: 0, warning: 1, neutral: 2 }
+
+      return score[left.tone] - score[right.tone]
+    })
+    .slice(0, 6)
+}
+
 export default async function MonitorOnlinePage({
   searchParams,
 }: OnlinePageProps): Promise<ReactNode> {
@@ -53,9 +116,22 @@ export default async function MonitorOnlinePage({
   const unmappedSessions = payload.data.filter((row) => row.roleCodes.length === 0).length
   const expiringSoonCount = countSessionsExpiringSoon(payload.data.map((row) => row.expiresAt))
   const distinctRoleCount = new Set(payload.data.flatMap((row) => row.roleCodes)).size
+  const sessionRiskQueue = createSessionRiskQueue(payload.data)
+  const assistantHandoff = resolveCopilotPageHandoff('/monitor/online')
 
   return (
     <StatusWorkbenchPage
+      assistantHandoff={
+        assistantHandoff ? (
+          <AssistantHandoffCard
+            badge={assistantHandoff.badge}
+            description={assistantHandoff.summary}
+            note={assistantHandoff.note}
+            prompts={assistantHandoff.prompts}
+            title={assistantHandoff.title}
+          />
+        ) : undefined
+      }
       context={[
         {
           label: 'Search scope',
@@ -196,14 +272,33 @@ export default async function MonitorOnlinePage({
           <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
             <CardHeader className="gap-2">
               <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                Presence read
+                Session queue
               </p>
-              <CardTitle className="text-xl">Session interpretation</CardTitle>
+              <CardTitle className="text-xl">What needs review first</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
-              <p>如果 unmapped sessions 增长，优先检查身份同步和 RBAC 主体桥接。</p>
-              <p>如果 expiring soon 很高，通常意味着当前活跃面依赖短生命周期会话。</p>
-              <p>这里不表示真实 websocket 心跳，只表示认证平面推导出的近似在线态。</p>
+              {sessionRiskQueue.map((riskRow) => (
+                <div
+                  className="grid gap-1 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3"
+                  key={riskRow.id}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-foreground">{riskRow.label}</span>
+                    <Badge
+                      variant={
+                        riskRow.tone === 'critical'
+                          ? 'outline'
+                          : riskRow.tone === 'warning'
+                            ? 'secondary'
+                            : 'accent'
+                      }
+                    >
+                      {riskRow.tone}
+                    </Badge>
+                  </div>
+                  <p>{riskRow.detail}</p>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
@@ -226,6 +321,10 @@ export default async function MonitorOnlinePage({
               <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2">
                 <span>Page size</span>
                 <span className="font-medium text-foreground">{payload.pagination.pageSize}</span>
+              </div>
+              <div className="rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3 leading-6">
+                这里不是 websocket heartbeat，而是基于未过期 Better Auth
+                会话推导出的近似在线态，更适合做身份桥接和登录面稳定性排查。
               </div>
             </CardContent>
           </Card>

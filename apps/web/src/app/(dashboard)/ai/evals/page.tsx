@@ -30,6 +30,13 @@ interface EvalsPageProps {
   searchParams: Promise<DashboardSearchParams>
 }
 
+interface EvalRiskRow {
+  detail: string
+  id: string
+  label: string
+  tone: 'critical' | 'neutral' | 'warning'
+}
+
 /**
  * 统计当前 eval 切片中从未运行过的套件数量，帮助区分“已登记”和“已验证”。
  */
@@ -44,6 +51,56 @@ function countFailedRuns(statuses: ReadonlyArray<string | null>): number {
   return statuses.filter((status) => status === 'failed').length
 }
 
+/**
+ * 为当前页切片提炼最值得优先排查的 eval 套件，优先级按 failed -> never-run -> low-score 排序。
+ */
+function createEvalRiskQueue(
+  rows: Awaited<ReturnType<typeof loadAiEvalsList>>['data'],
+): EvalRiskRow[] {
+  return rows
+    .map((row) => {
+      if (row.lastRunStatus === 'failed') {
+        return {
+          detail: '最近一次运行失败，优先检查 runner、dataset 或 scorer 漂移。',
+          id: row.id,
+          label: row.name,
+          tone: 'critical' as const,
+        }
+      }
+
+      if (row.lastRunAt === null) {
+        return {
+          detail: '已登记但从未运行，当前只是“有套件”而不是“有纪律”。',
+          id: row.id,
+          label: row.name,
+          tone: 'warning' as const,
+        }
+      }
+
+      if ((row.lastRunAverageScore ?? 1) < 0.75) {
+        return {
+          detail: `最近分数 ${Math.round((row.lastRunAverageScore ?? 0) * 100)}%，建议先看 scorer 和样本覆盖。`,
+          id: row.id,
+          label: row.name,
+          tone: 'warning' as const,
+        }
+      }
+
+      return {
+        detail: '最近一次运行稳定，可作为基线参考。',
+        id: row.id,
+        label: row.name,
+        tone: 'neutral' as const,
+      }
+    })
+    .sort((left, right) => {
+      const score = { critical: 0, warning: 1, neutral: 2 }
+
+      return score[left.tone] - score[right.tone]
+    })
+    .slice(0, 5)
+}
+
 export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
   const filters = createToggleFilterState(resolvedSearchParams, 'noop')
@@ -51,6 +108,16 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
   const neverRunCount = countNeverRunRows(payload.data.map((row) => row.lastRunAt))
   const failedRunCount = countFailedRuns(payload.data.map((row) => row.lastRunStatus ?? null))
   const averageScoreRows = payload.data.filter((row) => row.lastRunAverageScore !== null)
+  const evalRiskQueue = createEvalRiskQueue(payload.data)
+  const recentRuns = [...payload.data]
+    .filter((row) => row.lastRunAt !== null)
+    .sort((left, right) => {
+      const leftTimestamp = new Date(left.lastRunAt ?? 0).getTime()
+      const rightTimestamp = new Date(right.lastRunAt ?? 0).getTime()
+
+      return rightTimestamp - leftTimestamp
+    })
+    .slice(0, 5)
   const assistantHandoff = resolveCopilotPageHandoff('/ai/evals')
 
   return (
@@ -209,42 +276,72 @@ export default async function AiEvalsPage({ searchParams }: EvalsPageProps): Pro
           <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
             <CardHeader className="gap-2">
               <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                Score posture
+                Risk queue
               </p>
-              <CardTitle className="text-xl">Recent signal</CardTitle>
+              <CardTitle className="text-xl">What needs review first</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2 text-sm text-muted-foreground">
-              <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2">
-                <span>Suites with stored score</span>
-                <span className="font-medium text-foreground">{averageScoreRows.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2">
-                <span>Highest recent score</span>
-                <span className="font-medium text-foreground">
-                  {averageScoreRows.length === 0
-                    ? 'n/a'
-                    : `${Math.round(
-                        Math.max(...averageScoreRows.map((row) => row.lastRunAverageScore ?? 0)) *
-                          100,
-                      )}%`}
-                </span>
-              </div>
+              {evalRiskQueue.map((riskRow) => (
+                <div
+                  className="grid gap-1 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3"
+                  key={riskRow.id}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-foreground">{riskRow.label}</span>
+                    <Badge
+                      variant={
+                        riskRow.tone === 'critical'
+                          ? 'outline'
+                          : riskRow.tone === 'warning'
+                            ? 'secondary'
+                            : 'accent'
+                      }
+                    >
+                      {riskRow.tone}
+                    </Badge>
+                  </div>
+                  <p>{riskRow.detail}</p>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
           <Card className="border-border/75 bg-background/82 shadow-[var(--shadow-soft)]">
             <CardHeader className="gap-2">
               <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                Operator read
+                Recent timeline
               </p>
-              <CardTitle className="text-xl">How to read this page</CardTitle>
+              <CardTitle className="text-xl">Latest persisted runs</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6 text-muted-foreground">
-              <p>Configured=yes 只说明 runtime 已接通，不代表所有套件最近都跑过。</p>
-              <p>Never run 高说明评测面已经登记，但还没有形成真实回归纪律。</p>
-              <p>
-                Failed last run 高于 0 时，优先排查最近一轮 scorer、dataset 或 runner 环境漂移。
-              </p>
+              {recentRuns.length === 0 ? (
+                <p>当前切片还没有任何已持久化运行，先解决 never-run 再谈评分趋势。</p>
+              ) : (
+                recentRuns.map((row) => (
+                  <div
+                    className="grid gap-1 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-3"
+                    key={row.id}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-foreground">{row.name}</span>
+                      <Badge variant={row.lastRunStatus === 'failed' ? 'outline' : 'accent'}>
+                        {row.lastRunStatus ?? 'unknown'}
+                      </Badge>
+                    </div>
+                    <p>{formatDateTime(row.lastRunAt ?? '')}</p>
+                    <p>
+                      score:{' '}
+                      {row.lastRunAverageScore === null
+                        ? 'n/a'
+                        : `${Math.round(row.lastRunAverageScore * 100)}%`}
+                    </p>
+                  </div>
+                ))
+              )}
+              <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border/70 bg-card/80 px-3 py-2">
+                <span>Suites with stored score</span>
+                <span className="font-medium text-foreground">{averageScoreRows.length}</span>
+              </div>
             </CardContent>
           </Card>
         </div>

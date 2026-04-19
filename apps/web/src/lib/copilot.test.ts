@@ -64,24 +64,32 @@ test('buildCopilotSuggestions includes knowledge guidance when the surface is vi
 test('buildCopilotSuggestions adapts to eval and audit routes', () => {
   const evalSuggestions = buildCopilotSuggestions(authenticatedShellState, '/ai/evals')
   const auditSuggestions = buildCopilotSuggestions(authenticatedShellState, '/ai/audit')
+  const serverSuggestions = buildCopilotSuggestions(authenticatedShellState, '/monitor/server')
+  const onlineSuggestions = buildCopilotSuggestions(authenticatedShellState, '/monitor/online')
   const logsSuggestions = buildCopilotSuggestions(authenticatedShellState, '/system/logs')
   const reportsSuggestions = buildCopilotSuggestions(authenticatedShellState, '/reports')
 
   assert.ok(evalSuggestions.some((suggestion) => suggestion.title === 'Eval hygiene'))
   assert.ok(auditSuggestions.some((suggestion) => suggestion.title === 'Audit triage'))
+  assert.ok(serverSuggestions.some((suggestion) => suggestion.title === 'Incident triage'))
+  assert.ok(onlineSuggestions.some((suggestion) => suggestion.title === 'Session triage'))
   assert.ok(logsSuggestions.some((suggestion) => suggestion.title === 'Trace triage'))
   assert.ok(reportsSuggestions.some((suggestion) => suggestion.title === 'Module gap'))
 })
 
-test('resolveCopilotRoutePanel returns route-specific assistant brief for ai pages', () => {
+test('resolveCopilotRoutePanel returns route-specific assistant brief for ai and monitor pages', () => {
   const knowledgePanel = resolveCopilotRoutePanel('/ai/knowledge')
   const evalPanel = resolveCopilotRoutePanel('/ai/evals')
   const auditPanel = resolveCopilotRoutePanel('/ai/audit')
+  const serverPanel = resolveCopilotRoutePanel('/monitor/server')
+  const onlinePanel = resolveCopilotRoutePanel('/monitor/online')
   const systemPanel = resolveCopilotRoutePanel('/system/users')
 
   assert.equal(knowledgePanel?.badge, 'knowledge-workbench')
   assert.equal(evalPanel?.badge, 'eval-governance')
   assert.equal(auditPanel?.badge, 'audit-governance')
+  assert.equal(serverPanel?.badge, 'runtime-triage')
+  assert.equal(onlinePanel?.badge, 'presence-triage')
   assert.equal(systemPanel, null)
 })
 
@@ -89,11 +97,15 @@ test('resolveCopilotPageHandoff returns page-level handoff guidance for remainin
   const logsHandoff = resolveCopilotPageHandoff('/system/logs')
   const reportsHandoff = resolveCopilotPageHandoff('/reports')
   const knowledgeHandoff = resolveCopilotPageHandoff('/ai/knowledge')
+  const serverHandoff = resolveCopilotPageHandoff('/monitor/server')
+  const onlineHandoff = resolveCopilotPageHandoff('/monitor/online')
   const unrelatedHandoff = resolveCopilotPageHandoff('/system/users')
 
   assert.equal(logsHandoff?.badge, 'trace-handoff')
   assert.equal(reportsHandoff?.badge, 'workflow-handoff')
   assert.equal(knowledgeHandoff?.badge, 'knowledge-handoff')
+  assert.equal(serverHandoff?.badge, 'runtime-handoff')
+  assert.equal(onlineHandoff?.badge, 'presence-handoff')
   assert.equal(unrelatedHandoff, null)
 })
 
