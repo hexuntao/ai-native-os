@@ -27,6 +27,7 @@ import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorMutationBadge,
   OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
@@ -42,6 +43,7 @@ import {
   createToggleFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
+import { readOperatorMutationFeedback } from '@/lib/operator-workbench'
 import {
   loadAssignableRoles,
   loadSerializedAbilityPayload,
@@ -110,8 +112,43 @@ export default async function SystemUsersPage({
     loadSerializedAbilityPayload(),
   ])
   const flashMessage = readFlashMessage(resolvedSearchParams)
+  const mutationFeedback = readOperatorMutationFeedback(resolvedSearchParams)
   const returnTo = createCurrentUsersHref(resolvedSearchParams)
   const canManageUsers = abilityPayload ? canManageUserDirectory(abilityPayload) : false
+  const filterChips = [
+    filters.search
+      ? {
+          clearHref: createDashboardHref('/system/users', resolvedSearchParams, {
+            page: undefined,
+            search: undefined,
+          }),
+          key: 'search',
+          label: 'Search',
+          value: filters.search,
+        }
+      : null,
+    filters.status !== 'all'
+      ? {
+          clearHref: createDashboardHref('/system/users', resolvedSearchParams, {
+            page: undefined,
+            status: undefined,
+          }),
+          key: 'status',
+          label: 'Status',
+          value: filters.status,
+        }
+      : null,
+  ].filter(Boolean) as {
+    clearHref: string
+    key: string
+    label: string
+    value: string
+  }[]
+  const presetDraft = {
+    ...(filters.search ? { search: filters.search } : {}),
+    ...(filters.status !== 'all' ? { status: filters.status } : {}),
+    pageSize: String(filters.pageSize),
+  }
 
   return (
     <DataSurfacePage
@@ -261,8 +298,13 @@ export default async function SystemUsersPage({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
           <OperatorWorkbench
+            filterChips={filterChips}
+            mutationFeedback={mutationFeedback ?? undefined}
+            pathname="/system/users"
+            presetDraft={presetDraft}
             primaryActionLabel={canManageUsers ? 'New user' : undefined}
             primaryActionTargetId={canManageUsers ? 'users-create-trigger' : undefined}
+            presetScope="system-users"
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.username} · ${row.email}`,
@@ -309,7 +351,10 @@ export default async function SystemUsersPage({
                       </TableCell>
                       <TableCell>
                         <div className="grid gap-1">
-                          <span className="font-medium">{row.username}</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{row.username}</span>
+                            <OperatorMutationBadge itemId={row.id} />
+                          </div>
                           <span className="text-sm text-muted-foreground">
                             {row.nickname ?? 'No nickname'}
                           </span>

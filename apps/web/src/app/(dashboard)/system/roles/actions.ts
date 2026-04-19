@@ -37,12 +37,26 @@ function createRedirectTarget(
   returnTo: string,
   status: 'error' | 'success',
   message: string,
+  mutation?: {
+    action: 'created' | 'deleted' | 'updated'
+    targetId?: string | undefined
+  },
 ): RedirectTarget {
   const url = new URL(returnTo, 'http://localhost')
 
   url.searchParams.delete('error')
   url.searchParams.delete('success')
+  url.searchParams.delete('mutation')
+  url.searchParams.delete('target')
   url.searchParams.set(status, message)
+
+  if (status === 'success' && mutation) {
+    url.searchParams.set('mutation', mutation.action)
+
+    if (mutation.targetId) {
+      url.searchParams.set('target', mutation.targetId)
+    }
+  }
 
   return `${url.pathname}${url.search}` as RedirectTarget
 }
@@ -98,6 +112,15 @@ async function readApiErrorMessage(response: Response): Promise<string> {
 }
 
 /**
+ * 读取成功创建后的角色主键，供列表页输出行级反馈锚点。
+ */
+async function readCreatedRoleId(response: Response): Promise<string | null> {
+  const payload = (await response.json().catch(() => null)) as { id?: string } | null
+
+  return payload?.id ?? null
+}
+
+/**
  * 从表单中提取多选权限主键，并过滤掉空值。
  */
 function readPermissionIds(formData: FormData): string[] {
@@ -149,8 +172,14 @@ export async function createRoleAction(formData: FormData): Promise<never> {
     redirect(createRedirectTarget(returnTo, 'error', await readApiErrorMessage(response)))
   }
 
+  const createdRoleId = await readCreatedRoleId(response)
   revalidatePath(rolesDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '角色已创建并写入权限绑定。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '角色已创建并写入权限绑定。', {
+      action: 'created',
+      targetId: createdRoleId ?? undefined,
+    }),
+  )
 }
 
 /**
@@ -179,7 +208,12 @@ export async function updateRoleAction(formData: FormData): Promise<never> {
   }
 
   revalidatePath(rolesDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '角色信息已更新。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '角色信息已更新。', {
+      action: 'updated',
+      targetId: parsedInput.data.id,
+    }),
+  )
 }
 
 /**
@@ -206,5 +240,10 @@ export async function deleteRoleAction(formData: FormData): Promise<never> {
   }
 
   revalidatePath(rolesDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '角色已删除。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '角色已删除。', {
+      action: 'deleted',
+      targetId: parsedInput.data.id,
+    }),
+  )
 }

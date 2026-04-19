@@ -26,6 +26,7 @@ import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorMutationBadge,
   OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
@@ -41,6 +42,7 @@ import {
   createToggleFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
+import { readOperatorMutationFeedback } from '@/lib/operator-workbench'
 import {
   loadAssignablePermissions,
   loadRolesList,
@@ -128,8 +130,43 @@ export default async function SystemRolesPage({
     loadSerializedAbilityPayload(),
   ])
   const flashMessage = readFlashMessage(resolvedSearchParams)
+  const mutationFeedback = readOperatorMutationFeedback(resolvedSearchParams)
   const returnTo = createCurrentRolesHref(resolvedSearchParams)
   const canWriteRoles = abilityPayload ? canManageRoles(abilityPayload) : false
+  const filterChips = [
+    filters.search
+      ? {
+          clearHref: createDashboardHref('/system/roles', resolvedSearchParams, {
+            page: undefined,
+            search: undefined,
+          }),
+          key: 'search',
+          label: 'Search',
+          value: filters.search,
+        }
+      : null,
+    filters.status !== 'all'
+      ? {
+          clearHref: createDashboardHref('/system/roles', resolvedSearchParams, {
+            page: undefined,
+            status: undefined,
+          }),
+          key: 'status',
+          label: 'Status',
+          value: filters.status,
+        }
+      : null,
+  ].filter(Boolean) as {
+    clearHref: string
+    key: string
+    label: string
+    value: string
+  }[]
+  const presetDraft = {
+    ...(filters.search ? { search: filters.search } : {}),
+    ...(filters.status !== 'all' ? { status: filters.status } : {}),
+    pageSize: String(filters.pageSize),
+  }
 
   return (
     <DataSurfacePage
@@ -277,8 +314,13 @@ export default async function SystemRolesPage({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
           <OperatorWorkbench
+            filterChips={filterChips}
+            mutationFeedback={mutationFeedback ?? undefined}
+            pathname="/system/roles"
+            presetDraft={presetDraft}
             primaryActionLabel={canWriteRoles ? 'New role' : undefined}
             primaryActionTargetId={canWriteRoles ? 'roles-create-trigger' : undefined}
+            presetScope="system-roles"
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.name} · ${row.code}`,
@@ -325,7 +367,10 @@ export default async function SystemRolesPage({
                         </TableCell>
                         <TableCell>
                           <div className="grid gap-1">
-                            <span className="font-medium">{row.name}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{row.name}</span>
+                              <OperatorMutationBadge itemId={row.id} />
+                            </div>
                             <span className="text-sm text-muted-foreground">
                               {row.description ?? 'No description'}
                             </span>

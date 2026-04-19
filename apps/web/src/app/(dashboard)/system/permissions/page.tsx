@@ -24,6 +24,7 @@ import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorMutationBadge,
   OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
@@ -39,6 +40,7 @@ import {
   createPermissionFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
+import { readOperatorMutationFeedback } from '@/lib/operator-workbench'
 import { loadPermissionsList, loadSerializedAbilityPayload } from '@/lib/server-management'
 
 interface PermissionsPageProps {
@@ -139,8 +141,55 @@ export default async function SystemPermissionsPage({
     loadSerializedAbilityPayload(),
   ])
   const flashMessage = readFlashMessage(resolvedSearchParams)
+  const mutationFeedback = readOperatorMutationFeedback(resolvedSearchParams)
   const returnTo = createCurrentPermissionsHref(resolvedSearchParams)
   const canWritePermissions = abilityPayload ? canManagePermissions(abilityPayload) : false
+  const filterChips = [
+    filters.search
+      ? {
+          clearHref: createDashboardHref('/system/permissions', resolvedSearchParams, {
+            page: undefined,
+            search: undefined,
+          }),
+          key: 'search',
+          label: 'Search',
+          value: filters.search,
+        }
+      : null,
+    filters.resource
+      ? {
+          clearHref: createDashboardHref('/system/permissions', resolvedSearchParams, {
+            page: undefined,
+            resource: undefined,
+          }),
+          key: 'resource',
+          label: 'Resource',
+          value: filters.resource,
+        }
+      : null,
+    filters.action
+      ? {
+          clearHref: createDashboardHref('/system/permissions', resolvedSearchParams, {
+            action: undefined,
+            page: undefined,
+          }),
+          key: 'action',
+          label: 'Action',
+          value: filters.action,
+        }
+      : null,
+  ].filter(Boolean) as {
+    clearHref: string
+    key: string
+    label: string
+    value: string
+  }[]
+  const presetDraft = {
+    ...(filters.search ? { search: filters.search } : {}),
+    ...(filters.resource ? { resource: filters.resource } : {}),
+    ...(filters.action ? { action: filters.action } : {}),
+    pageSize: String(filters.pageSize),
+  }
 
   return (
     <DataSurfacePage
@@ -333,8 +382,13 @@ export default async function SystemPermissionsPage({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
           <OperatorWorkbench
+            filterChips={filterChips}
+            mutationFeedback={mutationFeedback ?? undefined}
+            pathname="/system/permissions"
+            presetDraft={presetDraft}
             primaryActionLabel={canWritePermissions ? 'New permission' : undefined}
             primaryActionTargetId={canWritePermissions ? 'permissions-create-trigger' : undefined}
+            presetScope="system-permissions"
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.action}:${row.resource}`,
@@ -388,9 +442,12 @@ export default async function SystemPermissionsPage({
                         </TableCell>
                         <TableCell>
                           <div className="grid gap-1">
-                            <span className="font-medium">
-                              {row.action}:{row.resource}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">
+                                {row.action}:{row.resource}
+                              </span>
+                              <OperatorMutationBadge itemId={row.id} />
+                            </div>
                             <span className="text-sm text-muted-foreground">
                               {row.description ?? 'No description'}
                             </span>

@@ -37,12 +37,26 @@ function createRedirectTarget(
   returnTo: string,
   status: 'error' | 'success',
   message: string,
+  mutation?: {
+    action: 'created' | 'deleted' | 'updated'
+    targetId?: string | undefined
+  },
 ): RedirectTarget {
   const url = new URL(returnTo, 'http://localhost')
 
   url.searchParams.delete('error')
   url.searchParams.delete('success')
+  url.searchParams.delete('mutation')
+  url.searchParams.delete('target')
   url.searchParams.set(status, message)
+
+  if (status === 'success' && mutation) {
+    url.searchParams.set('mutation', mutation.action)
+
+    if (mutation.targetId) {
+      url.searchParams.set('target', mutation.targetId)
+    }
+  }
 
   return `${url.pathname}${url.search}` as RedirectTarget
 }
@@ -95,6 +109,15 @@ async function readApiErrorMessage(response: Response): Promise<string> {
   const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null
 
   return payload?.message?.trim() || `Request failed with status ${response.status}`
+}
+
+/**
+ * 读取成功创建后的菜单主键，供列表页输出行级反馈锚点。
+ */
+async function readCreatedMenuId(response: Response): Promise<string | null> {
+  const payload = (await response.json().catch(() => null)) as { id?: string } | null
+
+  return payload?.id ?? null
 }
 
 /**
@@ -162,8 +185,14 @@ export async function createMenuAction(formData: FormData): Promise<never> {
     redirect(createRedirectTarget(returnTo, 'error', await readApiErrorMessage(response)))
   }
 
+  const createdMenuId = await readCreatedMenuId(response)
   revalidatePath(menusDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '菜单节点已创建。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '菜单节点已创建。', {
+      action: 'created',
+      targetId: createdMenuId ?? undefined,
+    }),
+  )
 }
 
 /**
@@ -191,7 +220,12 @@ export async function updateMenuAction(formData: FormData): Promise<never> {
   }
 
   revalidatePath(menusDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '菜单节点已更新。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '菜单节点已更新。', {
+      action: 'updated',
+      targetId: parsedInput.data.id,
+    }),
+  )
 }
 
 /**
@@ -218,5 +252,10 @@ export async function deleteMenuAction(formData: FormData): Promise<never> {
   }
 
   revalidatePath(menusDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '菜单节点已删除。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '菜单节点已删除。', {
+      action: 'deleted',
+      targetId: parsedInput.data.id,
+    }),
+  )
 }

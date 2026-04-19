@@ -10,9 +10,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
 } from '@ai-native-os/ui'
 import type { ReactNode } from 'react'
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+
+import {
+  createOperatorPresetHref,
+  createOperatorPresetStorageKey,
+  normalizeOperatorPresetName,
+  type OperatorMutationFeedback,
+  type OperatorViewPresetRecord,
+} from '@/lib/operator-workbench'
 
 interface OperatorPreviewFact {
   label: string
@@ -34,17 +43,30 @@ interface OperatorSelectionItem {
 
 interface OperatorWorkbenchProps {
   children: ReactNode
+  filterChips?: readonly OperatorWorkbenchFilterChip[] | undefined
+  mutationFeedback?: OperatorMutationFeedback | undefined
+  pathname?: string | undefined
+  presetDraft?: Record<string, string> | undefined
   primaryActionLabel?: string | undefined
   primaryActionTargetId?: string | undefined
+  presetScope?: string | undefined
   searchInputId?: string | undefined
   selectionItems: readonly OperatorSelectionItem[]
   surfaceLabel: string
+}
+
+interface OperatorWorkbenchFilterChip {
+  clearHref: string
+  key: string
+  label: string
+  value: string
 }
 
 interface OperatorWorkbenchContextValue {
   allSelected: boolean
   focusPreview: (id: string) => void
   isSelected: (id: string) => boolean
+  mutationFeedback: OperatorMutationFeedback | null
   previewedId: string | null
   selectedCount: number
   toggleAll: () => void
@@ -151,6 +173,91 @@ function createJsonHandoffPayload(selectionItems: readonly OperatorSelectionItem
 }
 
 /**
+ * 为目录页写操作生成更贴近现场语义的内联反馈标签，避免操作者只能看全局 banner。
+ */
+function createMutationBadgeLabel(mutationFeedback: OperatorMutationFeedback): string {
+  switch (mutationFeedback.action) {
+    case 'created':
+      return 'Created just now'
+    case 'updated':
+      return 'Updated just now'
+    case 'deleted':
+      return 'Deleted just now'
+  }
+}
+
+/**
+ * 从本地存储中恢复当前工作台的视图预设，非法数据直接忽略，避免客户端异常中断工作台。
+ */
+function readStoredPresets(storageKey: string): OperatorViewPresetRecord[] {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(storageKey)
+
+    if (!rawValue) {
+      return []
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown
+
+    if (!Array.isArray(parsedValue)) {
+      return []
+    }
+
+    return parsedValue.flatMap((preset): OperatorViewPresetRecord[] => {
+      if (!preset || typeof preset !== 'object') {
+        return []
+      }
+
+      const candidate = preset as Partial<OperatorViewPresetRecord>
+
+      if (
+        typeof candidate.id !== 'string' ||
+        typeof candidate.name !== 'string' ||
+        !candidate.query ||
+        typeof candidate.query !== 'object' ||
+        Array.isArray(candidate.query)
+      ) {
+        return []
+      }
+
+      const normalizedQuery = Object.fromEntries(
+        Object.entries(candidate.query).flatMap(([key, value]) =>
+          typeof value === 'string' ? [[key, value]] : [],
+        ),
+      )
+
+      return [
+        {
+          id: candidate.id,
+          name: candidate.name,
+          query: normalizedQuery,
+        },
+      ]
+    })
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 把目录页视图预设写回本地存储，确保高频操作者能保留自己的筛选视图。
+ */
+function writeStoredPresets(
+  storageKey: string,
+  presets: readonly OperatorViewPresetRecord[],
+): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(storageKey, JSON.stringify(presets))
+}
+
+/**
  * 读取目录页选择上下文，确保行级复选框和工具条共享同一批量状态。
  */
 function useOperatorWorkbenchContext(): OperatorWorkbenchContextValue {
@@ -168,8 +275,13 @@ function useOperatorWorkbenchContext(): OperatorWorkbenchContextValue {
  */
 export function OperatorWorkbench({
   children,
+  filterChips = [],
+  mutationFeedback,
+  pathname,
+  presetDraft = {},
   primaryActionLabel,
   primaryActionTargetId,
+  presetScope,
   searchInputId = 'search',
   selectionItems,
   surfaceLabel,
@@ -178,9 +290,25 @@ export function OperatorWorkbench({
   const [copied, setCopied] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [focusedPreviewId, setFocusedPreviewId] = useState<string | null>(null)
+  const [presetsOpen, setPresetsOpen] = useState(false)
+  const [presetName, setPresetName] = useState('')
+  const [storedPresets, setStoredPresets] = useState<readonly OperatorViewPresetRecord[]>([])
   const selectableIds = useMemo(
     () => selectionItems.map((selectionItem) => selectionItem.id),
     [selectionItems],
+  )
+  const normalizedPresetDraft = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(presetDraft).filter(
+          (entry): entry is [string, string] => entry[1].length > 0,
+        ),
+      ),
+    [presetDraft],
+  )
+  const presetStorageKey = useMemo(
+    () => (presetScope ? createOperatorPresetStorageKey(presetScope) : null),
+    [presetScope],
   )
 
   const selectedItems = useMemo(
@@ -220,6 +348,14 @@ export function OperatorWorkbench({
   const jsonPayload = useMemo(() => createJsonHandoffPayload(exportableItems), [exportableItems])
 
   const allSelected = selectableIds.length > 0 && selectedIds.length === selectableIds.length
+
+  useEffect(() => {
+    if (!presetStorageKey) {
+      return
+    }
+
+    setStoredPresets(readStoredPresets(presetStorageKey))
+  }, [presetStorageKey])
 
   useEffect(() => {
     setSelectedIds((currentSelection) =>
@@ -321,6 +457,7 @@ export function OperatorWorkbench({
       setFocusedPreviewId(id)
     },
     isSelected: (id: string): boolean => selectedIds.includes(id),
+    mutationFeedback: mutationFeedback ?? null,
     previewedId: effectivePreviewId,
     selectedCount: selectedIds.length,
     toggleAll: (): void => {
@@ -350,6 +487,9 @@ export function OperatorWorkbench({
                   : `${selectionItems.length} visible`}
               </Badge>
               {copied ? <Badge variant="outline">Copied</Badge> : null}
+              {mutationFeedback ? (
+                <Badge variant="accent">{createMutationBadgeLabel(mutationFeedback)}</Badge>
+              ) : null}
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
               `/` 聚焦搜索，`Shift+A` 切换全选，`Esc` 清空选择，`N` 打开主操作，`E` 打开交接导出。
@@ -369,6 +509,18 @@ export function OperatorWorkbench({
             ) : null}
             <Button size="sm" type="button" variant="secondary" onClick={contextValue.toggleAll}>
               {allSelected ? 'Clear visible' : 'Select visible'}
+            </Button>
+            <Button
+              disabled={!pathname || !presetStorageKey}
+              size="sm"
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setPresetName('')
+                setPresetsOpen(true)
+              }}
+            >
+              Save view
             </Button>
             <Button
               disabled={selectedItems.length === 0}
@@ -393,6 +545,88 @@ export function OperatorWorkbench({
             </Button>
           </div>
         </div>
+
+        {filterChips.length > 0 || storedPresets.length > 0 || mutationFeedback ? (
+          <div className="grid gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-card/88 px-4 py-3">
+            {filterChips.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Active filters
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {filterChips.map((filterChip) => (
+                    <a
+                      className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-card"
+                      href={filterChip.clearHref}
+                      key={filterChip.key}
+                    >
+                      <span>{filterChip.label}</span>
+                      <span className="text-muted-foreground">{filterChip.value}</span>
+                      <span aria-hidden="true" className="text-muted-foreground">
+                        ×
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {storedPresets.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Saved views
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {storedPresets.map((preset) => (
+                    <div
+                      className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-2 py-1"
+                      key={preset.id}
+                    >
+                      <button
+                        className="px-2 text-xs font-medium text-foreground"
+                        type="button"
+                        onClick={() => {
+                          if (!pathname) {
+                            return
+                          }
+
+                          window.location.href = createOperatorPresetHref(pathname, preset.query)
+                        }}
+                      >
+                        {preset.name}
+                      </button>
+                      <button
+                        aria-label={`Delete preset ${preset.name}`}
+                        className="px-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        type="button"
+                        onClick={() => {
+                          if (!presetStorageKey) {
+                            return
+                          }
+
+                          const nextPresets = storedPresets.filter(
+                            (storedPreset) => storedPreset.id !== preset.id,
+                          )
+
+                          writeStoredPresets(presetStorageKey, nextPresets)
+                          setStoredPresets(nextPresets)
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {mutationFeedback ? (
+              <div className="rounded-[var(--radius-md)] border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 text-sm text-emerald-700">
+                {mutationFeedback.message}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {previewedItem?.preview ? (
           <div className="grid gap-4 rounded-[var(--radius-xl)] border border-border/70 bg-background/72 p-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -507,6 +741,75 @@ export function OperatorWorkbench({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={presetsOpen} onOpenChange={setPresetsOpen}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Save current view</DialogTitle>
+              <DialogDescription>
+                把当前筛选上下文保存成可复用视图，便于高频排查时直接回到同一组过滤条件。
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-foreground" htmlFor="preset-name">
+                  View name
+                </label>
+                <Input
+                  id="preset-name"
+                  placeholder="例如：高风险角色排查"
+                  value={presetName}
+                  onChange={(event) => setPresetName(event.currentTarget.value)}
+                />
+              </div>
+
+              <div className="rounded-[var(--radius-lg)] border border-border/70 bg-card/85 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  Current query
+                </p>
+                <pre className="mt-2 overflow-x-auto text-xs leading-6 text-foreground">
+                  {JSON.stringify(normalizedPresetDraft, null, 2)}
+                </pre>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-3 sm:justify-end">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                disabled={!presetStorageKey || !pathname}
+                type="button"
+                onClick={() => {
+                  const normalizedName = normalizeOperatorPresetName(presetName)
+
+                  if (!presetStorageKey || normalizedName.length === 0) {
+                    return
+                  }
+
+                  const nextPresets = [
+                    {
+                      id: `${Date.now()}`,
+                      name: normalizedName,
+                      query: normalizedPresetDraft,
+                    },
+                    ...storedPresets.filter((preset) => preset.name !== normalizedName),
+                  ].slice(0, 6)
+
+                  writeStoredPresets(presetStorageKey, nextPresets)
+                  setStoredPresets(nextPresets)
+                  setPresetName('')
+                  setPresetsOpen(false)
+                }}
+              >
+                Save preset
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </OperatorWorkbenchContext.Provider>
   )
@@ -590,4 +893,21 @@ export function OperatorPreviewButton({ itemId, label }: OperatorPreviewButtonPr
       {previewedId === itemId ? `${label} previewing` : label}
     </Button>
   )
+}
+
+interface OperatorMutationBadgeProps {
+  itemId: string
+}
+
+/**
+ * 在行标题附近输出最近一次写操作的内联反馈，让操作者能立即定位刚刚变更过的记录。
+ */
+export function OperatorMutationBadge({ itemId }: OperatorMutationBadgeProps): ReactNode {
+  const { mutationFeedback } = useOperatorWorkbenchContext()
+
+  if (!mutationFeedback || mutationFeedback.itemId !== itemId) {
+    return null
+  }
+
+  return <Badge variant="accent">{createMutationBadgeLabel(mutationFeedback)}</Badge>
 }

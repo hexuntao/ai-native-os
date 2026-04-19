@@ -119,6 +119,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C8 | Post-P6 | Unify inline validation, destructive-confirmation ergonomics, and sticky table headers across the remaining operator surfaces | done | UI-C7 | lint + typecheck + test + build |
 | UI-C9 | Post-P6 | Add bulk-selection workflows, command-bar shortcuts, and denser operator toolbars for high-volume directory operations | done | UI-C8 | lint + typecheck + test + build |
 | UI-C10 | Post-P6 | Add row-level quick preview panels and batch-safe export/share flows for high-frequency operator handoff | done | UI-C9 | lint + typecheck + test + build |
+| UI-C11 | Post-P6 | Add saved view presets, denser filter chips, and inline row mutation feedback for repetitive operator triage | done | UI-C10 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -153,7 +154,8 @@ Priority order as of 2026-04-12:
 - `UI-C8` is closed; destructive actions now flow through a shared confirmation dialog, sticky table headers are enforced at the shared table primitive, and remaining operator write surfaces expose stronger native validation hints.
 - `UI-C9` is closed; directory pages now expose local bulk-selection, keyboard shortcuts for search/new/select-clear, and denser operator toolbars without changing the underlying contract-first data flow.
 - `UI-C10` is closed; directory pages now expose row-level quick preview context, structured handoff export dialogs, and batch-safe Markdown/JSON copy flows scoped to the current selection set.
-- the next recommended backlog item is `UI-C11`: add saved view presets, denser filter chips, and inline row mutation feedback for repetitive operator triage.
+- `UI-C11` is closed; directory pages now persist local saved views, render denser active-filter chips, and expose inline row mutation feedback after successful write actions.
+- the next recommended backlog item is `UI-C12`: add batch result feedback, batch-safe destructive flows, and denser repetitive triage shortcuts for directory operators.
 
 Auto-unlock rules:
 

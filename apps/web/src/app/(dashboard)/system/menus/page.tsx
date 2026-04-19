@@ -26,6 +26,7 @@ import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
 import {
+  OperatorMutationBadge,
   OperatorPreviewButton,
   OperatorSelectionCheckbox,
   OperatorSelectionHeader,
@@ -41,6 +42,7 @@ import {
   createMenuFilterState,
   type DashboardSearchParams,
 } from '@/lib/management'
+import { readOperatorMutationFeedback } from '@/lib/operator-workbench'
 import { loadMenusList, loadSerializedAbilityPayload } from '@/lib/server-management'
 
 interface MenusPageProps {
@@ -144,9 +146,56 @@ export default async function SystemMenusPage({
     loadSerializedAbilityPayload(),
   ])
   const flashMessage = readFlashMessage(resolvedSearchParams)
+  const mutationFeedback = readOperatorMutationFeedback(resolvedSearchParams)
   const returnTo = createCurrentMenusHref(resolvedSearchParams)
   const canWriteMenus = abilityPayload ? canManageMenus(abilityPayload) : false
   const directoryOptions = getDirectoryOptions(menuOptionsPayload.data)
+  const filterChips = [
+    filters.search
+      ? {
+          clearHref: createDashboardHref('/system/menus', resolvedSearchParams, {
+            page: undefined,
+            search: undefined,
+          }),
+          key: 'search',
+          label: 'Search',
+          value: filters.search,
+        }
+      : null,
+    filters.status !== 'all'
+      ? {
+          clearHref: createDashboardHref('/system/menus', resolvedSearchParams, {
+            page: undefined,
+            status: undefined,
+          }),
+          key: 'status',
+          label: 'Status',
+          value: filters.status,
+        }
+      : null,
+    filters.visible !== 'all'
+      ? {
+          clearHref: createDashboardHref('/system/menus', resolvedSearchParams, {
+            page: undefined,
+            visible: undefined,
+          }),
+          key: 'visible',
+          label: 'Visibility',
+          value: filters.visible,
+        }
+      : null,
+  ].filter(Boolean) as {
+    clearHref: string
+    key: string
+    label: string
+    value: string
+  }[]
+  const presetDraft = {
+    ...(filters.search ? { search: filters.search } : {}),
+    ...(filters.status !== 'all' ? { status: filters.status } : {}),
+    ...(filters.visible !== 'all' ? { visible: filters.visible } : {}),
+    pageSize: String(filters.pageSize),
+  }
 
   return (
     <DataSurfacePage
@@ -375,8 +424,13 @@ export default async function SystemMenusPage({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
           <OperatorWorkbench
+            filterChips={filterChips}
+            mutationFeedback={mutationFeedback ?? undefined}
+            pathname="/system/menus"
+            presetDraft={presetDraft}
             primaryActionLabel={canWriteMenus ? 'New menu' : undefined}
             primaryActionTargetId={canWriteMenus ? 'menus-create-trigger' : undefined}
+            presetScope="system-menus"
             selectionItems={payload.data.map((row) => ({
               id: row.id,
               label: `${row.name} · ${row.path ?? 'no-path'}`,
@@ -429,7 +483,10 @@ export default async function SystemMenusPage({
                         </TableCell>
                         <TableCell className="align-top">
                           <div className="grid gap-1">
-                            <span className="font-medium">{row.name}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{row.name}</span>
+                              <OperatorMutationBadge itemId={row.id} />
+                            </div>
                             <span className="text-sm text-muted-foreground">
                               created {formatDateTime(row.createdAt)}
                             </span>

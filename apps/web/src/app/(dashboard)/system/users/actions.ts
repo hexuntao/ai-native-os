@@ -37,12 +37,26 @@ function createRedirectTarget(
   returnTo: string,
   status: 'error' | 'success',
   message: string,
+  mutation?: {
+    action: 'created' | 'deleted' | 'updated'
+    targetId?: string | undefined
+  },
 ): RedirectTarget {
   const url = new URL(returnTo, 'http://localhost')
 
   url.searchParams.delete('error')
   url.searchParams.delete('success')
+  url.searchParams.delete('mutation')
+  url.searchParams.delete('target')
   url.searchParams.set(status, message)
+
+  if (status === 'success' && mutation) {
+    url.searchParams.set('mutation', mutation.action)
+
+    if (mutation.targetId) {
+      url.searchParams.set('target', mutation.targetId)
+    }
+  }
 
   return `${url.pathname}${url.search}` as RedirectTarget
 }
@@ -95,6 +109,15 @@ async function readApiErrorMessage(response: Response): Promise<string> {
   const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null
 
   return payload?.message?.trim() || `Request failed with status ${response.status}`
+}
+
+/**
+ * 读取成功创建后的用户主键，供列表页输出行级反馈锚点。
+ */
+async function readCreatedUserId(response: Response): Promise<string | null> {
+  const payload = (await response.json().catch(() => null)) as { id?: string } | null
+
+  return payload?.id ?? null
 }
 
 /**
@@ -157,8 +180,14 @@ export async function createUserAction(formData: FormData): Promise<never> {
     redirect(createRedirectTarget(returnTo, 'error', await readApiErrorMessage(response)))
   }
 
+  const createdUserId = await readCreatedUserId(response)
   revalidatePath(usersDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '用户已创建并同步到认证体系。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '用户已创建并同步到认证体系。', {
+      action: 'created',
+      targetId: createdUserId ?? undefined,
+    }),
+  )
 }
 
 /**
@@ -187,7 +216,12 @@ export async function updateUserAction(formData: FormData): Promise<never> {
   }
 
   revalidatePath(usersDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '用户信息已更新。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '用户信息已更新。', {
+      action: 'updated',
+      targetId: parsedInput.data.id,
+    }),
+  )
 }
 
 /**
@@ -214,5 +248,10 @@ export async function deleteUserAction(formData: FormData): Promise<never> {
   }
 
   revalidatePath(usersDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '用户已删除。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '用户已删除。', {
+      action: 'deleted',
+      targetId: parsedInput.data.id,
+    }),
+  )
 }

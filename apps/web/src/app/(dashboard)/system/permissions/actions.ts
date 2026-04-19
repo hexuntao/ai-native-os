@@ -37,12 +37,26 @@ function createRedirectTarget(
   returnTo: string,
   status: 'error' | 'success',
   message: string,
+  mutation?: {
+    action: 'created' | 'deleted' | 'updated'
+    targetId?: string | undefined
+  },
 ): RedirectTarget {
   const url = new URL(returnTo, 'http://localhost')
 
   url.searchParams.delete('error')
   url.searchParams.delete('success')
+  url.searchParams.delete('mutation')
+  url.searchParams.delete('target')
   url.searchParams.set(status, message)
+
+  if (status === 'success' && mutation) {
+    url.searchParams.set('mutation', mutation.action)
+
+    if (mutation.targetId) {
+      url.searchParams.set('target', mutation.targetId)
+    }
+  }
 
   return `${url.pathname}${url.search}` as RedirectTarget
 }
@@ -95,6 +109,15 @@ async function readApiErrorMessage(response: Response): Promise<string> {
   const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null
 
   return payload?.message?.trim() || `Request failed with status ${response.status}`
+}
+
+/**
+ * 读取成功创建后的权限主键，供列表页输出行级反馈锚点。
+ */
+async function readCreatedPermissionId(response: Response): Promise<string | null> {
+  const payload = (await response.json().catch(() => null)) as { id?: string } | null
+
+  return payload?.id ?? null
 }
 
 /**
@@ -179,14 +202,21 @@ export async function createPermissionAction(formData: FormData): Promise<never>
     if (!response.ok) {
       redirect(createRedirectTarget(returnTo, 'error', await readApiErrorMessage(response)))
     }
+
+    const createdPermissionId = await readCreatedPermissionId(response)
+
+    revalidatePath(permissionsDirectoryPath)
+    redirect(
+      createRedirectTarget(returnTo, 'success', '权限规则已创建。', {
+        action: 'created',
+        targetId: createdPermissionId ?? undefined,
+      }),
+    )
   } catch (error) {
     const message = error instanceof Error ? error.message : '创建权限请求无效，请检查条件 JSON。'
 
     redirect(createRedirectTarget(returnTo, 'error', message))
   }
-
-  revalidatePath(permissionsDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '权限规则已创建。'))
 }
 
 /**
@@ -214,14 +244,19 @@ export async function updatePermissionAction(formData: FormData): Promise<never>
     if (!response.ok) {
       redirect(createRedirectTarget(returnTo, 'error', await readApiErrorMessage(response)))
     }
+
+    revalidatePath(permissionsDirectoryPath)
+    redirect(
+      createRedirectTarget(returnTo, 'success', '权限规则已更新。', {
+        action: 'updated',
+        targetId: parsedInput.data.id,
+      }),
+    )
   } catch (error) {
     const message = error instanceof Error ? error.message : '更新权限请求无效，请检查条件 JSON。'
 
     redirect(createRedirectTarget(returnTo, 'error', message))
   }
-
-  revalidatePath(permissionsDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '权限规则已更新。'))
 }
 
 /**
@@ -248,5 +283,10 @@ export async function deletePermissionAction(formData: FormData): Promise<never>
   }
 
   revalidatePath(permissionsDirectoryPath)
-  redirect(createRedirectTarget(returnTo, 'success', '权限规则已删除。'))
+  redirect(
+    createRedirectTarget(returnTo, 'success', '权限规则已删除。', {
+      action: 'deleted',
+      targetId: parsedInput.data.id,
+    }),
+  )
 }
