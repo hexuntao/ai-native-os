@@ -18,6 +18,7 @@ interface ManagementDialogProps {
   description: string
   title: string
   triggerAriaLabel?: string
+  triggerId?: string
   triggerLabel: string
   triggerSize?: 'default' | 'lg' | 'sm'
   triggerVariant?: 'default' | 'ghost' | 'secondary'
@@ -32,6 +33,7 @@ export function ManagementDialog({
   description,
   title,
   triggerAriaLabel,
+  triggerId,
   triggerLabel,
   triggerSize = 'default',
   triggerVariant = 'default',
@@ -42,6 +44,8 @@ export function ManagementDialog({
         <Button
           aria-haspopup="dialog"
           aria-label={triggerAriaLabel ?? triggerLabel}
+          data-management-primary-action={triggerId ? 'true' : undefined}
+          id={triggerId}
           size={triggerSize}
           type="button"
           variant={triggerVariant}

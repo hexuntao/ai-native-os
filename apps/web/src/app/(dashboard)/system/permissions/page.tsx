@@ -23,6 +23,11 @@ import {
 import { DataSurfacePage } from '@/components/management/data-surface-page'
 import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { ManagementDialog } from '@/components/management/management-dialog'
+import {
+  OperatorSelectionCheckbox,
+  OperatorSelectionHeader,
+  OperatorWorkbench,
+} from '@/components/management/operator-workbench'
 import { PageFeedbackBanner } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
@@ -234,6 +239,7 @@ export default async function SystemPermissionsPage({
             contentClassName="w-[min(92vw,48rem)]"
             description="创建自定义权限规则；系统基线权限和完全重复规则仍会被后端拒绝。"
             title="Create permission"
+            triggerId="permissions-create-trigger"
             triggerLabel="New permission"
           >
             <form
@@ -325,192 +331,211 @@ export default async function SystemPermissionsPage({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-          <ResponsiveTableRegion label="Permissions table" minWidthClassName="min-w-[74rem]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead>Field scope</TableHead>
-                  <TableHead>Conditions</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payload.data.map((row: PermissionEntry) => {
-                  const protectedPermission = isProtectedSeedPermission(row)
+          <OperatorWorkbench
+            primaryActionLabel={canWritePermissions ? 'New permission' : undefined}
+            primaryActionTargetId={canWritePermissions ? 'permissions-create-trigger' : undefined}
+            selectionItems={payload.data.map((row) => ({
+              id: row.id,
+              label: `${row.action}:${row.resource}`,
+            }))}
+            surfaceLabel="Permissions operator workbench"
+          >
+            <ResponsiveTableRegion label="Permissions table" minWidthClassName="min-w-[78rem]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-14">
+                      <OperatorSelectionHeader />
+                    </TableHead>
+                    <TableHead>Scope</TableHead>
+                    <TableHead>Mode</TableHead>
+                    <TableHead>Field scope</TableHead>
+                    <TableHead>Conditions</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payload.data.map((row: PermissionEntry) => {
+                    const protectedPermission = isProtectedSeedPermission(row)
 
-                  return (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <div className="grid gap-1">
-                          <span className="font-medium">
-                            {row.action}:{row.resource}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {row.description ?? 'No description'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant={row.inverted ? 'secondary' : 'accent'}>
-                            {row.inverted ? 'deny' : 'allow'}
-                          </Badge>
-                          {protectedPermission ? <Badge variant="secondary">seeded</Badge> : null}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.fields?.length ? row.fields.join(', ') : 'all fields'}
-                      </TableCell>
-                      <TableCell className="max-w-[20rem] text-muted-foreground">
-                        {row.conditions ? JSON.stringify(row.conditions) : 'none'}
-                      </TableCell>
-                      <TableCell className="font-medium">{formatCount(row.roleCount)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDateTime(row.createdAt)}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        {canWritePermissions ? (
-                          protectedPermission ? (
-                            <div className="text-sm leading-6 text-muted-foreground">
-                              系统基线权限只读，不能在该界面修改或删除。
-                            </div>
-                          ) : (
-                            <div className="grid gap-3">
-                              <ManagementDialog
-                                contentClassName="w-[min(92vw,48rem)]"
-                                description="更新自定义权限规则；若当前已被角色引用，语义变更仍受后端保护。"
-                                title={`Edit ${row.action}:${row.resource}`}
-                                triggerLabel="Edit"
-                                triggerSize="sm"
-                                triggerVariant="secondary"
-                              >
-                                <form
-                                  action={updatePermissionAction}
-                                  aria-label="Update permission form"
-                                  className="grid gap-3"
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell className="align-top">
+                          <OperatorSelectionCheckbox
+                            itemId={row.id}
+                            label={`${row.action}:${row.resource}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="grid gap-1">
+                            <span className="font-medium">
+                              {row.action}:{row.resource}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {row.description ?? 'No description'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant={row.inverted ? 'secondary' : 'accent'}>
+                              {row.inverted ? 'deny' : 'allow'}
+                            </Badge>
+                            {protectedPermission ? <Badge variant="secondary">seeded</Badge> : null}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.fields?.length ? row.fields.join(', ') : 'all fields'}
+                        </TableCell>
+                        <TableCell className="max-w-[20rem] text-muted-foreground">
+                          {row.conditions ? JSON.stringify(row.conditions) : 'none'}
+                        </TableCell>
+                        <TableCell className="font-medium">{formatCount(row.roleCount)}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateTime(row.createdAt)}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {canWritePermissions ? (
+                            protectedPermission ? (
+                              <div className="text-sm leading-6 text-muted-foreground">
+                                系统基线权限只读，不能在该界面修改或删除。
+                              </div>
+                            ) : (
+                              <div className="grid gap-3">
+                                <ManagementDialog
+                                  contentClassName="w-[min(92vw,48rem)]"
+                                  description="更新自定义权限规则；若当前已被角色引用，语义变更仍受后端保护。"
+                                  title={`Edit ${row.action}:${row.resource}`}
+                                  triggerLabel="Edit"
+                                  triggerSize="sm"
+                                  triggerVariant="secondary"
                                 >
-                                  <input name="id" type="hidden" value={row.id} />
-                                  <input name="returnTo" type="hidden" value={returnTo} />
-                                  <Field>
-                                    <FieldLabel htmlFor={`permission-resource-${row.id}`}>
-                                      Resource
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.resource}
-                                      id={`permission-resource-${row.id}`}
-                                      name="resource"
-                                    >
-                                      {appSubjects.map((subject) => (
-                                        <option key={subject} value={subject}>
-                                          {subject}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`permission-action-${row.id}`}>
-                                      Action
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.action}
-                                      id={`permission-action-${row.id}`}
-                                      name="action"
-                                    >
-                                      {appActions.map((action) => (
-                                        <option key={action} value={action}>
-                                          {action}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`permission-mode-${row.id}`}>
-                                      Mode
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.inverted ? 'deny' : 'allow'}
-                                      id={`permission-mode-${row.id}`}
-                                      name="mode"
-                                    >
-                                      <option value="allow">Allow</option>
-                                      <option value="deny">Deny</option>
-                                    </select>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`permission-description-${row.id}`}>
-                                      Description
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={row.description ?? ''}
-                                      id={`permission-description-${row.id}`}
-                                      name="description"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`permission-fields-${row.id}`}>
-                                      Fields CSV
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={stringifyFields(row.fields)}
-                                      id={`permission-fields-${row.id}`}
-                                      name="fields"
-                                    />
-                                  </Field>
-                                  <Field className="lg:col-span-2">
-                                    <FieldLabel htmlFor={`permission-conditions-${row.id}`}>
-                                      Conditions JSON
-                                    </FieldLabel>
-                                    <textarea
-                                      className={textAreaClassName}
-                                      defaultValue={stringifyConditions(row.conditions)}
-                                      id={`permission-conditions-${row.id}`}
-                                      name="conditions"
-                                    />
-                                    {row.roleCount > 0 ? (
-                                      <FieldHint>
-                                        当前已有 {row.roleCount}{' '}
-                                        个角色引用。若要改动规则语义，请先解除角色绑定。
-                                      </FieldHint>
-                                    ) : null}
-                                  </Field>
-                                  <div className="flex justify-end">
-                                    <Button size="sm" type="submit" variant="secondary">
-                                      Save changes
-                                    </Button>
-                                  </div>
-                                </form>
-                              </ManagementDialog>
+                                  <form
+                                    action={updatePermissionAction}
+                                    aria-label="Update permission form"
+                                    className="grid gap-3"
+                                  >
+                                    <input name="id" type="hidden" value={row.id} />
+                                    <input name="returnTo" type="hidden" value={returnTo} />
+                                    <Field>
+                                      <FieldLabel htmlFor={`permission-resource-${row.id}`}>
+                                        Resource
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.resource}
+                                        id={`permission-resource-${row.id}`}
+                                        name="resource"
+                                      >
+                                        {appSubjects.map((subject) => (
+                                          <option key={subject} value={subject}>
+                                            {subject}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`permission-action-${row.id}`}>
+                                        Action
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.action}
+                                        id={`permission-action-${row.id}`}
+                                        name="action"
+                                      >
+                                        {appActions.map((action) => (
+                                          <option key={action} value={action}>
+                                            {action}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`permission-mode-${row.id}`}>
+                                        Mode
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.inverted ? 'deny' : 'allow'}
+                                        id={`permission-mode-${row.id}`}
+                                        name="mode"
+                                      >
+                                        <option value="allow">Allow</option>
+                                        <option value="deny">Deny</option>
+                                      </select>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`permission-description-${row.id}`}>
+                                        Description
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={row.description ?? ''}
+                                        id={`permission-description-${row.id}`}
+                                        name="description"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`permission-fields-${row.id}`}>
+                                        Fields CSV
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={stringifyFields(row.fields)}
+                                        id={`permission-fields-${row.id}`}
+                                        name="fields"
+                                      />
+                                    </Field>
+                                    <Field className="lg:col-span-2">
+                                      <FieldLabel htmlFor={`permission-conditions-${row.id}`}>
+                                        Conditions JSON
+                                      </FieldLabel>
+                                      <textarea
+                                        className={textAreaClassName}
+                                        defaultValue={stringifyConditions(row.conditions)}
+                                        id={`permission-conditions-${row.id}`}
+                                        name="conditions"
+                                      />
+                                      {row.roleCount > 0 ? (
+                                        <FieldHint>
+                                          当前已有 {row.roleCount}{' '}
+                                          个角色引用。若要改动规则语义，请先解除角色绑定。
+                                        </FieldHint>
+                                      ) : null}
+                                    </Field>
+                                    <div className="flex justify-end">
+                                      <Button size="sm" type="submit" variant="secondary">
+                                        Save changes
+                                      </Button>
+                                    </div>
+                                  </form>
+                                </ManagementDialog>
 
-                              <DestructiveActionDialog
-                                action={deletePermissionAction}
-                                consequences={`当前权限已关联 ${row.roleCount} 个角色时，后端会拒绝删除。`}
-                                description="确认后将永久删除该自定义权限规则，并写入标准化审计日志。"
-                                hiddenFields={[
-                                  { name: 'id', value: row.id },
-                                  { name: 'returnTo', value: returnTo },
-                                ]}
-                                title={`Delete ${row.action}:${row.resource}?`}
-                                triggerLabel="Delete"
-                              />
-                            </div>
-                          )
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Read only</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </ResponsiveTableRegion>
+                                <DestructiveActionDialog
+                                  action={deletePermissionAction}
+                                  consequences={`当前权限已关联 ${row.roleCount} 个角色时，后端会拒绝删除。`}
+                                  description="确认后将永久删除该自定义权限规则，并写入标准化审计日志。"
+                                  hiddenFields={[
+                                    { name: 'id', value: row.id },
+                                    { name: 'returnTo', value: returnTo },
+                                  ]}
+                                  title={`Delete ${row.action}:${row.resource}?`}
+                                  triggerLabel="Delete"
+                                />
+                              </div>
+                            )
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Read only</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </ResponsiveTableRegion>
+          </OperatorWorkbench>
         </div>
 
         <div className="grid gap-4">

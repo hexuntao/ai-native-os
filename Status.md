@@ -117,6 +117,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | UI-C6 | Post-P6 | Add consistent empty/loading/error states, accessibility hardening, and page-level assistant handoff patterns across the remaining dashboard surfaces | done | UI-C5 | lint + typecheck + test + build |
 | UI-C7 | Post-P6 | Tighten form-level accessibility, keyboard focus order, and dense-table responsiveness across the remaining management surfaces | done | UI-C6 | lint + typecheck + test + build |
 | UI-C8 | Post-P6 | Unify inline validation, destructive-confirmation ergonomics, and sticky table headers across the remaining operator surfaces | done | UI-C7 | lint + typecheck + test + build |
+| UI-C9 | Post-P6 | Add bulk-selection workflows, command-bar shortcuts, and denser operator toolbars for high-volume directory operations | done | UI-C8 | lint + typecheck + test + build |
 
 ## 4. Current Ready Queue
 
@@ -149,7 +150,8 @@ Priority order as of 2026-04-12:
 - `UI-C6` is closed; dashboard routes now share loading/error/not-found shells, CRUD pages now use accessible feedback banners, and `reports`, `system/logs`, `ai/knowledge`, `ai/evals`, and `ai/audit` now expose page-level Copilot handoff cards plus explicit empty-state treatment.
 - `UI-C7` is closed; dense admin tables now sit inside keyboard-focusable responsive regions, pagination and filter controls expose stronger semantics, and dialog-driven CRUD surfaces now expose clearer trigger/form labeling.
 - `UI-C8` is closed; destructive actions now flow through a shared confirmation dialog, sticky table headers are enforced at the shared table primitive, and remaining operator write surfaces expose stronger native validation hints.
-- the next recommended backlog item is `UI-C9`: add bulk-selection workflows, command-bar shortcuts, and denser operator toolbars for high-volume directory operations.
+- `UI-C9` is closed; directory pages now expose local bulk-selection, keyboard shortcuts for search/new/select-clear, and denser operator toolbars without changing the underlying contract-first data flow.
+- the next recommended backlog item is `UI-C10`: add row-level quick preview panels and batch-safe export/share flows for high-frequency operator handoff.
 
 Auto-unlock rules:
 

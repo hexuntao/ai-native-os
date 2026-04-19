@@ -25,6 +25,11 @@ import { DestructiveActionDialog } from '@/components/management/destructive-act
 import { FilterSelect } from '@/components/management/filter-select'
 import { FilterToolbar } from '@/components/management/filter-toolbar'
 import { ManagementDialog } from '@/components/management/management-dialog'
+import {
+  OperatorSelectionCheckbox,
+  OperatorSelectionHeader,
+  OperatorWorkbench,
+} from '@/components/management/operator-workbench'
 import { PageFeedbackBanner } from '@/components/management/page-feedback'
 import { PaginationControls } from '@/components/management/pagination-controls'
 import { ResponsiveTableRegion } from '@/components/management/responsive-table-region'
@@ -195,6 +200,7 @@ export default async function SystemRolesPage({
             contentClassName="w-[min(92vw,48rem)]"
             description="创建自定义角色并绑定权限。系统保留角色和权限提升边界仍由后端强制校验。"
             title="Create role"
+            triggerId="roles-create-trigger"
             triggerLabel="New role"
           >
             <form action={createRoleAction} aria-label="Create role form" className="grid gap-4">
@@ -269,199 +275,221 @@ export default async function SystemRolesPage({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border/70 bg-background/80">
-          <ResponsiveTableRegion label="Roles matrix table" minWidthClassName="min-w-[68rem]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Users</TableHead>
-                  <TableHead>Permissions</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payload.data.map((row: RoleEntry) => {
-                  const protectedRole = isProtectedSystemRole(row)
+          <OperatorWorkbench
+            primaryActionLabel={canWriteRoles ? 'New role' : undefined}
+            primaryActionTargetId={canWriteRoles ? 'roles-create-trigger' : undefined}
+            selectionItems={payload.data.map((row) => ({
+              id: row.id,
+              label: `${row.name} · ${row.code}`,
+            }))}
+            surfaceLabel="Roles operator workbench"
+          >
+            <ResponsiveTableRegion label="Roles matrix table" minWidthClassName="min-w-[72rem]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-14">
+                      <OperatorSelectionHeader />
+                    </TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Users</TableHead>
+                    <TableHead>Permissions</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payload.data.map((row: RoleEntry) => {
+                    const protectedRole = isProtectedSystemRole(row)
 
-                  return (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <div className="grid gap-1">
-                          <span className="font-medium">{row.name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {row.description ?? 'No description'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline">{row.code}</Badge>
-                          <Badge variant={row.status ? 'accent' : 'secondary'}>
-                            {row.status ? 'active' : 'inactive'}
-                          </Badge>
-                          {protectedRole ? <Badge variant="secondary">seeded</Badge> : null}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{formatCount(row.userCount)}</TableCell>
-                      <TableCell>
-                        <div className="grid gap-2">
-                          <span className="font-medium">{formatCount(row.permissionCount)}</span>
-                          <div className="flex flex-wrap gap-2">
-                            {row.permissionIds.length === 0 ? (
-                              <Badge variant="secondary">none</Badge>
-                            ) : (
-                              row.permissionIds.slice(0, 3).map((permissionId: string) => (
-                                <Badge key={permissionId} variant="outline">
-                                  {permissionId.slice(0, 8)}
-                                </Badge>
-                              ))
-                            )}
-                            {row.permissionIds.length > 3 ? (
-                              <Badge variant="secondary">+{row.permissionIds.length - 3}</Badge>
-                            ) : null}
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell className="align-top">
+                          <OperatorSelectionCheckbox
+                            itemId={row.id}
+                            label={`${row.name} ${row.code}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="grid gap-1">
+                            <span className="font-medium">{row.name}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {row.description ?? 'No description'}
+                            </span>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDateTime(row.updatedAt)}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        {canWriteRoles ? (
-                          protectedRole ? (
-                            <div className="text-sm leading-6 text-muted-foreground">
-                              系统保留角色只读，不能在该界面修改或删除。
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline">{row.code}</Badge>
+                            <Badge variant={row.status ? 'accent' : 'secondary'}>
+                              {row.status ? 'active' : 'inactive'}
+                            </Badge>
+                            {protectedRole ? <Badge variant="secondary">seeded</Badge> : null}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">{formatCount(row.userCount)}</TableCell>
+                        <TableCell>
+                          <div className="grid gap-2">
+                            <span className="font-medium">{formatCount(row.permissionCount)}</span>
+                            <div className="flex flex-wrap gap-2">
+                              {row.permissionIds.length === 0 ? (
+                                <Badge variant="secondary">none</Badge>
+                              ) : (
+                                row.permissionIds.slice(0, 3).map((permissionId: string) => (
+                                  <Badge key={permissionId} variant="outline">
+                                    {permissionId.slice(0, 8)}
+                                  </Badge>
+                                ))
+                              )}
+                              {row.permissionIds.length > 3 ? (
+                                <Badge variant="secondary">+{row.permissionIds.length - 3}</Badge>
+                              ) : null}
                             </div>
-                          ) : (
-                            <div className="grid gap-3">
-                              <ManagementDialog
-                                contentClassName="w-[min(92vw,48rem)]"
-                                description="更新自定义角色的名称、状态、排序和权限绑定。"
-                                title={`Edit ${row.name}`}
-                                triggerLabel="Edit"
-                                triggerSize="sm"
-                                triggerVariant="secondary"
-                              >
-                                <form
-                                  action={updateRoleAction}
-                                  aria-label="Update role form"
-                                  className="grid gap-3"
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateTime(row.updatedAt)}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {canWriteRoles ? (
+                            protectedRole ? (
+                              <div className="text-sm leading-6 text-muted-foreground">
+                                系统保留角色只读，不能在该界面修改或删除。
+                              </div>
+                            ) : (
+                              <div className="grid gap-3">
+                                <ManagementDialog
+                                  contentClassName="w-[min(92vw,48rem)]"
+                                  description="更新自定义角色的名称、状态、排序和权限绑定。"
+                                  title={`Edit ${row.name}`}
+                                  triggerLabel="Edit"
+                                  triggerSize="sm"
+                                  triggerVariant="secondary"
                                 >
-                                  <input name="id" type="hidden" value={row.id} />
-                                  <input name="returnTo" type="hidden" value={returnTo} />
-                                  <Field>
-                                    <FieldLabel htmlFor={`role-name-${row.id}`}>
-                                      Role name
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={row.name}
-                                      id={`role-name-${row.id}`}
-                                      name="name"
-                                      required
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`role-code-${row.id}`}>
-                                      Role code
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={row.code}
-                                      id={`role-code-${row.id}`}
-                                      name="code"
-                                      required
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`role-description-${row.id}`}>
-                                      Description
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={row.description ?? ''}
-                                      id={`role-description-${row.id}`}
-                                      name="description"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`role-sort-order-${row.id}`}>
-                                      Sort order
-                                    </FieldLabel>
-                                    <Input
-                                      defaultValue={String(row.sortOrder)}
-                                      id={`role-sort-order-${row.id}`}
-                                      name="sortOrder"
-                                      type="number"
-                                    />
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`role-status-${row.id}`}>
-                                      Status
-                                    </FieldLabel>
-                                    <select
-                                      className={formControlClassName}
-                                      defaultValue={row.status ? 'active' : 'inactive'}
-                                      id={`role-status-${row.id}`}
-                                      name="status"
-                                    >
-                                      <option value="active">Active</option>
-                                      <option value="inactive">Inactive</option>
-                                    </select>
-                                    <FieldHint>
-                                      停用前应先解除所有用户绑定，否则后端会拒绝提交。
-                                    </FieldHint>
-                                  </Field>
-                                  <Field>
-                                    <FieldLabel htmlFor={`role-permissions-${row.id}`}>
-                                      Permission bindings
-                                    </FieldLabel>
-                                    <select
-                                      className={multiSelectClassName}
-                                      defaultValue={row.permissionIds}
-                                      id={`role-permissions-${row.id}`}
-                                      multiple
-                                      name="permissionIds"
-                                      size={Math.max(4, Math.min(assignablePermissions.length, 8))}
-                                    >
-                                      {assignablePermissions.map(
-                                        (permission: AssignablePermission) => (
-                                          <option key={permission.id} value={permission.id}>
-                                            {formatPermissionOptionLabel(permission)}
-                                          </option>
-                                        ),
-                                      )}
-                                    </select>
-                                  </Field>
-                                  <div className="flex justify-end">
-                                    <Button size="sm" type="submit" variant="secondary">
-                                      Save changes
-                                    </Button>
-                                  </div>
-                                </form>
-                              </ManagementDialog>
+                                  <form
+                                    action={updateRoleAction}
+                                    aria-label="Update role form"
+                                    className="grid gap-3"
+                                  >
+                                    <input name="id" type="hidden" value={row.id} />
+                                    <input name="returnTo" type="hidden" value={returnTo} />
+                                    <Field>
+                                      <FieldLabel htmlFor={`role-name-${row.id}`}>
+                                        Role name
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={row.name}
+                                        id={`role-name-${row.id}`}
+                                        name="name"
+                                        required
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`role-code-${row.id}`}>
+                                        Role code
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={row.code}
+                                        id={`role-code-${row.id}`}
+                                        name="code"
+                                        required
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`role-description-${row.id}`}>
+                                        Description
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={row.description ?? ''}
+                                        id={`role-description-${row.id}`}
+                                        name="description"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`role-sort-order-${row.id}`}>
+                                        Sort order
+                                      </FieldLabel>
+                                      <Input
+                                        defaultValue={String(row.sortOrder)}
+                                        id={`role-sort-order-${row.id}`}
+                                        name="sortOrder"
+                                        type="number"
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`role-status-${row.id}`}>
+                                        Status
+                                      </FieldLabel>
+                                      <select
+                                        className={formControlClassName}
+                                        defaultValue={row.status ? 'active' : 'inactive'}
+                                        id={`role-status-${row.id}`}
+                                        name="status"
+                                      >
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                      </select>
+                                      <FieldHint>
+                                        停用前应先解除所有用户绑定，否则后端会拒绝提交。
+                                      </FieldHint>
+                                    </Field>
+                                    <Field>
+                                      <FieldLabel htmlFor={`role-permissions-${row.id}`}>
+                                        Permission bindings
+                                      </FieldLabel>
+                                      <select
+                                        className={multiSelectClassName}
+                                        defaultValue={row.permissionIds}
+                                        id={`role-permissions-${row.id}`}
+                                        multiple
+                                        name="permissionIds"
+                                        size={Math.max(
+                                          4,
+                                          Math.min(assignablePermissions.length, 8),
+                                        )}
+                                      >
+                                        {assignablePermissions.map(
+                                          (permission: AssignablePermission) => (
+                                            <option key={permission.id} value={permission.id}>
+                                              {formatPermissionOptionLabel(permission)}
+                                            </option>
+                                          ),
+                                        )}
+                                      </select>
+                                    </Field>
+                                    <div className="flex justify-end">
+                                      <Button size="sm" type="submit" variant="secondary">
+                                        Save changes
+                                      </Button>
+                                    </div>
+                                  </form>
+                                </ManagementDialog>
 
-                              <DestructiveActionDialog
-                                action={deleteRoleAction}
-                                consequences="删除前必须先解除所有用户绑定；后端仍会继续校验系统保留角色和在用角色保护。"
-                                description="确认后将永久删除该自定义角色，并写入标准化操作日志。"
-                                hiddenFields={[
-                                  { name: 'id', value: row.id },
-                                  { name: 'returnTo', value: returnTo },
-                                ]}
-                                title={`Delete ${row.name}?`}
-                                triggerLabel="Delete"
-                              />
-                            </div>
-                          )
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Read only</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </ResponsiveTableRegion>
+                                <DestructiveActionDialog
+                                  action={deleteRoleAction}
+                                  consequences="删除前必须先解除所有用户绑定；后端仍会继续校验系统保留角色和在用角色保护。"
+                                  description="确认后将永久删除该自定义角色，并写入标准化操作日志。"
+                                  hiddenFields={[
+                                    { name: 'id', value: row.id },
+                                    { name: 'returnTo', value: returnTo },
+                                  ]}
+                                  title={`Delete ${row.name}?`}
+                                  triggerLabel="Delete"
+                                />
+                              </div>
+                            )
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Read only</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </ResponsiveTableRegion>
+          </OperatorWorkbench>
         </div>
 
         <div className="grid gap-4">
