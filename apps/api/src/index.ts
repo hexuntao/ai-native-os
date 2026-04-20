@@ -11,6 +11,7 @@ import {
   aiFeedbackDetailSchema,
   aiFeedbackEntrySchema,
   aiFeedbackListResponseSchema,
+  aiGovernanceOverviewSchema,
   attachPromptEvalEvidenceInputSchema,
   configListItemSchema,
   configListResponseSchema,
@@ -52,6 +53,7 @@ import {
   getPermissionByIdInputSchema,
   getPermissionImpactByIdInputSchema,
   getPromptGovernanceFailureAuditInputSchema,
+  getPromptGovernanceReviewInputSchema,
   getPromptReleaseAuditInputSchema,
   getPromptRollbackChainInputSchema,
   getPromptVersionByIdInputSchema,
@@ -65,6 +67,7 @@ import {
   listAiAuditLogsInputSchema,
   listAiEvalsInputSchema,
   listAiFeedbackInputSchema,
+  listAiGovernanceOverviewInputSchema,
   listConfigsInputSchema,
   listDictsInputSchema,
   listKnowledgeInputSchema,
@@ -86,6 +89,7 @@ import {
   principalRepairCandidateListResponseSchema,
   principalRepairResultSchema,
   promptGovernanceFailureAuditSchema,
+  promptGovernanceReviewSchema,
   promptReleaseAuditSchema,
   promptRollbackChainSchema,
   promptVersionCompareSchema,
@@ -147,6 +151,7 @@ import { appRouter } from '@/routes'
 import { getAiAuditLogDetail, listAiAuditLogs } from '@/routes/ai/audit'
 import { getAiEvalById, getAiEvalRunById, listAiEvals, runAiEval } from '@/routes/ai/evals'
 import { createFeedback, getFeedbackById, listFeedback } from '@/routes/ai/feedback'
+import { getAiGovernanceOverview, getPromptGovernanceReview } from '@/routes/ai/governance'
 import {
   createKnowledgeEntry,
   deleteKnowledgeEntry,
@@ -237,6 +242,10 @@ const contractFirstReadRequirements = {
   aiFeedback: [
     { action: 'read', subject: 'AiAuditLog' },
     { action: 'manage', subject: 'all' },
+  ],
+  aiGovernance: [
+    { action: 'read', subject: 'AiAuditLog' },
+    { action: 'manage', subject: 'AiKnowledge' },
   ],
   aiEvals: [
     { action: 'read', subject: 'AiAuditLog' },
@@ -1311,6 +1320,29 @@ app.post('/api/v1/ai/feedback', (c) =>
         actorRbacUserId: context.rbacUserId,
         requestId: context.requestId,
       }),
+  ),
+)
+
+app.get('/api/v1/ai/governance/overview', (c) =>
+  handleContractFirstGet(
+    c,
+    listAiGovernanceOverviewInputSchema,
+    aiGovernanceOverviewSchema,
+    contractFirstReadRequirements.aiGovernance,
+    getAiGovernanceOverview,
+  ),
+)
+
+app.get('/api/v1/ai/governance/prompts/:promptKey', (c) =>
+  handleContractFirstGet(
+    c,
+    getPromptGovernanceReviewInputSchema,
+    promptGovernanceReviewSchema,
+    contractFirstReadRequirements.aiGovernance,
+    getPromptGovernanceReview,
+    (requestContext) => ({
+      promptKey: requestContext.req.param('promptKey'),
+    }),
   ),
 )
 

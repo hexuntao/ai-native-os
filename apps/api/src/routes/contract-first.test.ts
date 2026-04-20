@@ -1136,6 +1136,63 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   const promptRollbackChainSchema = resolveOpenApiSchema(payload, promptsRollbackChainJson.schema)
   assert.equal(promptRollbackChainSchema.title, 'PromptRollbackChain')
 
+  const governanceOverviewPath = payload.paths['/api/v1/ai/governance/overview']
+  assert.ok(
+    governanceOverviewPath && isRecord(governanceOverviewPath),
+    'Expected /api/v1/ai/governance/overview path to exist',
+  )
+  const governanceOverviewGet = governanceOverviewPath.get
+  assert.ok(
+    governanceOverviewGet && isRecord(governanceOverviewGet),
+    'Expected GET operation for ai governance overview',
+  )
+  assert.equal(governanceOverviewGet.summary, '读取 AI 治理总览')
+  const governanceOverviewResponses = governanceOverviewGet.responses
+  const governanceOverviewJson =
+    governanceOverviewResponses &&
+    isRecord(governanceOverviewResponses) &&
+    isRecord(governanceOverviewResponses['200']) &&
+    isRecord(governanceOverviewResponses['200'].content)
+      ? governanceOverviewResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    governanceOverviewJson && isRecord(governanceOverviewJson),
+    'Expected AI governance overview JSON response schema',
+  )
+  const governanceOverviewSchema = resolveOpenApiSchema(payload, governanceOverviewJson.schema)
+  assert.equal(governanceOverviewSchema.title, 'AiGovernanceOverview')
+
+  const governancePromptReviewPath =
+    payload.paths['/api/v1/ai/governance/prompts/:promptKey'] ??
+    payload.paths['/api/v1/ai/governance/prompts/{promptKey}']
+  assert.ok(
+    governancePromptReviewPath && isRecord(governancePromptReviewPath),
+    'Expected /api/v1/ai/governance/prompts/:promptKey path to exist',
+  )
+  const governancePromptReviewGet = governancePromptReviewPath.get
+  assert.ok(
+    governancePromptReviewGet && isRecord(governancePromptReviewGet),
+    'Expected GET operation for ai prompt governance review',
+  )
+  assert.equal(governancePromptReviewGet.summary, '读取单个 Prompt 治理读模型')
+  const governancePromptReviewResponses = governancePromptReviewGet.responses
+  const governancePromptReviewJson =
+    governancePromptReviewResponses &&
+    isRecord(governancePromptReviewResponses) &&
+    isRecord(governancePromptReviewResponses['200']) &&
+    isRecord(governancePromptReviewResponses['200'].content)
+      ? governancePromptReviewResponses['200'].content['application/json']
+      : undefined
+  assert.ok(
+    governancePromptReviewJson && isRecord(governancePromptReviewJson),
+    'Expected AI prompt governance review JSON response schema',
+  )
+  const governancePromptReviewSchema = resolveOpenApiSchema(
+    payload,
+    governancePromptReviewJson.schema,
+  )
+  assert.equal(governancePromptReviewSchema.title, 'PromptGovernanceReview')
+
   const auditPath = payload.paths['/api/v1/ai/audit']
   assert.ok(auditPath && isRecord(auditPath), 'Expected /api/v1/ai/audit path to exist')
 
@@ -3938,6 +3995,243 @@ test('prompt governance failure-audit route exposes rejection and exception audi
       (entry) => entry.originalAction === 'activate_prompt_version',
     ),
   )
+})
+
+test('ai governance routes expose prompt review queue and linked governance detail', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const promptKey = `admin.governance.${randomUUID().slice(0, 8)}`
+
+  const createFirstResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '治理工作台基线版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请优先输出结构化结论。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const firstPayload = (await createFirstResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+
+  await runMastraEvalSuite({
+    actorAuthUserId: 'auth_user_governance_contract',
+    actorRbacUserId: null,
+    evalId: 'report-schedule',
+    requestId: `prompt-governance-${randomUUID()}`,
+    triggerSource: 'test',
+  })
+
+  const latestEvalRuns = await listAiEvalRunsByEvalKey('report-schedule')
+  const latestEvalRun = latestEvalRuns[0]
+
+  assert.ok(latestEvalRun, 'Expected an eval run for governance routes')
+
+  const attachFirstResponse = await app.request(
+    'http://localhost/api/v1/ai/prompts/attach-evidence',
+    {
+      body: JSON.stringify({
+        evalRunId: latestEvalRun.id,
+        promptVersionId: firstPayload.json.id,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    },
+  )
+
+  const activateFirstResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: firstPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const createSecondResponse = await app.request('http://localhost/api/v1/ai/prompts', {
+    body: JSON.stringify({
+      notes: '治理工作台待发布版本。',
+      promptKey,
+      promptText: '你是后台管理 Copilot，请优先输出结构化结论，并附带风险摘要。',
+      releasePolicy: {
+        minAverageScore: 0.8,
+        scorerThresholds: {},
+      },
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+  const secondPayload = (await createSecondResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+
+  const rejectedActivateResponse = await app.request(
+    'http://localhost/api/v1/ai/prompts/activate',
+    {
+      body: JSON.stringify({
+        promptVersionId: secondPayload.json.id,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    },
+  )
+
+  const attachSecondResponse = await app.request(
+    'http://localhost/api/v1/ai/prompts/attach-evidence',
+    {
+      body: JSON.stringify({
+        evalRunId: latestEvalRun.id,
+        promptVersionId: secondPayload.json.id,
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    },
+  )
+
+  const activateSecondResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    body: JSON.stringify({
+      promptVersionId: secondPayload.json.id,
+    }),
+    headers: {
+      ...Object.fromEntries(authHeaders.entries()),
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  const overviewResponse = await app.request(
+    `http://localhost/api/v1/ai/governance/overview?page=1&pageSize=10&search=${encodeURIComponent(promptKey)}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const overviewPayload = (await overviewResponse.json()) as {
+    json: {
+      pagination: {
+        total: number
+      }
+      reviewQueue: Array<{
+        promptKey: string
+        reviewAction: string
+      }>
+      summary: {
+        promptFailureEvents: number
+        releaseReadyPromptVersions: number
+        totalPromptKeys: number
+      }
+    }
+  }
+
+  const reviewResponse = await app.request(
+    `http://localhost/api/v1/ai/governance/prompts/${promptKey}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const reviewPayload = (await reviewResponse.json()) as {
+    json: {
+      compareToPrevious: {
+        baseline: {
+          id: string
+        }
+        summary: {
+          changedFields: string[]
+        }
+        target: {
+          id: string
+        }
+      } | null
+      failureAudit: {
+        promptKey: string
+        summary: {
+          totalFailureEventCount: number
+        }
+      }
+      history: {
+        promptKey: string
+        versions: Array<{
+          id: string
+        }>
+      }
+      latestReleaseAudit: {
+        promptVersion: {
+          id: string
+        }
+        summary: {
+          hasEvalEvidenceAttachment: boolean
+        }
+      } | null
+      linkedEval: {
+        configured: boolean
+        evalKey: string | null
+      }
+      promptKey: string
+      reviewItem: {
+        promptKey: string
+      }
+      rollbackChain: {
+        promptKey: string
+      }
+    }
+  }
+
+  assert.equal(createFirstResponse.status, 200)
+  assert.equal(attachFirstResponse.status, 200)
+  assert.equal(activateFirstResponse.status, 200)
+  assert.equal(createSecondResponse.status, 200)
+  assert.equal(rejectedActivateResponse.status, 400)
+  assert.equal(attachSecondResponse.status, 200)
+  assert.equal(activateSecondResponse.status, 200)
+  assert.equal(overviewResponse.status, 200)
+  assert.equal(reviewResponse.status, 200)
+  assert.equal(overviewPayload.json.pagination.total, 1)
+  assert.equal(overviewPayload.json.reviewQueue.length, 1)
+  assert.ok(overviewPayload.json.summary.totalPromptKeys >= 1)
+  assert.ok(overviewPayload.json.summary.releaseReadyPromptVersions >= 1)
+  assert.ok(overviewPayload.json.summary.promptFailureEvents >= 1)
+  assert.equal(overviewPayload.json.reviewQueue[0]?.promptKey, promptKey)
+  assert.ok(overviewPayload.json.reviewQueue[0]?.reviewAction)
+  assert.equal(reviewPayload.json.promptKey, promptKey)
+  assert.equal(reviewPayload.json.reviewItem.promptKey, promptKey)
+  assert.equal(reviewPayload.json.history.promptKey, promptKey)
+  assert.ok(reviewPayload.json.history.versions.length >= 2)
+  assert.equal(reviewPayload.json.failureAudit.promptKey, promptKey)
+  assert.ok(reviewPayload.json.failureAudit.summary.totalFailureEventCount >= 1)
+  assert.equal(reviewPayload.json.rollbackChain.promptKey, promptKey)
+  assert.ok(reviewPayload.json.latestReleaseAudit)
+  assert.equal(reviewPayload.json.latestReleaseAudit?.promptVersion.id, secondPayload.json.id)
+  assert.equal(reviewPayload.json.latestReleaseAudit?.summary.hasEvalEvidenceAttachment, true)
+  assert.ok(reviewPayload.json.compareToPrevious)
+  assert.equal(reviewPayload.json.compareToPrevious?.target.id, secondPayload.json.id)
+  assert.equal(reviewPayload.json.compareToPrevious?.baseline.id, firstPayload.json.id)
+  assert.ok(reviewPayload.json.compareToPrevious?.summary.changedFields.length)
+  assert.equal(reviewPayload.json.linkedEval.configured, true)
+  assert.ok(reviewPayload.json.linkedEval.evalKey)
 })
 
 test('prompt governance rollback-chain route exposes rollback source and target lineage', async () => {

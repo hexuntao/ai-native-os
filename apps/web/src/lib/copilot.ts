@@ -92,15 +92,17 @@ export function buildCopilotInstructions(
   const visibleLabels = shellState.visibleNavigation.map((item) => item.label).join(', ')
   const routeSpecificInstruction = pathname.startsWith('/ai/knowledge')
     ? 'On the knowledge route, prioritize indexed document coverage, source concentration, metadata quality, and safe reindex guidance before suggesting changes.'
-    : pathname.startsWith('/ai/evals')
-      ? 'On the eval route, prioritize failed last runs, never-run suites, dataset coverage, and scorer reliability before suggesting changes.'
-      : pathname.startsWith('/ai/audit')
-        ? 'On the audit route, prioritize forbidden calls, execution errors, human overrides, and explicit governance boundaries before suggesting changes.'
-        : pathname.startsWith('/monitor/server')
-          ? 'On the server monitor route, prioritize degraded dependencies, AI capability gaps, and runtime registry anomalies before suggesting changes.'
-          : pathname.startsWith('/monitor/online')
-            ? 'On the live-session route, prioritize unmapped sessions, expiring sessions, and role-density anomalies before suggesting changes.'
-            : 'Stay focused on the current route and explain operational tradeoffs before suggesting actions.'
+    : pathname.startsWith('/ai/prompts')
+      ? 'On the prompt-governance route, prioritize release gates, failure audit, rollback readiness, linked eval evidence, and version drift before suggesting changes.'
+      : pathname.startsWith('/ai/evals')
+        ? 'On the eval route, prioritize failed last runs, never-run suites, dataset coverage, and scorer reliability before suggesting changes.'
+        : pathname.startsWith('/ai/audit')
+          ? 'On the audit route, prioritize forbidden calls, execution errors, human overrides, and explicit governance boundaries before suggesting changes.'
+          : pathname.startsWith('/monitor/server')
+            ? 'On the server monitor route, prioritize degraded dependencies, AI capability gaps, and runtime registry anomalies before suggesting changes.'
+            : pathname.startsWith('/monitor/online')
+              ? 'On the live-session route, prioritize unmapped sessions, expiring sessions, and role-density anomalies before suggesting changes.'
+              : 'Stay focused on the current route and explain operational tradeoffs before suggesting actions.'
 
   return [
     'You are the in-dashboard operator copilot for AI Native OS.',
@@ -149,6 +151,19 @@ export function buildCopilotSuggestions(
         message:
           'Explain whether the current knowledge slice looks source-heavy, stale, or metadata-light, and suggest the safest next operator action.',
         title: 'Index triage',
+      },
+    )
+  } else if (pathname.startsWith('/ai/prompts')) {
+    suggestions.unshift(
+      {
+        message:
+          'Summarize which prompt keys in the current queue are blocked by missing eval evidence, recent failures, or override pressure, then identify the first review candidate.',
+        title: 'Prompt triage',
+      },
+      {
+        message:
+          'Explain whether the selected prompt key looks release-ready, exception-prone, or rollback-sensitive, and call out the missing governance evidence.',
+        title: 'Release gate read',
       },
     )
   } else if (pathname.startsWith('/ai/evals')) {
@@ -254,6 +269,22 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
         '识别 metadata 稀疏或来源过度集中的文档切片。',
         '指出最值得优先重建索引的高 chunk 成本文档。',
         '把建议约束在当前页已可见的知识文档和当前主体权限范围内。',
+      ],
+    }
+  }
+
+  if (pathname.startsWith('/ai/prompts')) {
+    return {
+      badge: 'prompt-governance',
+      guardrail:
+        '只基于当前 Prompt 治理读模型、失败审计、回滚链和评测绑定给出建议，不伪造不存在的审批实体或写权限。',
+      summary:
+        '优先帮助操作员识别 release gate 缺口、失败模式、回滚风险和 linked eval 证据，而不是重复版本字段。',
+      title: 'Prompt assistant brief',
+      workstreams: [
+        '指出哪些 Prompt key 正卡在缺少 eval evidence、release gate 或异常路径上。',
+        '把 compare、history、rollback 和 release audit 串成统一治理解释，而不是孤立看单个接口。',
+        '建议最小安全下一步，避免让操作员直接扩大到未验证的变更动作。',
       ],
     }
   }
@@ -366,6 +397,21 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
       ],
       summary: '适合把当前文档切片交给助手，让它先做索引治理和覆盖判断，再决定是否执行变更。',
       title: 'Knowledge handoff',
+    }
+  }
+
+  if (pathname.startsWith('/ai/prompts')) {
+    return {
+      badge: 'prompt-handoff',
+      note: '优先引用当前选中的 promptKey、失败类型、release gate 原因和 linked eval 摘要，不要让助手猜测页外版本历史。',
+      prompts: [
+        '指出当前队列里最需要优先人工复核的 Prompt key，并解释原因。',
+        '说明选中 Prompt 当前更像缺少评测证据、异常频发，还是已经具备激活条件。',
+        '给出一条不扩 scope 的最小治理下一步，帮助我推进这个 Prompt key。',
+      ],
+      summary:
+        '适合把当前 Prompt 治理切片交给助手做门禁解释、失败归因和回滚风险梳理，再决定是否执行人工动作。',
+      title: 'Prompt governance handoff',
     }
   }
 

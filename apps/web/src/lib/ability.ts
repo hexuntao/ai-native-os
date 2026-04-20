@@ -8,6 +8,7 @@ import {
 
 export type AbilityPayload = ReturnType<typeof serializedAbilityResponseSchema.parse>
 export type AppRoute =
+  | '/ai/prompts'
   | '/ai/knowledge'
   | '/ai/audit'
   | '/ai/evals'
@@ -70,6 +71,13 @@ export const navigationItems: readonly NavigationItem[] = [
     href: '/monitor/server',
     label: 'System Health',
     subject: 'OperationLog',
+  },
+  {
+    action: 'read',
+    description: 'Review prompt release gates, failures, and linked eval evidence.',
+    href: '/ai/prompts',
+    label: 'Prompt Governance',
+    subject: 'AiAuditLog',
   },
   {
     action: 'manage',

@@ -1,8 +1,10 @@
 import {
   type AiAuditListResponse,
   type AiEvalListResponse,
+  type AiGovernanceOverview,
   aiAuditListResponseSchema,
   aiEvalListResponseSchema,
+  aiGovernanceOverviewSchema,
   type KnowledgeListResponse,
   knowledgeListResponseSchema,
   type MenuListResponse,
@@ -12,7 +14,9 @@ import {
   onlineUserListResponseSchema,
   operationLogListResponseSchema,
   type PermissionListResponse,
+  type PromptGovernanceReview,
   permissionListResponseSchema,
+  promptGovernanceReviewSchema,
   type RoleListResponse,
   roleListResponseSchema,
   type ServerSummary,
@@ -190,6 +194,15 @@ export function createAiAuditFilterState(searchParams: DashboardSearchParams): A
         : 'all',
     toolId: normalizeSearch(readSearchParam(searchParams, 'toolId')),
   }
+}
+
+/**
+ * 解析 Prompt 治理工作台筛选状态，当前只保留分页与关键词搜索两个维度。
+ */
+export function createAiGovernanceFilterState(
+  searchParams: DashboardSearchParams,
+): DashboardListFilters {
+  return createListFilters(searchParams)
 }
 
 function createQueryString(query: Record<string, string | undefined>): string {
@@ -470,5 +483,43 @@ export async function fetchAiAuditLogsList(
       toolId: filters.toolId,
     },
     aiAuditListResponseSchema.parse,
+  )
+}
+
+/**
+ * 读取 AI 治理总览，供 Prompt 治理工作台展示 review queue 与跨模块摘要。
+ */
+export async function fetchAiGovernanceOverview(
+  cookieHeader: string | undefined,
+  environment: WebEnvironment,
+  filters: DashboardListFilters,
+): Promise<AiGovernanceOverview> {
+  return fetchEnvelope(
+    cookieHeader,
+    environment,
+    '/api/v1/ai/governance/overview',
+    {
+      page: String(filters.page),
+      pageSize: String(filters.pageSize),
+      search: filters.search,
+    },
+    aiGovernanceOverviewSchema.parse,
+  )
+}
+
+/**
+ * 读取单个 Prompt 治理键的完整治理读模型。
+ */
+export async function fetchPromptGovernanceReview(
+  cookieHeader: string | undefined,
+  environment: WebEnvironment,
+  promptKey: string,
+): Promise<PromptGovernanceReview> {
+  return fetchEnvelope(
+    cookieHeader,
+    environment,
+    `/api/v1/ai/governance/prompts/${encodeURIComponent(promptKey)}`,
+    {},
+    promptGovernanceReviewSchema.parse,
   )
 }

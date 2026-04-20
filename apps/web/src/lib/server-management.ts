@@ -7,11 +7,13 @@ import {
   type DashboardListFilters,
   fetchAiAuditLogsList,
   fetchAiEvalsList,
+  fetchAiGovernanceOverview,
   fetchKnowledgeList,
   fetchMenusList,
   fetchOnlineUsersList,
   fetchOperationLogsList,
   fetchPermissionsList,
+  fetchPromptGovernanceReview,
   fetchRolesList,
   fetchServerSummary,
   fetchUsersList,
@@ -137,4 +139,18 @@ export async function loadAiEvalsList(filters: DashboardListFilters) {
  */
 export async function loadAiAuditLogsList(filters: AiAuditFilterState) {
   return fetchAiAuditLogsList(await readCookieHeader(), resolveWebEnvironment(), filters)
+}
+
+/**
+ * 在服务端读取 AI 治理总览。
+ */
+export async function loadAiGovernanceOverview(filters: DashboardListFilters) {
+  return fetchAiGovernanceOverview(await readCookieHeader(), resolveWebEnvironment(), filters)
+}
+
+/**
+ * 在服务端读取单个 Prompt 治理键的治理读模型。
+ */
+export async function loadPromptGovernanceReview(promptKey: string) {
+  return fetchPromptGovernanceReview(await readCookieHeader(), resolveWebEnvironment(), promptKey)
 }

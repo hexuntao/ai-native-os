@@ -132,6 +132,10 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | IAM-C3 | Post-P6 | Add explicit principal repair and backfill tooling for legacy users that still require `auth_user_id` binding | done | IAM-C2 | lint + typecheck + test + build |
 | IAM-C4 | Post-P6 | Expand permission regression coverage across resource, field, conditional, and inverted-rule cases | done | IAM-C3 | lint + typecheck + test + build |
 | IAM-C5 | Post-P6 | Add permission-change impact inspection and permission audit inspection contracts for operators | done | IAM-C4 | lint + typecheck + test + build |
+| GOV-C2 | Post-P6 | Extend Prompt rejection, exception, and override governance contracts with unified governance overview and review read models | done | GOV-C1, IAM-C5 | lint + typecheck + test + build |
+| GOV-C3 | Post-P6 | Connect eval evidence, prompt release gates, and operator review surfaces into one Prompt governance workbench | done | GOV-C2 | lint + typecheck + test + build |
+| GOV-C4 | Post-P6 | Add approval, failure, rollback, and release inspection read models for prompt-governance audit review | done | GOV-C3 | lint + typecheck + test + build |
+| GOV-C5 | Post-P6 | Unify prompt, eval, audit, and feedback governance workflows under the Prompt governance contract surface and assistant handoff | done | GOV-C4 | lint + typecheck + test + build |
 
 ## 3.1 Post-Launch Plans
 
@@ -140,8 +144,8 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | 1 | Web UI/UX Hardening | done | none |
 | 2 | API Platform Consistency | done | none |
 | 3 | Identity and Permission Hardening | done | none |
-| 4 | AI Governance Deepening | ready | GOV-C2 |
-| 5 | Productionization and Operations Maturity | queued | OPS-C1 |
+| 4 | AI Governance Deepening | done | none |
+| 5 | Productionization and Operations Maturity | ready | OPS-C1 |
 
 ## 4. Current Ready Queue
 
@@ -165,6 +169,10 @@ Priority order as of 2026-04-12:
 - `CRD-C10` is closed; `ai/prompts` now exposes rollback-chain inspection with rollback source-target lineage under the same contract-first OpenAPI baseline.
 - `CRD-C11` is closed; `ai/prompts` now exposes release-approval audit with version-scoped operation-log trail and requestInfo context under the same contract-first OpenAPI baseline.
 - `GOV-C1` is closed; `ai/prompts` now exposes prompt-key-scoped failure audit with rejection vs exception split and failure-path operation logging.
+- `GOV-C2` is closed; `ai/governance/overview` now exposes a unified Prompt governance review queue with release-gate, failure, and linked-eval signals.
+- `GOV-C3` is closed; `/ai/prompts` now acts as a Prompt governance workbench instead of a plain version list surface.
+- `GOV-C4` is closed; Prompt governance review now unifies history, compare, failure audit, rollback chain, and release-audit inspection under one contract.
+- `GOV-C5` is closed; Prompt governance now shares route-specific assistant briefs and page handoff semantics with the rest of the AI governance console.
 - `IAM-C1` is closed; auth middleware, permission loading, seeded bootstrap users, monitor online sessions, and `system/users` write paths now prefer stable `users.auth_user_id`, while legacy email-linked rows are backfilled on first authenticated access.
 - `UI-C1` is closed; the repository now has a dedicated web UI design contract, a neutral control-console token baseline, a left-nav/topbar shell, a collapsible Copilot workspace, and compact data-surface headers.
 - `UI-C2` is closed; `system/users`, `system/roles`, `system/permissions`, and `system/menus` now use action bars plus dialog-based create/edit flows instead of keeping long forms expanded on the page.
@@ -189,7 +197,8 @@ Priority order as of 2026-04-12:
 - `IAM-C3` is closed; operators now have explicit principal repair candidate listing and repair actions instead of hidden sign-in side effects.
 - `IAM-C4` is closed; permission regression coverage now verifies resource, field, conditional, and inverted-rule serialization and enforcement.
 - `IAM-C5` is closed; permission impact and audit inspection contracts now expose affected roles, affected users, and permission-scoped audit trails.
-- Plan 3 `Identity and Permission Hardening` is complete; the next recommended backlog item is `GOV-C2` under Plan 4 `AI Governance Deepening`.
+- Plan 3 `Identity and Permission Hardening` is complete.
+- Plan 4 `AI Governance Deepening` is complete; the next recommended backlog item is `OPS-C1` under Plan 5 `Productionization and Operations Maturity`.
 
 Auto-unlock rules:
 

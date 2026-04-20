@@ -10,6 +10,7 @@ import {
   aiFeedbackGetByIdProcedure,
   aiFeedbackListProcedure,
 } from './ai/feedback'
+import { aiGovernanceOverviewProcedure, aiPromptGovernanceReviewProcedure } from './ai/governance'
 import {
   aiKnowledgeCreateProcedure,
   aiKnowledgeDeleteProcedure,
@@ -106,6 +107,10 @@ export const appRouter = {
       create: aiFeedbackCreateProcedure,
       getById: aiFeedbackGetByIdProcedure,
       list: aiFeedbackListProcedure,
+    },
+    governance: {
+      overview: aiGovernanceOverviewProcedure,
+      promptReview: aiPromptGovernanceReviewProcedure,
     },
     knowledge: {
       create: aiKnowledgeCreateProcedure,
