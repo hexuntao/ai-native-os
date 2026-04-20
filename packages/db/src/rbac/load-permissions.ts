@@ -145,9 +145,13 @@ async function loadUserByAuthUserId(
 }
 
 /**
- * 对历史 email 软关联记录做一次性主键回填，避免后续继续以邮箱作为主连接键。
+ * 对历史 email 软关联记录做一次性主键回填。
+ *
+ * 注意：
+ * - 该能力只应被显式修复流程调用
+ * - 正常认证链路不再隐式触发 email 回填
  */
-async function bindActiveUserToAuthUserIdByEmail(
+export async function bindActiveUserToAuthUserIdByEmail(
   database: Database,
   authUserId: string,
   email: string,
@@ -255,26 +259,18 @@ export async function loadUserPermissionProfileByEmail(
 }
 
 /**
- * 优先按稳定 auth user 主键加载 RBAC 权限，并在旧数据仍未绑定时做一次受限回填。
+ * 兼容旧调用点的权限读取 helper。
+ *
+ * 当前策略：
+ * - 仅按稳定 auth user 主键读取 RBAC 权限
+ * - 不再在正常请求链路中隐式执行 email 回填
  */
 export async function loadUserPermissionProfileByAuthIdentity(
   authUserId: string,
-  email: string | null,
+  _email: string | null,
   database: Database = db,
 ): Promise<UserPermissionProfile | null> {
-  const userByAuthUserId = await loadUserByAuthUserId(database, authUserId)
-
-  if (userByAuthUserId) {
-    return loadPermissionProfileForUser(database, userByAuthUserId)
-  }
-
-  if (!email) {
-    return null
-  }
-
-  const reboundUser = await bindActiveUserToAuthUserIdByEmail(database, authUserId, email)
-
-  return loadPermissionProfileForUser(database, reboundUser)
+  return loadPermissionProfileForUser(database, await loadUserByAuthUserId(database, authUserId))
 }
 
 export async function loadPermissionRulesForUserId(

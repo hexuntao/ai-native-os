@@ -3,8 +3,11 @@ import {
   createPermissionKey,
   db,
   defaultPermissions,
+  listOperationLogsByModuleAndTargetId,
   permissions,
   rolePermissions,
+  roles,
+  userRoles,
   writeOperationLog,
 } from '@ai-native-os/db'
 import {
@@ -16,13 +19,21 @@ import {
   type DeletePermissionResult,
   deletePermissionInputSchema,
   deletePermissionResultSchema,
+  type GetPermissionAuditByIdInput,
   type GetPermissionByIdInput,
+  type GetPermissionImpactByIdInput,
+  getPermissionAuditByIdInputSchema,
   getPermissionByIdInputSchema,
+  getPermissionImpactByIdInputSchema,
   type ListPermissionsInput,
   listPermissionsInputSchema,
+  type PermissionAuditTrail,
   type PermissionEntry,
+  type PermissionImpact,
   type PermissionListResponse,
+  permissionAuditTrailSchema,
   permissionEntrySchema,
+  permissionImpactSchema,
   permissionListResponseSchema,
   type UpdatePermissionInput,
   updatePermissionInputSchema,
@@ -50,6 +61,14 @@ interface PermissionRowProjection {
   id: string
   inverted: boolean
   resource: AppSubjects
+}
+
+interface PermissionImpactRoleSummary {
+  code: string
+  id: string
+  name: string
+  status: boolean
+  userCount: number
 }
 
 const permissionReadPermissions = [
@@ -313,6 +332,72 @@ async function loadAssignedRoleCount(
 }
 
 /**
+ * 读取权限当前影响到的角色与用户数量，用于变更前风险评估。
+ */
+async function loadPermissionImpactRoleSummaries(
+  permissionId: string,
+  database: DatabaseExecutor = db,
+): Promise<{
+  assignedRoles: PermissionImpactRoleSummary[]
+  totalAssignedUsers: number
+}> {
+  const roleRows = await database
+    .select({
+      code: roles.code,
+      id: roles.id,
+      name: roles.name,
+      status: roles.status,
+    })
+    .from(rolePermissions)
+    .innerJoin(roles, eq(rolePermissions.roleId, roles.id))
+    .where(eq(rolePermissions.permissionId, permissionId))
+
+  if (roleRows.length === 0) {
+    return {
+      assignedRoles: [],
+      totalAssignedUsers: 0,
+    }
+  }
+
+  const userBindingRows = await database
+    .select({
+      roleId: userRoles.roleId,
+      userId: userRoles.userId,
+    })
+    .from(userRoles)
+    .where(
+      inArray(
+        userRoles.roleId,
+        roleRows.map((roleRow) => roleRow.id),
+      ),
+    )
+
+  const userIdsByRoleId = new Map<string, Set<string>>()
+  const totalAffectedUserIds = new Set<string>()
+
+  for (const userBindingRow of userBindingRows) {
+    const roleUserIds = userIdsByRoleId.get(userBindingRow.roleId) ?? new Set<string>()
+
+    roleUserIds.add(userBindingRow.userId)
+    userIdsByRoleId.set(userBindingRow.roleId, roleUserIds)
+    totalAffectedUserIds.add(userBindingRow.userId)
+  }
+
+  return {
+    assignedRoles: roleRows
+      .map((roleRow) => ({
+        code: roleRow.code,
+        id: roleRow.id,
+        name: roleRow.name,
+        status: roleRow.status,
+        userCount: userIdsByRoleId.get(roleRow.id)?.size ?? 0,
+      }))
+      .sort((leftRole, rightRole) => leftRole.code.localeCompare(rightRole.code)),
+    totalAssignedUsers: totalAffectedUserIds.size,
+  }
+}
+
+/**
  * 已被角色引用的权限禁止直接改写规则语义，必须先解绑角色后再变更。
  */
 async function assertPermissionSemanticMutationBoundary(
@@ -418,6 +503,64 @@ export async function getPermissionById(input: GetPermissionByIdInput): Promise<
   }
 
   return entry
+}
+
+/**
+ * 读取权限规则的角色与用户影响面摘要，供变更评估与运营审查复用。
+ */
+export async function getPermissionImpactById(
+  input: GetPermissionImpactByIdInput,
+): Promise<PermissionImpact> {
+  const permissionEntry = await loadPermissionEntryById(input.id)
+
+  if (!permissionEntry) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'Permission not found',
+    })
+  }
+
+  const impactSnapshot = await loadPermissionImpactRoleSummaries(input.id)
+
+  return {
+    assignedRoles: impactSnapshot.assignedRoles,
+    permission: permissionEntry,
+    totalAssignedRoles: impactSnapshot.assignedRoles.length,
+    totalAssignedUsers: impactSnapshot.totalAssignedUsers,
+  }
+}
+
+/**
+ * 读取权限规则的最近变更审计轨迹，便于排查是谁在何时改动了权限语义。
+ */
+export async function getPermissionAuditById(
+  input: GetPermissionAuditByIdInput,
+): Promise<PermissionAuditTrail> {
+  const permissionEntry = await loadPermissionEntryById(input.id)
+
+  if (!permissionEntry) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'Permission not found',
+    })
+  }
+
+  const auditTrail = await listOperationLogsByModuleAndTargetId('system_permissions', input.id)
+
+  return {
+    auditTrail: auditTrail.map((auditLog) => ({
+      action: auditLog.action,
+      createdAt: auditLog.createdAt.toISOString(),
+      detail: auditLog.detail,
+      errorMessage: auditLog.errorMessage,
+      id: auditLog.id,
+      module: auditLog.module,
+      operatorId: auditLog.operatorId,
+      requestId: auditLog.requestInfo?.requestId ?? null,
+      requestInfo: auditLog.requestInfo,
+      status: auditLog.status,
+      targetId: auditLog.targetId,
+    })),
+    permission: permissionEntry,
+  }
 }
 
 /**
@@ -620,6 +763,36 @@ export const permissionsGetByIdProcedure = requireAnyPermission(permissionReadPe
   .input(getPermissionByIdInputSchema)
   .output(permissionEntrySchema)
   .handler(async ({ input }) => getPermissionById(input))
+
+/**
+ * 对外暴露权限影响面检查 procedure。
+ */
+export const permissionsImpactProcedure = requireAnyPermission(permissionReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/system/permissions/:id/impact',
+    tags: ['System:Permissions'],
+    summary: '读取权限变更影响面',
+    description: '返回当前权限规则影响到的角色与用户数量摘要，供权限语义变更前评估风险。',
+  })
+  .input(getPermissionImpactByIdInputSchema)
+  .output(permissionImpactSchema)
+  .handler(async ({ input }) => getPermissionImpactById(input))
+
+/**
+ * 对外暴露权限审计检查 procedure。
+ */
+export const permissionsAuditProcedure = requireAnyPermission(permissionReadPermissions)
+  .route({
+    method: 'GET',
+    path: '/api/v1/system/permissions/:id/audit',
+    tags: ['System:Permissions'],
+    summary: '读取权限审计轨迹',
+    description: '返回当前权限规则详情与最近变更操作日志轨迹，便于审查谁在何时修改了该权限。',
+  })
+  .input(getPermissionAuditByIdInputSchema)
+  .output(permissionAuditTrailSchema)
+  .handler(async ({ input }) => getPermissionAuditById(input))
 
 /**
  * 对外暴露权限创建 procedure。

@@ -48,7 +48,9 @@ import {
   getDictByIdInputSchema,
   getKnowledgeByIdInputSchema,
   getMenuByIdInputSchema,
+  getPermissionAuditByIdInputSchema,
   getPermissionByIdInputSchema,
+  getPermissionImpactByIdInputSchema,
   getPromptGovernanceFailureAuditInputSchema,
   getPromptReleaseAuditInputSchema,
   getPromptRollbackChainInputSchema,
@@ -70,14 +72,19 @@ import {
   listOnlineUsersInputSchema,
   listOperationLogsInputSchema,
   listPermissionsInputSchema,
+  listPrincipalRepairCandidatesInputSchema,
   listRolesInputSchema,
   listUsersInputSchema,
   menuEntrySchema,
   menuListResponseSchema,
   onlineUserListResponseSchema,
   operationLogListResponseSchema,
+  permissionAuditTrailSchema,
   permissionEntrySchema,
+  permissionImpactSchema,
   permissionListResponseSchema,
+  principalRepairCandidateListResponseSchema,
+  principalRepairResultSchema,
   promptGovernanceFailureAuditSchema,
   promptReleaseAuditSchema,
   promptRollbackChainSchema,
@@ -87,6 +94,7 @@ import {
   promptVersionHistorySchema,
   promptVersionListInputSchema,
   promptVersionListResponseSchema,
+  repairPrincipalBindingsInputSchema,
   roleEntrySchema,
   roleListResponseSchema,
   rollbackPromptVersionInputSchema,
@@ -185,10 +193,16 @@ import {
 import {
   createPermissionEntry,
   deletePermissionEntry,
+  getPermissionAuditById,
   getPermissionById,
+  getPermissionImpactById,
   listPermissions,
   updatePermissionEntry,
 } from '@/routes/system/permissions'
+import {
+  listPrincipalRepairCandidates,
+  repairPrincipalBindingsEntry,
+} from '@/routes/system/principal-repair'
 import {
   createRoleEntry,
   deleteRoleEntry,
@@ -587,6 +601,30 @@ app.get('/api/v1/system/users', (c) =>
   ),
 )
 
+app.get('/api/v1/system/users/principal-repair-candidates', (c) =>
+  handleContractFirstGet(
+    c,
+    listPrincipalRepairCandidatesInputSchema,
+    principalRepairCandidateListResponseSchema,
+    contractFirstWriteRequirements.users,
+    listPrincipalRepairCandidates,
+  ),
+)
+
+app.post('/api/v1/system/users/principal-repair', (c) =>
+  handleContractFirstPost(
+    c,
+    repairPrincipalBindingsInputSchema,
+    principalRepairResultSchema,
+    contractFirstWriteRequirements.users,
+    async (input, context) =>
+      repairPrincipalBindingsEntry(input, {
+        actorRbacUserId: context.rbacUserId,
+        requestId: context.requestId,
+      }),
+  ),
+)
+
 app.get('/api/v1/system/users/:id', (c) =>
   handleContractFirstGet(
     c,
@@ -919,6 +957,32 @@ app.get('/api/v1/system/permissions/ability', async (c) => {
     }),
   })
 })
+
+app.get('/api/v1/system/permissions/:id/impact', (c) =>
+  handleContractFirstGet(
+    c,
+    getPermissionImpactByIdInputSchema,
+    permissionImpactSchema,
+    contractFirstReadRequirements.permissions,
+    getPermissionImpactById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
+
+app.get('/api/v1/system/permissions/:id/audit', (c) =>
+  handleContractFirstGet(
+    c,
+    getPermissionAuditByIdInputSchema,
+    permissionAuditTrailSchema,
+    contractFirstReadRequirements.permissions,
+    getPermissionAuditById,
+    (requestContext) => ({
+      id: requestContext.req.param('id'),
+    }),
+  ),
+)
 
 app.get('/api/v1/system/permissions/:id', (c) =>
   handleContractFirstGet(

@@ -1,9 +1,5 @@
 import { type AuthSession, auth, getAuthSession } from '@ai-native-os/auth'
-import {
-  loadUserPermissionProfileByAuthIdentity,
-  loadUserPermissionProfileByEmail,
-  writeOperationLog,
-} from '@ai-native-os/db'
+import { loadUserPermissionProfileByAuthUserId, writeOperationLog } from '@ai-native-os/db'
 import { type AppAbility, defineAbilityFor, type PermissionRule } from '@ai-native-os/shared'
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
@@ -148,10 +144,8 @@ export async function handleAuditedAuthRequest<TEnv extends ApiEnv>(
   const actorAuthUserId = authSessionBefore?.user.id ?? null
   const response = await auth.handler(request)
   const permissionProfile = actorAuthUserId
-    ? await loadUserPermissionProfileByAuthIdentity(actorAuthUserId, actorEmail)
-    : actorEmail
-      ? await loadUserPermissionProfileByEmail(actorEmail)
-      : null
+    ? await loadUserPermissionProfileByAuthUserId(actorAuthUserId)
+    : null
   const requestId = c.get('requestId')
   const operationStatus = response.ok ? 'success' : 'error'
   const errorMessage =
@@ -193,7 +187,7 @@ export async function handleAuditedAuthRequest<TEnv extends ApiEnv>(
 export async function resolveAuthContext(headers: Headers): Promise<ResolvedAuthContext> {
   const authSession = await getAuthSession(headers)
   const permissionProfile = authSession?.user.id
-    ? await loadUserPermissionProfileByAuthIdentity(authSession.user.id, authSession.user.email)
+    ? await loadUserPermissionProfileByAuthUserId(authSession.user.id)
     : null
   const permissionRules = permissionProfile?.rules ?? []
   const ability = defineAbilityFor(permissionRules)

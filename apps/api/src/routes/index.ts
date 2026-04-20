@@ -58,13 +58,19 @@ import {
 } from './system/menus'
 import { permissionAdminCheckProcedure } from './system/permission-admin-check'
 import {
+  permissionsAuditProcedure,
   permissionsCreateProcedure,
   permissionsDeleteProcedure,
   permissionsGetByIdProcedure,
+  permissionsImpactProcedure,
   permissionsListProcedure,
   permissionsUpdateProcedure,
 } from './system/permissions'
 import { pingProcedure } from './system/ping'
+import {
+  usersPrincipalRepairCandidatesProcedure,
+  usersPrincipalRepairProcedure,
+} from './system/principal-repair'
 import { rbacSummaryProcedure } from './system/rbac-summary'
 import {
   rolesCreateProcedure,
@@ -160,9 +166,11 @@ export const appRouter = {
     'permission-admin-check': permissionAdminCheckProcedure,
     ping: pingProcedure,
     permissions: {
+      audit: permissionsAuditProcedure,
       create: permissionsCreateProcedure,
       delete: permissionsDeleteProcedure,
       getById: permissionsGetByIdProcedure,
+      impact: permissionsImpactProcedure,
       list: permissionsListProcedure,
       update: permissionsUpdateProcedure,
     },
@@ -180,6 +188,8 @@ export const appRouter = {
       delete: usersDeleteProcedure,
       getById: usersGetByIdProcedure,
       list: usersListProcedure,
+      'principal-repair': usersPrincipalRepairProcedure,
+      'principal-repair-candidates': usersPrincipalRepairCandidatesProcedure,
       update: usersUpdateProcedure,
     },
   },

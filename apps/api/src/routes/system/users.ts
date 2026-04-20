@@ -260,30 +260,30 @@ function assertSelfMutationBoundary(
 }
 
 /**
- * 按 app user 主体解析关联的 Better Auth user，主路径走稳定 authUserId，旧数据仅保留 email 兜底。
+ * 按 app user 主体解析关联的 Better Auth user。
+ *
+ * 当前策略：
+ * - 只接受稳定 `authUserId` 绑定
+ * - 不再在正常写路径中按 email 隐式回补认证主体
  */
 async function findAuthUserForAppUser(
   identity: AppUserIdentityRecord,
   database: DatabaseExecutor = db,
 ): Promise<{ email: string; id: string } | null> {
+  if (!identity.authUserId) {
+    return null
+  }
+
   const authRows = await database
     .select({
       email: authUsers.email,
       id: authUsers.id,
     })
     .from(authUsers)
-    .where(
-      identity.authUserId
-        ? or(eq(authUsers.id, identity.authUserId), eq(authUsers.email, identity.email))
-        : eq(authUsers.email, identity.email),
-    )
-    .limit(2)
+    .where(eq(authUsers.id, identity.authUserId))
+    .limit(1)
 
-  return (
-    (identity.authUserId ? authRows.find((authRow) => authRow.id === identity.authUserId) : null) ??
-    authRows.find((authRow) => authRow.email === identity.email) ??
-    null
-  )
+  return authRows[0] ?? null
 }
 
 /**

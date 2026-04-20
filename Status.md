@@ -1,6 +1,6 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-12
+Last Updated: 2026-04-20
 Current Mode: Post-Phase 6 backlog ready
 Current Phase: Post-Phase 6 `Hardening & Documentation Rollout`
 Overall Status: `phase_6_complete_e2e_remediation_closed`
@@ -128,6 +128,10 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | API-C2 | Post-P6 | Standardize API error contracts, error codes, and OpenAPI error examples across REST-compatible routes | done | API-C1 | lint + typecheck + test + build |
 | API-C3 | Post-P6 | Extract shared pagination/filter/sort helpers for catalog-style API routes to reduce route drift | done | API-C2 | lint + typecheck + test + build |
 | API-C4 | Post-P6 | Expand API regression matrix and cross-surface smoke coverage for helper and contract-first surfaces | done | API-C3 | lint + typecheck + test + build |
+| IAM-C2 | Post-P6 | Remove steady-state email fallback from authenticated principal resolution and enforce `auth_user_id` as the primary identity key | done | IAM-C1 | lint + typecheck + test + build |
+| IAM-C3 | Post-P6 | Add explicit principal repair and backfill tooling for legacy users that still require `auth_user_id` binding | done | IAM-C2 | lint + typecheck + test + build |
+| IAM-C4 | Post-P6 | Expand permission regression coverage across resource, field, conditional, and inverted-rule cases | done | IAM-C3 | lint + typecheck + test + build |
+| IAM-C5 | Post-P6 | Add permission-change impact inspection and permission audit inspection contracts for operators | done | IAM-C4 | lint + typecheck + test + build |
 
 ## 3.1 Post-Launch Plans
 
@@ -135,8 +139,8 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 |---|---|---|---|
 | 1 | Web UI/UX Hardening | done | none |
 | 2 | API Platform Consistency | done | none |
-| 3 | Identity and Permission Hardening | queued | IAM-C2 |
-| 4 | AI Governance Deepening | queued | GOV-C2 |
+| 3 | Identity and Permission Hardening | done | none |
+| 4 | AI Governance Deepening | ready | GOV-C2 |
 | 5 | Productionization and Operations Maturity | queued | OPS-C1 |
 
 ## 4. Current Ready Queue
@@ -175,14 +179,17 @@ Priority order as of 2026-04-12:
 - `UI-C11` is closed; directory pages now persist local saved views, render denser active-filter chips, and expose inline row mutation feedback after successful write actions.
 - `UI-C12` is closed; directory workbenches now expose local batch result feedback, safety confirmation before clearing staged selections or deleting saved views, and denser triage shortcuts including copy and preview stepping.
 - queued plans after completed optimization programs:
-  - Plan 3 `Identity and Permission Hardening` -> `IAM-C2`
   - Plan 4 `AI Governance Deepening` -> `GOV-C2`
   - Plan 5 `Productionization and Operations Maturity` -> `OPS-C1`
 - `UI-C13` is closed; `ai/evals` and `ai/audit` now expose denser governance review queues and persisted evidence timelines.
 - `UI-C14` is closed; `monitor/server` and `monitor/online` now prioritize incident-like signals instead of acting as plain status tables.
 - `UI-C15` is closed; Copilot now exposes route-specific brief/suggestion/handoff contracts for `monitor/server` and `monitor/online` in addition to existing AI routes.
 - Plan 1 `Web UI/UX Hardening` is complete.
-- Plan 2 `API Platform Consistency` is complete; the next recommended backlog item is `IAM-C2` under Plan 3 `Identity and Permission Hardening`.
+- `IAM-C2` is closed; steady-state authenticated flows now resolve RBAC only through stable `auth_user_id`, while legacy email-linked rows must go through explicit principal repair.
+- `IAM-C3` is closed; operators now have explicit principal repair candidate listing and repair actions instead of hidden sign-in side effects.
+- `IAM-C4` is closed; permission regression coverage now verifies resource, field, conditional, and inverted-rule serialization and enforcement.
+- `IAM-C5` is closed; permission impact and audit inspection contracts now expose affected roles, affected users, and permission-scoped audit trails.
+- Plan 3 `Identity and Permission Hardening` is complete; the next recommended backlog item is `GOV-C2` under Plan 4 `AI Governance Deepening`.
 
 Auto-unlock rules:
 

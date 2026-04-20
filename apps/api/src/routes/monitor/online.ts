@@ -5,7 +5,7 @@ import {
   type OnlineUserListResponse,
   onlineUserListResponseSchema,
 } from '@ai-native-os/shared'
-import { and, desc, eq, gt, ilike, inArray, isNull, or } from 'drizzle-orm'
+import { and, desc, eq, gt, ilike, inArray, or } from 'drizzle-orm'
 
 import { requireAnyPermission } from '@/orpc/procedures'
 import { createPagination, paginateArray } from '@/routes/lib/pagination'
@@ -43,41 +43,26 @@ export async function listOnlineUsers(
     .orderBy(desc(session.createdAt))
 
   const authUserIds = rows.map((row) => row.userId)
-  const emails = rows.map((row) => row.email)
   const rbacUsers =
-    authUserIds.length === 0 && emails.length === 0
+    authUserIds.length === 0
       ? []
       : await db
           .select({
             authUserId: users.authUserId,
-            email: users.email,
             rbacUserId: users.id,
             roleCode: roles.code,
           })
           .from(users)
           .leftJoin(userRoles, eq(userRoles.userId, users.id))
           .leftJoin(roles, eq(userRoles.roleId, roles.id))
-          .where(
-            or(
-              authUserIds.length > 0 ? inArray(users.authUserId, authUserIds) : undefined,
-              emails.length > 0
-                ? and(isNull(users.authUserId), inArray(users.email, emails))
-                : undefined,
-            ),
-          )
+          .where(inArray(users.authUserId, authUserIds))
 
   const roleCodesByAuthUserId = new Map<string, string[]>()
-  const roleCodesByEmail = new Map<string, string[]>()
   const rbacUserIdByAuthUserId = new Map<string, string>()
-  const rbacUserIdByEmail = new Map<string, string>()
 
   for (const row of rbacUsers) {
     if (row.authUserId && row.rbacUserId) {
       rbacUserIdByAuthUserId.set(row.authUserId, row.rbacUserId)
-    }
-
-    if (row.rbacUserId) {
-      rbacUserIdByEmail.set(row.email, row.rbacUserId)
     }
 
     if (row.roleCode) {
@@ -86,10 +71,6 @@ export async function listOnlineUsers(
         existingRoleCodes.push(row.roleCode)
         roleCodesByAuthUserId.set(row.authUserId, existingRoleCodes)
       }
-
-      const existingRoleCodes = roleCodesByEmail.get(row.email) ?? []
-      existingRoleCodes.push(row.roleCode)
-      roleCodesByEmail.set(row.email, existingRoleCodes)
     }
   }
 
@@ -103,13 +84,8 @@ export async function listOnlineUsers(
       expiresAt: row.expiresAt.toISOString(),
       ipAddress: row.ipAddress,
       name: row.name,
-      rbacUserId:
-        rbacUserIdByAuthUserId.get(row.userId) ?? rbacUserIdByEmail.get(row.email) ?? null,
-      roleCodes: (
-        roleCodesByAuthUserId.get(row.userId) ??
-        roleCodesByEmail.get(row.email) ??
-        []
-      ).sort(),
+      rbacUserId: rbacUserIdByAuthUserId.get(row.userId) ?? null,
+      roleCodes: (roleCodesByAuthUserId.get(row.userId) ?? []).sort(),
       sessionId: row.sessionId,
       userAgent: row.userAgent,
       userId: row.userId,
@@ -133,7 +109,8 @@ export const monitorOnlineListProcedure = requireAnyPermission([
     path: '/api/v1/monitor/online',
     tags: ['Monitor:Online'],
     summary: '分页查询在线会话',
-    description: '返回当前活跃 Better Auth 会话，并补充映射后的 RBAC 用户与角色信息。',
+    description:
+      '返回当前活跃 Better Auth 会话，并仅按稳定 auth_user_id 补充已绑定的 RBAC 用户与角色信息。',
   })
   .input(listOnlineUsersInputSchema)
   .output(onlineUserListResponseSchema)

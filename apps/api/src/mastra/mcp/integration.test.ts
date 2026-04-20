@@ -2,7 +2,14 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 
-import { db, listAiAuditLogsByToolId, roles, userRoles, users } from '@ai-native-os/db'
+import {
+  db,
+  listAiAuditLogsByToolId,
+  repairPrincipalBindings,
+  roles,
+  userRoles,
+  users,
+} from '@ai-native-os/db'
 import { serve } from '@hono/node-server'
 import { eq } from 'drizzle-orm'
 
@@ -96,6 +103,9 @@ async function createSessionForRole(roleCode: string): Promise<Headers> {
   })
 
   assert.equal(signInResponse.status, 200)
+
+  // 显式对齐测试主体绑定，避免继续依赖已移除的运行态 email 回填。
+  await repairPrincipalBindings([userId])
 
   const authHeaders = convertSetCookieToCookie(signInResponse.headers)
 

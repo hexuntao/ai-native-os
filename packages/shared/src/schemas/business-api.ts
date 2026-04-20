@@ -335,6 +335,185 @@ export const deleteUserResultSchema = withOpenApiSchemaDoc(
   },
 )
 
+const principalRepairReasonSchema = withOpenApiSchemaDoc(
+  z
+    .enum(['already_bound', 'app_user_missing', 'auth_user_already_bound', 'auth_user_missing'])
+    .nullable(),
+  {
+    title: 'PrincipalRepairReason',
+    description: '主体修复跳过原因；修复成功时返回 `null`，否则返回明确的跳过原因代码。',
+    examples: ['auth_user_missing', 'auth_user_already_bound', null],
+  },
+)
+
+const principalRepairStatusSchema = withOpenApiSchemaDoc(z.enum(['repaired', 'skipped']), {
+  title: 'PrincipalRepairStatus',
+  description: '主体修复结果状态，`repaired` 表示已绑定成功，`skipped` 表示本次未执行绑定。',
+  examples: ['repaired'],
+})
+
+export const listPrincipalRepairCandidatesInputSchema = withOpenApiSchemaDoc(baseSearchSchema, {
+  title: 'ListPrincipalRepairCandidatesInput',
+  description:
+    '主体修复候选分页查询参数，支持按用户名或邮箱关键词过滤仍未绑定 auth_user_id 的用户。',
+  examples: [{ page: 1, pageSize: 10, search: 'legacy' }],
+})
+
+export const principalRepairCandidateSchema = withOpenApiSchemaDoc(
+  z.object({
+    authUserId: withOpenApiSchemaDoc(z.string(), {
+      title: 'PrincipalRepairCandidateAuthUserId',
+      description: '按同邮箱匹配到的 Better Auth 主体 ID。',
+      examples: ['auth_user_01'],
+    }),
+    email: emailFieldSchema,
+    roleCodes: withOpenApiSchemaDoc(z.array(roleCodeSchema), {
+      title: 'PrincipalRepairCandidateRoleCodes',
+      description: '候选应用用户当前绑定的角色编码列表。',
+      examples: [['viewer']],
+    }),
+    userId: userIdSchema,
+    username: usernameFieldSchema,
+  }),
+  {
+    title: 'PrincipalRepairCandidate',
+    description:
+      '主体修复候选条目，仅包含尚未绑定 `auth_user_id`，但可按同邮箱匹配 Better Auth 主体的应用用户。',
+    examples: [
+      {
+        userId: '4f6f2db4-2b4e-4b9f-b9f2-3f4b81f7d001',
+        username: 'legacy_viewer',
+        email: 'legacy.viewer@example.com',
+        authUserId: 'auth_user_01',
+        roleCodes: ['viewer'],
+      },
+    ],
+  },
+)
+
+export const principalRepairCandidateListResponseSchema = withOpenApiSchemaDoc(
+  paginatedResponseSchema(principalRepairCandidateSchema),
+  {
+    title: 'PrincipalRepairCandidateListResponse',
+    description: '主体修复候选分页响应。',
+    examples: [
+      {
+        data: [
+          {
+            userId: '4f6f2db4-2b4e-4b9f-b9f2-3f4b81f7d001',
+            username: 'legacy_viewer',
+            email: 'legacy.viewer@example.com',
+            authUserId: 'auth_user_01',
+            roleCodes: ['viewer'],
+          },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      },
+    ],
+  },
+)
+
+export const repairPrincipalBindingsInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    userIds: withOpenApiSchemaDoc(z.array(userIdSchema).min(1).max(100), {
+      title: 'RepairPrincipalBindingUserIds',
+      description: '本次需要显式修复 `auth_user_id` 绑定的应用用户主键列表。',
+      examples: [['4f6f2db4-2b4e-4b9f-b9f2-3f4b81f7d001']],
+    }),
+  }),
+  {
+    title: 'RepairPrincipalBindingsInput',
+    description: '主体修复命令输入，按用户主键列表显式执行 `auth_user_id` 回填。',
+    examples: [
+      {
+        userIds: ['4f6f2db4-2b4e-4b9f-b9f2-3f4b81f7d001'],
+      },
+    ],
+  },
+)
+
+export const principalRepairResultItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    authUserId: withOpenApiSchemaDoc(z.string().nullable(), {
+      title: 'PrincipalRepairResultAuthUserId',
+      description: '修复后绑定的 Better Auth 主体 ID；未修复时为 `null` 或冲突目标值。',
+      examples: ['auth_user_01', null],
+    }),
+    email: emailFieldSchema.or(z.literal('')),
+    reason: principalRepairReasonSchema,
+    status: principalRepairStatusSchema,
+    userId: userIdSchema,
+    username: withOpenApiSchemaDoc(z.string(), {
+      title: 'PrincipalRepairResultUsername',
+      description: '本次处理的应用用户名；若目标用户不存在，返回空字符串。',
+      examples: ['legacy_viewer', ''],
+    }),
+  }),
+  {
+    title: 'PrincipalRepairResultItem',
+    description: '单个应用用户主体修复结果条目。',
+    examples: [
+      {
+        userId: '4f6f2db4-2b4e-4b9f-b9f2-3f4b81f7d001',
+        username: 'legacy_viewer',
+        email: 'legacy.viewer@example.com',
+        authUserId: 'auth_user_01',
+        status: 'repaired',
+        reason: null,
+      },
+    ],
+  },
+)
+
+export const principalRepairResultSchema = withOpenApiSchemaDoc(
+  z.object({
+    repaired: withOpenApiSchemaDoc(z.array(principalRepairResultItemSchema), {
+      title: 'PrincipalRepairResultRepaired',
+      description: '本次成功修复的应用用户列表。',
+    }),
+    repairedCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'PrincipalRepairRepairedCount',
+      description: '本次成功修复的应用用户数量。',
+      examples: [1],
+    }),
+    skipped: withOpenApiSchemaDoc(z.array(principalRepairResultItemSchema), {
+      title: 'PrincipalRepairResultSkipped',
+      description: '本次跳过的应用用户列表及其原因。',
+    }),
+    skippedCount: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'PrincipalRepairSkippedCount',
+      description: '本次跳过的应用用户数量。',
+      examples: [0],
+    }),
+  }),
+  {
+    title: 'PrincipalRepairResult',
+    description: '显式主体修复命令的执行结果摘要。',
+    examples: [
+      {
+        repairedCount: 1,
+        skippedCount: 0,
+        repaired: [
+          {
+            userId: '4f6f2db4-2b4e-4b9f-b9f2-3f4b81f7d001',
+            username: 'legacy_viewer',
+            email: 'legacy.viewer@example.com',
+            authUserId: 'auth_user_01',
+            status: 'repaired',
+            reason: null,
+          },
+        ],
+        skipped: [],
+      },
+    ],
+  },
+)
+
 const roleIdSchema = withOpenApiSchemaDoc(z.string().uuid(), {
   title: 'RoleId',
   description: '角色主键 UUID，用于唯一标识一个 RBAC 角色。',
@@ -938,6 +1117,90 @@ export const permissionListResponseSchema = withOpenApiSchemaDoc(
           total: 1,
           totalPages: 1,
         },
+      },
+    ],
+  },
+)
+
+const permissionImpactRoleItemSchema = withOpenApiSchemaDoc(
+  z.object({
+    code: roleCodeSchema,
+    id: roleIdSchema,
+    name: roleNameFieldSchema,
+    status: roleStatusFieldSchema,
+    userCount: roleUserCountSchema,
+  }),
+  {
+    title: 'PermissionImpactRoleItem',
+    description: '引用当前权限规则的角色摘要条目。',
+    examples: [
+      {
+        id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
+        code: 'ops_auditor',
+        name: '运营审计员',
+        status: true,
+        userCount: 3,
+      },
+    ],
+  },
+)
+
+export const getPermissionImpactByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: permissionIdSchema,
+  }),
+  {
+    title: 'GetPermissionImpactByIdInput',
+    description: '按权限 UUID 读取角色影响面摘要。',
+    examples: [{ id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001' }],
+  },
+)
+
+export const permissionImpactSchema = withOpenApiSchemaDoc(
+  z.object({
+    assignedRoles: withOpenApiSchemaDoc(z.array(permissionImpactRoleItemSchema), {
+      title: 'PermissionImpactAssignedRoles',
+      description: '当前引用该权限的角色列表及其用户影响面摘要。',
+    }),
+    permission: permissionEntrySchema,
+    totalAssignedRoles: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'PermissionImpactTotalAssignedRoles',
+      description: '当前引用该权限的角色总数。',
+      examples: [2],
+    }),
+    totalAssignedUsers: withOpenApiSchemaDoc(z.number().int().min(0), {
+      title: 'PermissionImpactTotalAssignedUsers',
+      description: '所有引用该权限的角色去重后影响到的用户总数。',
+      examples: [5],
+    }),
+  }),
+  {
+    title: 'PermissionImpact',
+    description: '权限规则的角色与用户影响面摘要，用于评估变更风险。',
+    examples: [
+      {
+        permission: {
+          id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001',
+          resource: 'User',
+          action: 'read',
+          description: '允许管理员读取用户目录。',
+          fields: ['email', 'nickname'],
+          conditions: null,
+          inverted: false,
+          roleCount: 2,
+          createdAt: '2026-04-09T09:30:00.000Z',
+        },
+        totalAssignedRoles: 1,
+        totalAssignedUsers: 3,
+        assignedRoles: [
+          {
+            id: '9d2a4f4b-f4a9-4f44-a9c0-6d5cfa542001',
+            code: 'ops_auditor',
+            name: '运营审计员',
+            status: true,
+            userCount: 3,
+          },
+        ],
       },
     ],
   },
@@ -2037,6 +2300,45 @@ export const operationLogListResponseSchema = withOpenApiSchemaDoc(
         pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
       },
     ],
+  },
+)
+
+const permissionAuditLogItemSchema = withOpenApiSchemaDoc(
+  operationLogListItemSchema.extend({
+    requestInfo: withOpenApiSchemaDoc(z.record(z.string(), z.string()).nullable(), {
+      title: 'PermissionAuditRequestInfo',
+      description: '权限操作审计的 requestInfo 字典快照；未写入时为 `null`。',
+      examples: [{ requestId: 'req_01', roleCount: '2', inverted: 'false' }, null],
+    }),
+  }),
+  {
+    title: 'PermissionAuditLogItem',
+    description: '权限规则变更审计条目，继承标准 operation log 并补充原始 requestInfo。',
+  },
+)
+
+export const getPermissionAuditByIdInputSchema = withOpenApiSchemaDoc(
+  z.object({
+    id: permissionIdSchema,
+  }),
+  {
+    title: 'GetPermissionAuditByIdInput',
+    description: '按权限 UUID 读取该权限的最近变更审计轨迹。',
+    examples: [{ id: '2f3dc6ce-3c88-4db0-b194-f8506bbf1001' }],
+  },
+)
+
+export const permissionAuditTrailSchema = withOpenApiSchemaDoc(
+  z.object({
+    auditTrail: withOpenApiSchemaDoc(z.array(permissionAuditLogItemSchema), {
+      title: 'PermissionAuditTrail',
+      description: '当前权限规则的最近变更审计轨迹，按时间倒序返回。',
+    }),
+    permission: permissionEntrySchema,
+  }),
+  {
+    title: 'PermissionAuditTrailResponse',
+    description: '权限规则的审计检查视图，返回当前权限详情与变更操作日志轨迹。',
   },
 )
 
@@ -5066,6 +5368,15 @@ export type DeleteUserInput = z.infer<typeof deleteUserInputSchema>
 export type UserEntry = z.infer<typeof userEntrySchema>
 export type UserListResponse = z.infer<typeof userListResponseSchema>
 export type DeleteUserResult = z.infer<typeof deleteUserResultSchema>
+export type ListPrincipalRepairCandidatesInput = z.infer<
+  typeof listPrincipalRepairCandidatesInputSchema
+>
+export type PrincipalRepairCandidate = z.infer<typeof principalRepairCandidateSchema>
+export type PrincipalRepairCandidateListResponse = z.infer<
+  typeof principalRepairCandidateListResponseSchema
+>
+export type RepairPrincipalBindingsInput = z.infer<typeof repairPrincipalBindingsInputSchema>
+export type PrincipalRepairResult = z.infer<typeof principalRepairResultSchema>
 export type ListRolesInput = z.infer<typeof listRolesInputSchema>
 export type GetRoleByIdInput = z.infer<typeof getRoleByIdInputSchema>
 export type CreateRoleInput = z.infer<typeof createRoleInputSchema>
@@ -5082,6 +5393,10 @@ export type DeletePermissionInput = z.infer<typeof deletePermissionInputSchema>
 export type PermissionEntry = z.infer<typeof permissionEntrySchema>
 export type PermissionListResponse = z.infer<typeof permissionListResponseSchema>
 export type DeletePermissionResult = z.infer<typeof deletePermissionResultSchema>
+export type GetPermissionImpactByIdInput = z.infer<typeof getPermissionImpactByIdInputSchema>
+export type PermissionImpact = z.infer<typeof permissionImpactSchema>
+export type GetPermissionAuditByIdInput = z.infer<typeof getPermissionAuditByIdInputSchema>
+export type PermissionAuditTrail = z.infer<typeof permissionAuditTrailSchema>
 export type ListMenusInput = z.infer<typeof listMenusInputSchema>
 export type GetMenuByIdInput = z.infer<typeof getMenuByIdInputSchema>
 export type CreateMenuInput = z.infer<typeof createMenuInputSchema>

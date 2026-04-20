@@ -8,6 +8,9 @@ import {
   listAiFeedbackByAuditLogId,
   listOperationLogsByModule,
   listRecentAiAuditLogs,
+  permissions,
+  repairPrincipalBindings,
+  rolePermissions,
   roles,
   userRoles,
   users,
@@ -105,6 +108,9 @@ async function createSessionForRole(roleCode: string): Promise<Headers> {
   })
 
   assert.equal(signInResponse.status, 200)
+
+  // 显式对齐测试主体绑定，避免继续依赖已移除的运行态 email 回填。
+  await repairPrincipalBindings([userId])
 
   const authHeaders = convertSetCookieToCookie(signInResponse.headers)
 
@@ -646,6 +652,99 @@ test('serialized ability endpoint returns rules that can be deserialized by fron
   assert.ok(payload.json.userId)
   assert.equal(ability.can('read', 'Role'), true)
   assert.equal(ability.can('manage', 'Permission'), false)
+})
+
+test('current permissions and serialized ability preserve field, condition, and inverted rules', async () => {
+  const roleCode = `finance_reviewer_${randomUUID().replaceAll('-', '').slice(0, 8)}`
+  const [createdRole] = await db
+    .insert(roles)
+    .values({
+      code: roleCode,
+      description: '用于验证字段级、条件级和禁止规则序列化。',
+      name: 'Finance Reviewer Test Role',
+      sortOrder: 999,
+      status: true,
+      updatedAt: new Date(),
+    })
+    .returning({
+      id: roles.id,
+    })
+
+  assert.ok(createdRole, 'Expected test role to be created')
+
+  const [createdPermission] = await db
+    .insert(permissions)
+    .values({
+      action: 'read',
+      conditions: { department: 'finance' },
+      description: '禁止读取财务部门的邮箱字段。',
+      fields: ['email'],
+      inverted: true,
+      resource: 'User',
+    })
+    .returning({
+      id: permissions.id,
+    })
+
+  assert.ok(createdPermission, 'Expected test permission to be created')
+
+  await db.insert(rolePermissions).values({
+    permissionId: createdPermission.id,
+    roleId: createdRole.id,
+  })
+
+  const authHeaders = await createSessionForRole(roleCode)
+  const [currentPermissionsResponse, serializedAbilityResponse] = await Promise.all([
+    app.request('http://localhost/api/v1/system/permissions/current', {
+      headers: authHeaders,
+    }),
+    app.request('http://localhost/api/v1/system/permissions/ability', {
+      headers: authHeaders,
+    }),
+  ])
+  const currentPermissionsPayload = (await currentPermissionsResponse.json()) as {
+    json: {
+      permissionRules: Array<{
+        action: string
+        conditions?: Record<string, unknown> | null
+        fields?: string[]
+        inverted?: boolean
+        subject: string
+      }>
+    }
+  }
+  const serializedAbilityPayload = (await serializedAbilityResponse.json()) as {
+    json: {
+      rules: Array<{
+        action: string
+        conditions?: Record<string, unknown> | null
+        fields?: string[]
+        inverted?: boolean
+        subject: string
+      }>
+    }
+  }
+  const deniedFieldRule = currentPermissionsPayload.json.permissionRules.find(
+    (permissionRule) =>
+      permissionRule.action === 'read' &&
+      permissionRule.subject === 'User' &&
+      permissionRule.inverted === true &&
+      permissionRule.fields?.includes('email'),
+  )
+  const serializedRule = serializedAbilityPayload.json.rules.find(
+    (permissionRule) =>
+      permissionRule.action === 'read' &&
+      permissionRule.subject === 'User' &&
+      permissionRule.inverted === true &&
+      permissionRule.fields?.includes('email'),
+  )
+
+  assert.equal(currentPermissionsResponse.status, 200)
+  assert.equal(serializedAbilityResponse.status, 200)
+  assert.deepEqual(deniedFieldRule?.conditions, { department: 'finance' })
+  assert.deepEqual(serializedRule?.conditions, { department: 'finance' })
+  assert.equal(serializedRule?.inverted, true)
+  assert.deepEqual(serializedRule?.fields, ['email'])
 })
 
 test('AI tool catalog endpoint exposes enabled tools for the authenticated principal', async () => {

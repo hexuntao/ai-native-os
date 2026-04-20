@@ -3,13 +3,19 @@ import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 
 import {
+  account,
+  anonymousOperationActorId,
+  user as authUsers,
   db,
   defaultMenus,
+  hashCredentialPassword,
   listAiAuditLogsByToolId,
   listAiEvalRunsByEvalKey,
   listOperationLogsByModule,
   menus,
   permissions,
+  repairPrincipalBindings,
+  rolePermissions,
   roles,
   userRoles,
   users,
@@ -205,11 +211,45 @@ async function createSessionForRole(roleCode: string): Promise<Headers> {
 
   assert.equal(signInResponse.status, 200)
 
+  // 显式对齐测试主体绑定，避免继续依赖已移除的运行态 email 回填。
+  await repairPrincipalBindings([userId])
+
   const authHeaders = convertSetCookieToCookie(signInResponse.headers)
 
   authHeaders.set('origin', origin)
 
   return authHeaders
+}
+
+// 为主体修复与权限硬化合同测试创建最小 Better Auth 主体。
+async function createAuthIdentity(authUserId: string, email: string, name: string): Promise<void> {
+  const now = new Date()
+
+  await db.insert(authUsers).values({
+    createdAt: now,
+    email,
+    emailVerified: true,
+    id: authUserId,
+    image: null,
+    name,
+    updatedAt: now,
+  })
+
+  await db.insert(account).values({
+    accessToken: null,
+    accessTokenExpiresAt: null,
+    accountId: authUserId,
+    createdAt: now,
+    id: randomUUID(),
+    idToken: null,
+    password: await hashCredentialPassword('Passw0rd!Passw0rd!'),
+    providerId: 'credential',
+    refreshToken: null,
+    refreshTokenExpiresAt: null,
+    scope: null,
+    updatedAt: now,
+    userId: authUserId,
+  })
 }
 
 // 读取角色 CRUD 测试所需的权限主键，避免在测试里硬编码权限 UUID。
@@ -1659,7 +1699,7 @@ test('super_admin can perform full contract-first CRUD on custom system roles', 
 
   assert.equal(createResponse.status, 200)
   assert.equal(createPayload.json.code, `ops_${roleSuffix}`)
-  assert.deepEqual(createPayload.json.permissionIds, [userReadPermissionId])
+  assert.deepEqual([...createPayload.json.permissionIds].sort(), [userReadPermissionId].sort())
   assert.equal(createPayload.json.status, true)
 
   const readResponse = await app.request(
@@ -1679,7 +1719,7 @@ test('super_admin can perform full contract-first CRUD on custom system roles', 
 
   assert.equal(readResponse.status, 200)
   assert.equal(readPayload.json.id, createPayload.json.id)
-  assert.deepEqual(readPayload.json.permissionIds, [userReadPermissionId])
+  assert.deepEqual([...readPayload.json.permissionIds].sort(), [userReadPermissionId].sort())
   assert.equal(readPayload.json.userCount, 0)
 
   const updateResponse = await app.request(
@@ -1714,7 +1754,10 @@ test('super_admin can perform full contract-first CRUD on custom system roles', 
   assert.equal(updatePayload.json.id, createPayload.json.id)
   assert.equal(updatePayload.json.code, `ops_updated_${roleSuffix}`)
   assert.equal(updatePayload.json.name, `Contract Role Updated ${roleSuffix}`)
-  assert.deepEqual(updatePayload.json.permissionIds, [roleReadPermissionId, userReadPermissionId])
+  assert.deepEqual(
+    [...updatePayload.json.permissionIds].sort(),
+    [roleReadPermissionId, userReadPermissionId].sort(),
+  )
   assert.equal(updatePayload.json.sortOrder, 50)
 
   const deleteResponse = await app.request(
@@ -4111,4 +4154,214 @@ test('super admin can read the contract-first permission list route', async () =
   assert.equal(response.status, 200)
   assert.ok(payload.json.pagination.total >= 1)
   assert.ok(payload.json.data.some((permission) => permission.resource === 'User'))
+})
+
+test('OpenAPI document exposes principal repair and permission governance inspection paths', async () => {
+  const response = await app.request('http://localhost/api/openapi.json')
+  const payload = (await response.json()) as OpenApiDocument
+
+  assert.equal(response.status, 200)
+  assert.ok('/api/v1/system/users/principal-repair-candidates' in payload.paths)
+  assert.ok('/api/v1/system/users/principal-repair' in payload.paths)
+  assert.ok(
+    '/api/v1/system/permissions/:id/impact' in payload.paths ||
+      '/api/v1/system/permissions/{id}/impact' in payload.paths,
+  )
+  assert.ok(
+    '/api/v1/system/permissions/:id/audit' in payload.paths ||
+      '/api/v1/system/permissions/{id}/audit' in payload.paths,
+  )
+})
+
+test('principal repair routes expose repair candidates and bind legacy users explicitly', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const suffix = randomUUID().slice(0, 8)
+  const email = `principal-repair-${suffix}@example.com`
+  const authUserId = `principal-repair-auth-${suffix}`
+  const [legacyUser] = await db
+    .insert(users)
+    .values({
+      authUserId: null,
+      email,
+      nickname: 'Principal Repair Candidate',
+      passwordHash: 'principal-repair-placeholder',
+      status: true,
+      updatedAt: new Date(),
+      username: `principal_repair_${suffix}`,
+    })
+    .returning({
+      id: users.id,
+    })
+
+  assert.ok(legacyUser, 'Expected legacy principal repair user to be created')
+
+  await createAuthIdentity(authUserId, email, 'Principal Repair Candidate')
+
+  const candidateListResponse = await app.request(
+    `http://localhost/api/v1/system/users/principal-repair-candidates?page=1&pageSize=10&search=${suffix}`,
+    {
+      headers: authHeaders,
+    },
+  )
+  const repairResponse = await app.request(
+    'http://localhost/api/v1/system/users/principal-repair',
+    {
+      body: JSON.stringify({
+        userIds: [legacyUser.id],
+      }),
+      headers: {
+        ...Object.fromEntries(authHeaders.entries()),
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+    },
+  )
+  const candidatePayload = (await candidateListResponse.json()) as {
+    json: {
+      data: Array<{
+        authUserId: string
+        email: string
+        userId: string
+        username: string
+      }>
+    }
+  }
+  const repairPayload = (await repairResponse.json()) as {
+    json: {
+      repaired: Array<{
+        authUserId: string | null
+        reason: string | null
+        status: string
+        userId: string
+      }>
+      repairedCount: number
+      skippedCount: number
+    }
+  }
+  const [reloadedUser] = await db
+    .select({
+      authUserId: users.authUserId,
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.id, legacyUser.id))
+    .limit(1)
+
+  assert.equal(candidateListResponse.status, 200)
+  assert.ok(candidatePayload.json.data.some((candidate) => candidate.userId === legacyUser.id))
+  assert.equal(repairResponse.status, 200)
+  assert.equal(repairPayload.json.repairedCount, 1)
+  assert.equal(repairPayload.json.skippedCount, 0)
+  assert.equal(repairPayload.json.repaired[0]?.status, 'repaired')
+  assert.equal(repairPayload.json.repaired[0]?.reason, null)
+  assert.equal(reloadedUser?.authUserId, authUserId)
+})
+
+test('permission impact and audit routes expose affected roles and audit trail', async () => {
+  const authHeaders = await createSessionForRole('super_admin')
+  const suffix = randomUUID().slice(0, 8)
+  const [createdRole] = await db
+    .insert(roles)
+    .values({
+      code: `impact_role_${suffix}`,
+      description: '权限影响面测试角色',
+      name: `Impact Role ${suffix}`,
+      sortOrder: 900,
+      status: true,
+      updatedAt: new Date(),
+    })
+    .returning({
+      id: roles.id,
+    })
+  const [createdUser] = await db
+    .insert(users)
+    .values({
+      authUserId: null,
+      email: `impact-user-${suffix}@example.com`,
+      nickname: 'Impact User',
+      passwordHash: 'impact-user-placeholder',
+      status: true,
+      updatedAt: new Date(),
+      username: `impact_user_${suffix}`,
+    })
+    .returning({
+      id: users.id,
+    })
+  const [createdPermission] = await db
+    .insert(permissions)
+    .values({
+      action: 'read',
+      conditions: { region: 'apac' },
+      description: '用于权限影响面与审计视图测试。',
+      fields: ['email'],
+      inverted: false,
+      resource: 'User',
+    })
+    .returning({
+      id: permissions.id,
+    })
+
+  assert.ok(createdRole)
+  assert.ok(createdUser)
+  assert.ok(createdPermission)
+
+  await db.insert(userRoles).values({
+    roleId: createdRole.id,
+    userId: createdUser.id,
+  })
+  await db.insert(rolePermissions).values({
+    permissionId: createdPermission.id,
+    roleId: createdRole.id,
+  })
+  await writeOperationLog({
+    action: 'update_permission',
+    detail: 'Updated permission for IAM audit route test.',
+    module: 'system_permissions',
+    operatorId: anonymousOperationActorId,
+    requestInfo: {
+      requestId: `permission-impact-${suffix}`,
+      roleCount: 1,
+    },
+    targetId: createdPermission.id,
+  })
+
+  const [impactResponse, auditResponse] = await Promise.all([
+    app.request(`http://localhost/api/v1/system/permissions/${createdPermission.id}/impact`, {
+      headers: authHeaders,
+    }),
+    app.request(`http://localhost/api/v1/system/permissions/${createdPermission.id}/audit`, {
+      headers: authHeaders,
+    }),
+  ])
+  const impactPayload = (await impactResponse.json()) as {
+    json: {
+      assignedRoles: Array<{ code: string; userCount: number }>
+      totalAssignedRoles: number
+      totalAssignedUsers: number
+    }
+  }
+  const auditPayload = (await auditResponse.json()) as {
+    json: {
+      auditTrail: Array<{
+        action: string
+        requestInfo: Record<string, string> | null
+        targetId: string | null
+      }>
+      permission: { id: string }
+    }
+  }
+
+  assert.equal(impactResponse.status, 200)
+  assert.equal(impactPayload.json.totalAssignedRoles, 1)
+  assert.equal(impactPayload.json.totalAssignedUsers, 1)
+  assert.equal(impactPayload.json.assignedRoles[0]?.code, `impact_role_${suffix}`)
+  assert.equal(impactPayload.json.assignedRoles[0]?.userCount, 1)
+  assert.equal(auditResponse.status, 200)
+  assert.equal(auditPayload.json.permission.id, createdPermission.id)
+  assert.equal(auditPayload.json.auditTrail[0]?.action, 'update_permission')
+  assert.equal(auditPayload.json.auditTrail[0]?.targetId, createdPermission.id)
+  assert.equal(
+    auditPayload.json.auditTrail[0]?.requestInfo?.requestId,
+    `permission-impact-${suffix}`,
+  )
 })
