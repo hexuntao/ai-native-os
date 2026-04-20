@@ -18,7 +18,8 @@ export const monitorServerSummaryProcedure = requireAnyPermission([
     path: '/api/v1/monitor/server',
     tags: ['Monitor:Server'],
     summary: '读取服务端运行时摘要',
-    description: '返回 API 健康状态、遥测状态和 Mastra 运行时摘要，供监控页展示。',
+    description:
+      '返回 API、jobs、worker、Trigger 接线状态、遥测状态和 Mastra 运行时摘要，供监控页展示。',
   })
   .output(serverSummarySchema)
   .handler(async () => {

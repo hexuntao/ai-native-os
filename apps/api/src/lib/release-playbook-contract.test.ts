@@ -32,6 +32,7 @@ test('release playbook documents security, backup, rollback, and smoke procedure
   assert.match(releasePlaybook, /回滚流程/)
   assert.match(releasePlaybook, /烟雾验证/)
   assert.match(releasePlaybook, /演练记录模板/)
+  assert.match(releasePlaybook, /pnpm release:preflight/)
   assert.match(releasePlaybook, /pnpm release:smoke/)
   assert.match(releasePlaybook, /pnpm release:backup:verify/)
   assert.match(releasePlaybook, /docker compose -f docker\/docker-compose\.prod\.yml exec -T jobs/)
@@ -40,6 +41,8 @@ test('release playbook documents security, backup, rollback, and smoke procedure
 test('root package exposes release smoke and backup verification scripts', () => {
   const packageJson = readRootPackageJson()
 
+  assert.match(packageJson.scripts?.['release:preflight'] ?? '', /scripts\/with-local-env\.ts/)
+  assert.match(packageJson.scripts?.['release:preflight'] ?? '', /preflight\.cli\.ts/)
   assert.match(packageJson.scripts?.['release:smoke'] ?? '', /scripts\/with-local-env\.ts/)
   assert.match(packageJson.scripts?.['release:smoke'] ?? '', /smoke-check\.cli\.ts/)
   assert.match(packageJson.scripts?.['release:backup:verify'] ?? '', /scripts\/with-local-env\.ts/)

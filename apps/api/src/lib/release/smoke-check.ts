@@ -28,12 +28,29 @@ const jobsHealthPayloadSchema = z.object({
   timestamp: z.string().datetime(),
 })
 
+const workerHealthPayloadSchema = z.object({
+  bindings: z.object({
+    availability: z.object({
+      cacheInvalidationQueueProducer: z.boolean(),
+      notificationQueueProducer: z.boolean(),
+      r2Bucket: z.boolean(),
+    }),
+  }),
+  name: z.literal('@ai-native-os/worker'),
+  queues: z.array(z.string()),
+  routes: z.array(z.string()),
+  smokeTestPath: z.literal('/health'),
+  status: z.literal('deployment-contract-ready'),
+})
+
 export interface ReleaseSmokeEnvironment {
   apiBaseUrl: string
   appBaseUrl: string
   includeJobs: boolean
+  includeWorker: boolean
   jobsHealthUrl: string | null
   timeoutMs: number
+  workerHealthUrl: string | null
 }
 
 export interface ReleaseSmokeResult {
@@ -138,6 +155,19 @@ function normalizeJobsHealthUrl(rawUrl: string): string {
 }
 
 /**
+ * 解析 worker 健康检查地址。
+ */
+function normalizeWorkerHealthUrl(rawUrl: string): string {
+  const normalizedBaseUrl = normalizeBaseUrl(rawUrl, 'WORKER_HEALTH_URL')
+
+  if (normalizedBaseUrl.endsWith('/health')) {
+    return normalizedBaseUrl
+  }
+
+  return new URL('/health', `${normalizedBaseUrl}/`).toString()
+}
+
+/**
  * 拼接发布 smoke 需要访问的完整 URL。
  */
 function buildEndpointUrl(baseUrl: string, pathname: string): string {
@@ -187,17 +217,26 @@ export function resolveReleaseSmokeEnvironment(
   const includeJobs =
     parseBooleanFlag(environment.RELEASE_INCLUDE_JOBS) ||
     Boolean(environment.JOBS_HEALTH_URL?.trim())
+  const includeWorker =
+    parseBooleanFlag(environment.RELEASE_INCLUDE_WORKER) ||
+    Boolean(environment.WORKER_HEALTH_URL?.trim())
 
   return {
     apiBaseUrl,
     appBaseUrl,
     includeJobs,
+    includeWorker,
     jobsHealthUrl: includeJobs
       ? normalizeJobsHealthUrl(
           environment.JOBS_HEALTH_URL?.trim() || 'http://localhost:3040/health',
         )
       : null,
     timeoutMs: parsePositiveInteger(environment.RELEASE_TIMEOUT_MS, 15000, 'RELEASE_TIMEOUT_MS'),
+    workerHealthUrl: includeWorker
+      ? normalizeWorkerHealthUrl(
+          environment.WORKER_HEALTH_URL?.trim() || 'http://localhost:8787/health',
+        )
+      : null,
   }
 }
 
@@ -266,12 +305,20 @@ function validateApiHealthPayload(payload: unknown): ProbeValidationResult {
     throw new Error('API redis health is error')
   }
 
+  if (healthPayload.checks.jobs.status === 'error') {
+    throw new Error(`API jobs health is error: ${healthPayload.checks.jobs.detail}`)
+  }
+
   if (healthPayload.checks.telemetry.openTelemetry === 'error') {
     throw new Error('API OpenTelemetry health is error')
   }
 
   if (healthPayload.checks.telemetry.sentry === 'error') {
     throw new Error('API Sentry health is error')
+  }
+
+  if (healthPayload.checks.worker.status === 'error') {
+    throw new Error(`API worker health is error: ${healthPayload.checks.worker.detail}`)
   }
 
   if (healthPayload.checks.redis === 'unknown') {
@@ -282,6 +329,10 @@ function validateApiHealthPayload(payload: unknown): ProbeValidationResult {
     warnings.push(`API AI runtime is degraded: ${healthPayload.checks.ai.reason}`)
   }
 
+  if (healthPayload.checks.jobs.status === 'unknown') {
+    warnings.push(`API jobs health is unknown: ${healthPayload.checks.jobs.detail}`)
+  }
+
   if (healthPayload.checks.telemetry.openTelemetry === 'unknown') {
     warnings.push('API OpenTelemetry health is unknown')
   }
@@ -290,8 +341,16 @@ function validateApiHealthPayload(payload: unknown): ProbeValidationResult {
     warnings.push('API Sentry health is unknown')
   }
 
+  if (healthPayload.checks.trigger.status === 'unknown') {
+    warnings.push('API Trigger runtime is not fully configured')
+  }
+
+  if (healthPayload.checks.worker.status === 'unknown') {
+    warnings.push(`API worker health is unknown: ${healthPayload.checks.worker.detail}`)
+  }
+
   return {
-    detail: `api=${healthPayload.checks.api}, ai=${healthPayload.checks.ai.status}, database=${healthPayload.checks.database}, redis=${healthPayload.checks.redis}, telemetry=${healthPayload.checks.telemetry.openTelemetry}/${healthPayload.checks.telemetry.sentry}`,
+    detail: `api=${healthPayload.checks.api}, ai=${healthPayload.checks.ai.status}, database=${healthPayload.checks.database}, redis=${healthPayload.checks.redis}, jobs=${healthPayload.checks.jobs.status}, worker=${healthPayload.checks.worker.status}, trigger=${healthPayload.checks.trigger.status}, telemetry=${healthPayload.checks.telemetry.openTelemetry}/${healthPayload.checks.telemetry.sentry}`,
     warnings,
   }
 }
@@ -329,6 +388,31 @@ function validateJobsHealthPayload(payload: unknown): ProbeValidationResult {
   return {
     detail: `service=${jobsHealthPayload.service}, tasks=${jobsHealthPayload.runtime.taskIds.length}`,
     warnings: [],
+  }
+}
+
+/**
+ * 校验 worker 健康响应。
+ */
+function validateWorkerHealthPayload(payload: unknown): ProbeValidationResult {
+  const workerHealthPayload = workerHealthPayloadSchema.parse(payload)
+  const warnings: string[] = []
+
+  if (!workerHealthPayload.bindings.availability.r2Bucket) {
+    throw new Error('Worker R2 binding health must be available')
+  }
+
+  if (!workerHealthPayload.bindings.availability.notificationQueueProducer) {
+    warnings.push('Worker notification queue producer is unavailable')
+  }
+
+  if (!workerHealthPayload.bindings.availability.cacheInvalidationQueueProducer) {
+    warnings.push('Worker cache invalidation queue producer is unavailable')
+  }
+
+  return {
+    detail: `service=${workerHealthPayload.name}, queues=${workerHealthPayload.queues.length}, r2=${workerHealthPayload.bindings.availability.r2Bucket}`,
+    warnings,
   }
 }
 
@@ -464,6 +548,20 @@ export async function runReleaseSmokeChecks(
         environment.timeoutMs,
         dependencies.fetcher,
         validateJobsHealthPayload,
+      ),
+    )
+  }
+
+  if (environment.includeWorker && environment.workerHealthUrl) {
+    const workerHealthUrl = environment.workerHealthUrl
+
+    probeTasks.push(() =>
+      runJsonProbe(
+        'worker-health',
+        workerHealthUrl,
+        environment.timeoutMs,
+        dependencies.fetcher,
+        validateWorkerHealthPayload,
       ),
     )
   }

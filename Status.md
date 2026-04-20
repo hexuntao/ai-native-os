@@ -136,6 +136,8 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | GOV-C3 | Post-P6 | Connect eval evidence, prompt release gates, and operator review surfaces into one Prompt governance workbench | done | GOV-C2 | lint + typecheck + test + build |
 | GOV-C4 | Post-P6 | Add approval, failure, rollback, and release inspection read models for prompt-governance audit review | done | GOV-C3 | lint + typecheck + test + build |
 | GOV-C5 | Post-P6 | Unify prompt, eval, audit, and feedback governance workflows under the Prompt governance contract surface and assistant handoff | done | GOV-C4 | lint + typecheck + test + build |
+| OPS-C1 | Post-P6 | Strengthen Redis/jobs/worker/trigger health probes and runtime summaries across `/health`, monitor surfaces, and release smoke contracts | done | Phase 6 baseline | lint + typecheck + test + build |
+| OPS-C2 | Post-P6 | Add unified release preflight automation that chains backup verification with release smoke and documents the new operator flow | done | OPS-C1 | lint + typecheck + test + build |
 
 ## 3.1 Post-Launch Plans
 
@@ -145,7 +147,7 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | 2 | API Platform Consistency | done | none |
 | 3 | Identity and Permission Hardening | done | none |
 | 4 | AI Governance Deepening | done | none |
-| 5 | Productionization and Operations Maturity | ready | OPS-C1 |
+| 5 | Productionization and Operations Maturity | in_progress | OPS-C3 |
 
 ## 4. Current Ready Queue
 
@@ -188,7 +190,7 @@ Priority order as of 2026-04-12:
 - `UI-C12` is closed; directory workbenches now expose local batch result feedback, safety confirmation before clearing staged selections or deleting saved views, and denser triage shortcuts including copy and preview stepping.
 - queued plans after completed optimization programs:
   - Plan 4 `AI Governance Deepening` -> `GOV-C2`
-  - Plan 5 `Productionization and Operations Maturity` -> `OPS-C1`
+  - Plan 5 `Productionization and Operations Maturity` -> `OPS-C3`
 - `UI-C13` is closed; `ai/evals` and `ai/audit` now expose denser governance review queues and persisted evidence timelines.
 - `UI-C14` is closed; `monitor/server` and `monitor/online` now prioritize incident-like signals instead of acting as plain status tables.
 - `UI-C15` is closed; Copilot now exposes route-specific brief/suggestion/handoff contracts for `monitor/server` and `monitor/online` in addition to existing AI routes.
@@ -198,7 +200,9 @@ Priority order as of 2026-04-12:
 - `IAM-C4` is closed; permission regression coverage now verifies resource, field, conditional, and inverted-rule serialization and enforcement.
 - `IAM-C5` is closed; permission impact and audit inspection contracts now expose affected roles, affected users, and permission-scoped audit trails.
 - Plan 3 `Identity and Permission Hardening` is complete.
-- Plan 4 `AI Governance Deepening` is complete; the next recommended backlog item is `OPS-C1` under Plan 5 `Productionization and Operations Maturity`.
+- `OPS-C1` is closed; `/health` and monitor summaries now expose jobs / worker probe state and Trigger runtime wiring instead of only api/db/redis/telemetry.
+- `OPS-C2` is closed; the repository now exposes `pnpm release:preflight`, which unifies optional backup verification with release smoke and is reused by final release regression.
+- Plan 4 `AI Governance Deepening` is complete; the next recommended backlog item is `OPS-C3` under Plan 5 `Productionization and Operations Maturity`.
 
 Auto-unlock rules:
 

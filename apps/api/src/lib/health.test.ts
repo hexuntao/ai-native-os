@@ -2,7 +2,16 @@ import assert from 'node:assert/strict'
 import net from 'node:net'
 import test from 'node:test'
 
-import { checkRedisHealth, resolveRedisProbeConfig } from './health'
+import {
+  checkJobsHealth,
+  checkRedisHealth,
+  checkWorkerHealth,
+  resolveDependencyProbeTimeoutMs,
+  resolveJobsProbeConfig,
+  resolveRedisProbeConfig,
+  resolveTriggerRuntimeHealth,
+  resolveWorkerProbeConfig,
+} from './health'
 
 test('resolveRedisProbeConfig parses REDIS_URL into a probe configuration', () => {
   const probeConfig = resolveRedisProbeConfig({
@@ -65,4 +74,63 @@ test('checkRedisHealth reports ok for a reachable AUTH + PING endpoint', async (
       })
     })
   }
+})
+
+test('resolveDependencyProbeTimeoutMs falls back to default for invalid input', () => {
+  assert.equal(resolveDependencyProbeTimeoutMs({ DEPENDENCY_HEALTH_TIMEOUT_MS: '0' }), 2500)
+  assert.equal(resolveDependencyProbeTimeoutMs({ DEPENDENCY_HEALTH_TIMEOUT_MS: '900' }), 900)
+})
+
+test('resolveJobsProbeConfig and resolveWorkerProbeConfig parse optional URLs', () => {
+  assert.equal(resolveJobsProbeConfig({}), null)
+  assert.equal(resolveWorkerProbeConfig({}), null)
+  assert.deepEqual(
+    resolveJobsProbeConfig({
+      DEPENDENCY_HEALTH_TIMEOUT_MS: '1200',
+      JOBS_HEALTH_URL: 'https://jobs.example.com/health',
+    }),
+    {
+      timeoutMs: 1200,
+      url: 'https://jobs.example.com/health',
+    },
+  )
+  assert.deepEqual(
+    resolveWorkerProbeConfig({
+      DEPENDENCY_HEALTH_TIMEOUT_MS: '1200',
+      WORKER_HEALTH_URL: 'https://worker.example.com/health',
+    }),
+    {
+      timeoutMs: 1200,
+      url: 'https://worker.example.com/health',
+    },
+  )
+})
+
+test('resolveTriggerRuntimeHealth reports ok when trigger project ref and secret exist', () => {
+  assert.deepEqual(
+    resolveTriggerRuntimeHealth({
+      TRIGGER_API_URL: 'https://api.trigger.dev',
+      TRIGGER_PROJECT_REF: 'proj_test_123',
+      TRIGGER_SECRET_KEY: 'tr_dev_secret',
+    }),
+    {
+      apiUrl: 'https://api.trigger.dev',
+      projectRef: 'proj_test_123',
+      projectRefConfigured: true,
+      secretKeyConfigured: true,
+      status: 'ok',
+    },
+  )
+})
+
+test('checkJobsHealth and checkWorkerHealth return unknown when probe is not configured', async () => {
+  const [jobsProbe, workerProbe] = await Promise.all([
+    checkJobsHealth(null),
+    checkWorkerHealth(null),
+  ])
+
+  assert.equal(jobsProbe.status, 'unknown')
+  assert.match(jobsProbe.detail, /not configured/)
+  assert.equal(workerProbe.status, 'unknown')
+  assert.match(workerProbe.detail, /not configured/)
 })

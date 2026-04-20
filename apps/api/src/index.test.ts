@@ -132,10 +132,25 @@ test('health endpoint responds without crashing the app', async () => {
         status: string
       }
       database: string
+      jobs: {
+        detail: string
+        status: string
+      }
       redis: string
       telemetry: {
         openTelemetry: string
         sentry: string
+      }
+      trigger: {
+        apiUrl: string | null
+        projectRef: string | null
+        projectRefConfigured: boolean
+        secretKeyConfigured: boolean
+        status: string
+      }
+      worker: {
+        detail: string
+        status: string
       }
     }
     status: string
@@ -150,9 +165,16 @@ test('health endpoint responds without crashing the app', async () => {
   assert.equal(typeof payload.checks.ai.openaiApiKeyConfigured, 'boolean')
   assert.ok(payload.checks.ai.reason.length > 0)
   assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.database))
+  assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.jobs.status))
+  assert.ok(payload.checks.jobs.detail.length > 0)
   assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.redis))
   assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.telemetry.openTelemetry))
   assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.telemetry.sentry))
+  assert.equal(typeof payload.checks.trigger.projectRefConfigured, 'boolean')
+  assert.equal(typeof payload.checks.trigger.secretKeyConfigured, 'boolean')
+  assert.ok(['ok', 'unknown'].includes(payload.checks.trigger.status))
+  assert.ok(['ok', 'error', 'unknown'].includes(payload.checks.worker.status))
+  assert.ok(payload.checks.worker.detail.length > 0)
   assert.ok(['ok', 'degraded'].includes(payload.status))
 })
 

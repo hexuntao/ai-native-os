@@ -12,6 +12,7 @@
     "infra:up": "docker compose -f docker/docker-compose.yml up -d",
     "jobs:start": "tsx scripts/with-local-env.ts pnpm --filter @ai-native-os/jobs start",
     "lint": "turbo run lint",
+    "release:preflight": "tsx scripts/with-local-env.ts tsx apps/api/src/lib/release/preflight.cli.ts",
     "release:backup:verify": "tsx scripts/with-local-env.ts tsx apps/api/src/lib/release/backup-verify.cli.ts",
     "release:smoke": "tsx scripts/with-local-env.ts tsx apps/api/src/lib/release/smoke-check.cli.ts",
     "test": "turbo run test",

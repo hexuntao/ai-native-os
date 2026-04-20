@@ -71,6 +71,14 @@ function createServerIncidentQueue(
     })
   }
 
+  if (payload.health.jobs.status === 'error' || payload.health.worker.status === 'error') {
+    incidents.push({
+      detail: `jobs:${payload.health.jobs.detail} · worker:${payload.health.worker.detail}`,
+      label: 'Runtime dependency probe failed',
+      tone: 'warning',
+    })
+  }
+
   if (payload.health.telemetry.openTelemetry !== 'ok' || payload.health.telemetry.sentry !== 'ok') {
     incidents.push({
       detail: '遥测不完整会降低故障定位速度，尤其影响发布后事故回放。',
@@ -117,7 +125,7 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
       signals={[
         {
           badge: payload.health.api,
-          detail: `database:${payload.health.database} · redis:${payload.health.redis}`,
+          detail: `database:${payload.health.database} · redis:${payload.health.redis} · jobs:${payload.health.jobs.status} · worker:${payload.health.worker.status}`,
           label: 'Overall status',
           tone: resolveHealthTone(payload.health.status),
           value: payload.health.status,
@@ -161,6 +169,15 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
               <Badge variant={payload.health.redis === 'ok' ? 'accent' : 'secondary'}>
                 redis:{payload.health.redis}
               </Badge>
+              <Badge variant={payload.health.jobs.status === 'ok' ? 'accent' : 'secondary'}>
+                jobs:{payload.health.jobs.status}
+              </Badge>
+              <Badge variant={payload.health.worker.status === 'ok' ? 'accent' : 'secondary'}>
+                worker:{payload.health.worker.status}
+              </Badge>
+              <Badge variant={payload.health.trigger.status === 'ok' ? 'accent' : 'secondary'}>
+                trigger:{payload.health.trigger.status}
+              </Badge>
               <Badge
                 variant={payload.health.telemetry.openTelemetry === 'ok' ? 'accent' : 'secondary'}
               >
@@ -175,8 +192,8 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
           <div className="grid gap-1 rounded-[var(--radius-lg)] border border-border/70 bg-background/70 p-4">
             <p className="text-sm font-medium text-foreground">Runtime boundary</p>
             <p className="text-sm leading-6 text-muted-foreground">
-              当前页面只覆盖 API 运行态、Mastra 注册表与基础遥测，不直接声称 worker 或 queue
-              的真实生产可用性。
+              当前页面会优先展示 API、jobs、worker 与 Trigger
+              的接线/探针状态；未配置探针时会显式显示 `unknown`，不再伪装成“整体健康”。
             </p>
           </div>
         </div>
@@ -211,6 +228,30 @@ export default async function MonitorServerPage(): Promise<ReactNode> {
                     <TableRow>
                       <TableCell className="font-medium">Redis status</TableCell>
                       <TableCell>{payload.health.redis}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Jobs status</TableCell>
+                      <TableCell>{payload.health.jobs.status}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Jobs detail</TableCell>
+                      <TableCell>{payload.health.jobs.detail}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Worker status</TableCell>
+                      <TableCell>{payload.health.worker.status}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Worker detail</TableCell>
+                      <TableCell>{payload.health.worker.detail}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Trigger runtime</TableCell>
+                      <TableCell>{payload.health.trigger.status}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Trigger projectRef</TableCell>
+                      <TableCell>{payload.health.trigger.projectRef ?? 'not configured'}</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell className="font-medium">OpenTelemetry status</TableCell>

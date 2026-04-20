@@ -23,7 +23,12 @@ import {
 import { aiRuntimeCapabilitySchema } from './ai-runtime'
 import { aiAuditLogEntrySchema } from './ai-tools'
 import { paginatedResponseSchema } from './common'
-import { dependencyHealthStatusSchema, telemetryHealthSchema } from './health'
+import {
+  dependencyHealthStatusSchema,
+  dependencyProbeSchema,
+  telemetryHealthSchema,
+  triggerRuntimeHealthSchema,
+} from './health'
 import { withOpenApiSchemaDoc } from './openapi-doc'
 
 const queryPaginationSchema = z.object({
@@ -2477,6 +2482,7 @@ export const serverSummarySchema = withOpenApiSchemaDoc(
         }),
         ai: aiRuntimeCapabilitySchema,
         database: dependencyHealthStatusSchema,
+        jobs: dependencyProbeSchema,
         redis: dependencyHealthStatusSchema,
         status: withOpenApiSchemaDoc(z.enum(['degraded', 'ok']), {
           title: 'ServerSummaryHealthStatus',
@@ -2484,6 +2490,8 @@ export const serverSummarySchema = withOpenApiSchemaDoc(
           examples: ['ok'],
         }),
         telemetry: telemetryHealthSchema,
+        trigger: triggerRuntimeHealthSchema,
+        worker: dependencyProbeSchema,
       }),
       {
         title: 'ServerSummaryHealth',
@@ -2549,11 +2557,26 @@ export const serverSummarySchema = withOpenApiSchemaDoc(
             unavailableSurfaces: ['copilot', 'agents'],
           },
           database: 'ok',
+          jobs: {
+            detail: 'service=@ai-native-os/jobs, tasks=3, scheduled=2',
+            status: 'ok',
+          },
           redis: 'ok',
           status: 'ok',
           telemetry: {
             openTelemetry: 'unknown',
             sentry: 'unknown',
+          },
+          trigger: {
+            apiUrl: 'https://api.trigger.dev',
+            projectRef: 'proj_live_123',
+            projectRefConfigured: true,
+            secretKeyConfigured: true,
+            status: 'ok',
+          },
+          worker: {
+            detail: 'service=@ai-native-os/worker, queues=2, r2=true',
+            status: 'ok',
           },
         },
         runtime: {

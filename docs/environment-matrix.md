@@ -22,6 +22,7 @@ Scope: Phase 6 `P6-T1` + `P6-F1` + `P6-T2` + `P6-T3` + `P6-T4` + `P6-T5`
   - `apps/worker/wrangler.toml`
   - `apps/jobs/trigger.config.ts` + package deploy scripts
 - 当前仓库已经落地的 release hardening 入口：
+  - `pnpm release:preflight`
   - `pnpm release:smoke`
   - `pnpm release:backup:verify`
   - `docs/release-playbook.md`
@@ -49,7 +50,7 @@ pnpm dev
 
 说明：
 
-- 根脚本 `pnpm dev`、`pnpm db:migrate`、`pnpm db:seed`、`pnpm release:smoke`、`pnpm jobs:start` 会自动加载 `.env.local`
+- 根脚本 `pnpm dev`、`pnpm db:migrate`、`pnpm db:seed`、`pnpm release:preflight`、`pnpm release:smoke`、`pnpm jobs:start` 会自动加载 `.env.local`
 - 如果当前 shell 已显式导出同名变量，根脚本不会覆盖这些值
 - `pnpm dev` 会启动 `web + api + jobs(dev)` 的开发链路，适合日常开发
 - `PORT` 只保留给 `api`；`jobs` 自托管健康服务固定使用 `JOBS_PORT`，默认 `3040`
@@ -69,6 +70,14 @@ JOBS_HEALTH_URL=http://localhost:3040/health \
 pnpm release:smoke
 ```
 
+- 若要把 `worker` 也纳入 smoke，需要显式提供可访问的 worker 健康地址：
+
+```bash
+RELEASE_INCLUDE_WORKER=1 \
+WORKER_HEALTH_URL=http://localhost:8787/health \
+pnpm release:smoke
+```
+
 ## 2. 当前运行时环境变量
 
 下表只列出仓库当前代码真实读取的环境变量，也是当前 `.env.example` 必须覆盖的最小合同。
@@ -80,12 +89,15 @@ pnpm release:smoke
 | `API_URL` | `web`, `api`, `auth` | all runtimes | no | API 基础地址；Vercel preview 未显式配置时会临时回退到当前部署域名，但完整数据面仍建议显式提供 |
 | `PORT` | `api` | Node runtime | no | `api` 默认 `3001` |
 | `JOBS_PORT` | `jobs` | jobs self-hosted runtime | no | `jobs` 自托管健康服务默认 `3040`；在当前 Docker 拓扑里该端口仅对 compose 内部网络开放 |
+| `JOBS_HEALTH_URL` | `api`, `release scripts` | when jobs health probe is enabled | no | API `/health` 与发布 smoke 的 jobs 跨进程探针地址 |
+| `WORKER_HEALTH_URL` | `api`, `release scripts` | when worker health probe is enabled | no | API `/health` 与发布 smoke 的 worker 探针地址 |
 | `DATABASE_URL` | `db`, `api`, `jobs` | all non-test server runtimes | yes | PostgreSQL 连接串 |
 | `REDIS_URL` | `api` | Redis URL 可用时 | yes | 健康检查与后续 Redis 连接入口 |
 | `REDIS_HOST` | `api` | 不使用 `REDIS_URL` 时 | no | 与 `REDIS_PORT`/`REDIS_PASSWORD` 组合使用 |
 | `REDIS_PORT` | `api` | 不使用 `REDIS_URL` 时 | no | Redis 端口 |
 | `REDIS_PASSWORD` | `api` | Redis 开启鉴权时 | yes | Redis 密码 |
 | `REDIS_HEALTH_TIMEOUT_MS` | `api` | optional | no | Redis 健康探针超时 |
+| `DEPENDENCY_HEALTH_TIMEOUT_MS` | `api`, `release scripts` | optional | no | jobs / worker HTTP 健康探针超时 |
 | `BETTER_AUTH_SECRET` | `auth`, `api`, `web` | production required | yes | Better Auth 签名密钥 |
 | `BETTER_AUTH_URL` | `auth`, `api`, `web` | recommended | no | Better Auth 基础地址 |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | `auth` | cross-origin auth setups | no | 逗号分隔 origin 列表 |

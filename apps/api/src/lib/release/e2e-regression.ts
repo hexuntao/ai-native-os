@@ -13,7 +13,7 @@ import { resolveAiRuntimeCapability } from '../../mastra/capabilities'
 import { createExternalMcpClient, discoverExternalMcpSnapshot } from '../../mastra/mcp/client'
 import { mastraMcpEndpointPath } from '../../mastra/mcp/server'
 import { reportScheduleWorkflowOutputSchema } from '../../mastra/workflows/report-schedule'
-import { type ReleaseSmokeSummary, runReleaseSmokeChecks } from './smoke-check'
+import { type ReleasePreflightSummary, runReleasePreflight } from './preflight'
 
 export type RegressionStepStatus = 'failed' | 'passed' | 'skipped'
 export type ReleaseTrustLevel = 'high' | 'medium'
@@ -41,7 +41,7 @@ export interface FinalRegressionEnvironment {
 
 export interface FinalRegressionDependencies {
   now: () => Date
-  runReleaseSmoke: () => Promise<ReleaseSmokeSummary>
+  runReleasePreflight: () => Promise<ReleasePreflightSummary>
 }
 
 export class FinalRegressionError extends Error {
@@ -86,7 +86,7 @@ interface TemporaryServerHandle {
 
 const defaultFinalRegressionDependencies: FinalRegressionDependencies = {
   now: () => new Date(),
-  runReleaseSmoke: () => runReleaseSmokeChecks(),
+  runReleasePreflight: () => runReleasePreflight(),
 }
 
 /**
@@ -577,7 +577,7 @@ export async function runApplicationRegressionBundle(): Promise<RegressionStepRe
 }
 
 /**
- * 运行最终回归所需的 release smoke，或在显式跳过时留下可审计记录。
+ * 运行最终回归所需的发布预检，或在显式跳过时留下可审计记录。
  */
 export async function runReleaseSmokeRegressionStep(
   environment: FinalRegressionEnvironment,
@@ -591,10 +591,14 @@ export async function runReleaseSmokeRegressionStep(
       }
     }
 
-    const summary = await dependencies.runReleaseSmoke()
+    const summary = await dependencies.runReleasePreflight()
+    const backupLabel =
+      summary.backupVerification.status === 'passed'
+        ? 'backup=passed'
+        : `backup=${summary.backupVerification.status}`
 
     return {
-      detail: `status=${summary.status}, probes=${summary.results.length}`,
+      detail: `status=${summary.status}, ${backupLabel}, probes=${summary.releaseSmoke.results.length}`,
       warnings: summary.warnings,
     }
   })

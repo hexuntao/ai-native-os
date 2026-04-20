@@ -27,6 +27,9 @@ Scope: Phase 6 `P6-T5`
 当前仓库已经提供两条可直接执行的发布校验命令：
 
 ```bash
+# 统一发布预检：可选备份校验 + web/api/jobs/worker smoke
+pnpm release:preflight
+
 # 最终本地回归：lint / typecheck / migrate / seed / 权限 / MCP / audit / test / build / release smoke
 pnpm e2e:final
 
@@ -39,15 +42,21 @@ BACKUP_FILE=./backups/ai-native-os.dump pnpm release:backup:verify
 
 脚本职责：
 
+- `pnpm release:preflight`
+  - 统一执行可选备份校验与 `release:smoke`
+  - 当提供 `BACKUP_FILE` 时会自动执行 `release:backup:verify`
+  - 当显式设置 `RELEASE_REQUIRE_BACKUP_VERIFY=true` 时，缺少 `BACKUP_FILE` 直接失败
+  - 输出结构化 JSON，适合 CI/CD 或人工放行复核
 - `pnpm e2e:final`
   - 串行执行 `pnpm lint`、`pnpm typecheck`、`pnpm db:migrate`、`pnpm db:seed`、应用内权限/MCP/AI audit 回归、`pnpm test`、`pnpm build`
-  - 默认要求当前 `APP_URL` / `API_URL` 指向一个已运行的可访问栈，并在最后执行 `release:smoke`
+  - 默认要求当前 `APP_URL` / `API_URL` 指向一个已运行的可访问栈，并在最后执行 `release:preflight`
   - 若只想先跑仓库级与应用内回归，可显式设置 `E2E_RELEASE_SMOKE_MODE=skip`
   - 输出结构化 JSON，总结每一步的状态、耗时、warning 与最终 `releaseTrust`
 - `pnpm release:smoke`
   - 默认检查 `APP_URL`、`API_URL`
   - 校验 `/health`、`/api/v1/system/ping`、`/healthz`、首页可访问
   - 可通过 `RELEASE_INCLUDE_JOBS=1` 和 `JOBS_HEALTH_URL` 增加 jobs 健康探针，但前提是该地址对脚本执行环境真实可达
+  - 可通过 `RELEASE_INCLUDE_WORKER=1` 和 `WORKER_HEALTH_URL` 增加 worker 健康探针
   - 当前自托管 Docker 拓扑里的 `jobs` 仅在 compose 内部网络暴露，因此应通过容器内探针验证，不要误写成 `http://localhost:3040/health`
 - `pnpm release:backup:verify`
   - 校验 `BACKUP_FILE` 是否存在、可读、大小达标、未过期
@@ -61,6 +70,7 @@ BACKUP_FILE=./backups/ai-native-os.dump pnpm release:backup:verify
 ### 3.1 必须通过的仓库级检查
 
 - [ ] `pnpm e2e:final`
+- [ ] `pnpm release:preflight`
 - [ ] `pnpm lint`
 - [ ] `pnpm typecheck`
 - [ ] `pnpm test`

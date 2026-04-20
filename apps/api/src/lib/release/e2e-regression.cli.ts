@@ -94,10 +94,10 @@ async function runCommandStep(
 async function main(
   dependencies: FinalRegressionDependencies = {
     now: () => new Date(),
-    runReleaseSmoke: async () => {
-      const { runReleaseSmokeChecks } = await import('./smoke-check')
+    runReleasePreflight: async () => {
+      const { runReleasePreflight } = await import('./preflight')
 
-      return await runReleaseSmokeChecks()
+      return await runReleasePreflight()
     },
   },
 ): Promise<void> {

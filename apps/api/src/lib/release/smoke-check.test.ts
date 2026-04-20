@@ -31,8 +31,10 @@ function createSmokeEnvironment(): ReleaseSmokeEnvironment {
     apiBaseUrl: 'https://api.example.com',
     appBaseUrl: 'https://app.example.com',
     includeJobs: true,
+    includeWorker: true,
     jobsHealthUrl: 'https://jobs.example.com/health',
     timeoutMs: 3000,
+    workerHealthUrl: 'https://worker.example.com/health',
   }
 }
 
@@ -42,8 +44,10 @@ test('resolveReleaseSmokeEnvironment keeps local defaults when no overrides exis
   assert.equal(environment.appBaseUrl, 'http://localhost:3000')
   assert.equal(environment.apiBaseUrl, 'http://localhost:3001')
   assert.equal(environment.includeJobs, false)
+  assert.equal(environment.includeWorker, false)
   assert.equal(environment.jobsHealthUrl, null)
   assert.equal(environment.timeoutMs, 15000)
+  assert.equal(environment.workerHealthUrl, null)
 })
 
 test('resolveReleaseSmokeEnvironment honors release overrides and jobs health URL', () => {
@@ -54,14 +58,18 @@ test('resolveReleaseSmokeEnvironment honors release overrides and jobs health UR
     RELEASE_API_URL: 'https://api.example.com',
     RELEASE_APP_URL: 'https://app.example.com/',
     RELEASE_INCLUDE_JOBS: 'true',
+    RELEASE_INCLUDE_WORKER: 'true',
     RELEASE_TIMEOUT_MS: '9000',
+    WORKER_HEALTH_URL: 'https://worker.example.com',
   })
 
   assert.equal(environment.appBaseUrl, 'https://app.example.com')
   assert.equal(environment.apiBaseUrl, 'https://api.example.com')
   assert.equal(environment.includeJobs, true)
+  assert.equal(environment.includeWorker, true)
   assert.equal(environment.jobsHealthUrl, 'https://jobs.example.com/health')
   assert.equal(environment.timeoutMs, 9000)
+  assert.equal(environment.workerHealthUrl, 'https://worker.example.com/health')
 })
 
 test('runReleaseSmokeChecks validates app, api, and jobs endpoints', async () => {
@@ -85,10 +93,25 @@ test('runReleaseSmokeChecks validates app, api, and jobs endpoints', async () =>
               unavailableSurfaces: ['copilot', 'remote-embeddings'],
             },
             database: 'ok',
+            jobs: {
+              detail: 'service=@ai-native-os/jobs, tasks=1, scheduled=1',
+              status: 'ok',
+            },
             redis: 'unknown',
             telemetry: {
               openTelemetry: 'unknown',
               sentry: 'unknown',
+            },
+            trigger: {
+              apiUrl: 'https://api.trigger.dev',
+              projectRef: 'proj_test_123',
+              projectRefConfigured: true,
+              secretKeyConfigured: true,
+              status: 'ok',
+            },
+            worker: {
+              detail: 'service=@ai-native-os/worker, queues=2, r2=true',
+              status: 'ok',
             },
           },
           status: 'ok',
@@ -137,6 +160,23 @@ test('runReleaseSmokeChecks validates app, api, and jobs endpoints', async () =>
           timestamp: '2026-04-02T12:00:00.000Z',
         }),
       ],
+      [
+        'https://worker.example.com/health',
+        Response.json({
+          bindings: {
+            availability: {
+              cacheInvalidationQueueProducer: true,
+              notificationQueueProducer: true,
+              r2Bucket: true,
+            },
+          },
+          name: '@ai-native-os/worker',
+          queues: ['notifications', 'cache-invalidation'],
+          routes: ['/health', '/bindings'],
+          smokeTestPath: '/health',
+          status: 'deployment-contract-ready',
+        }),
+      ],
     ]),
   )
 
@@ -146,11 +186,11 @@ test('runReleaseSmokeChecks validates app, api, and jobs endpoints', async () =>
   })
 
   assert.equal(summary.status, 'ok')
-  assert.equal(summary.results.length, 5)
+  assert.equal(summary.results.length, 6)
   assert.equal(summary.warnings.length, 4)
   assert.deepEqual(
     summary.results.map((result) => result.name),
-    ['api-health', 'api-ping', 'web-health', 'web-root', 'jobs-health'],
+    ['api-health', 'api-ping', 'web-health', 'web-root', 'jobs-health', 'worker-health'],
   )
 })
 
@@ -158,7 +198,9 @@ test('runReleaseSmokeChecks fails when the API database check is not healthy', a
   const environment = {
     ...createSmokeEnvironment(),
     includeJobs: false,
+    includeWorker: false,
     jobsHealthUrl: null,
+    workerHealthUrl: null,
   }
   const fetcher = createFetchStub(
     new Map([
@@ -179,10 +221,25 @@ test('runReleaseSmokeChecks fails when the API database check is not healthy', a
               unavailableSurfaces: ['copilot', 'remote-embeddings'],
             },
             database: 'error',
+            jobs: {
+              detail: 'service=@ai-native-os/jobs, tasks=1, scheduled=1',
+              status: 'ok',
+            },
             redis: 'unknown',
             telemetry: {
               openTelemetry: 'unknown',
               sentry: 'unknown',
+            },
+            trigger: {
+              apiUrl: 'https://api.trigger.dev',
+              projectRef: 'proj_test_123',
+              projectRefConfigured: true,
+              secretKeyConfigured: true,
+              status: 'ok',
+            },
+            worker: {
+              detail: 'service=@ai-native-os/worker, queues=2, r2=true',
+              status: 'ok',
             },
           },
           status: 'degraded',
@@ -249,10 +306,25 @@ test('runReleaseSmokeChecks reports probe context when jobs health is unreachabl
               unavailableSurfaces: ['copilot', 'remote-embeddings'],
             },
             database: 'ok',
+            jobs: {
+              detail: 'service=@ai-native-os/jobs, tasks=1, scheduled=1',
+              status: 'ok',
+            },
             redis: 'unknown',
             telemetry: {
               openTelemetry: 'unknown',
               sentry: 'unknown',
+            },
+            trigger: {
+              apiUrl: 'https://api.trigger.dev',
+              projectRef: 'proj_test_123',
+              projectRefConfigured: true,
+              secretKeyConfigured: true,
+              status: 'ok',
+            },
+            worker: {
+              detail: 'service=@ai-native-os/worker, queues=2, r2=true',
+              status: 'ok',
             },
           },
           status: 'ok',
@@ -324,10 +396,25 @@ test('runReleaseSmokeChecks executes probes sequentially to avoid cold-start con
               unavailableSurfaces: ['copilot', 'remote-embeddings'],
             },
             database: 'ok',
+            jobs: {
+              detail: 'service=@ai-native-os/jobs, tasks=1, scheduled=1',
+              status: 'ok',
+            },
             redis: 'unknown',
             telemetry: {
               openTelemetry: 'unknown',
               sentry: 'unknown',
+            },
+            trigger: {
+              apiUrl: 'https://api.trigger.dev',
+              projectRef: 'proj_test_123',
+              projectRefConfigured: true,
+              secretKeyConfigured: true,
+              status: 'ok',
+            },
+            worker: {
+              detail: 'service=@ai-native-os/worker, queues=2, r2=true',
+              status: 'ok',
             },
           },
           status: 'ok',
@@ -386,6 +473,29 @@ test('runReleaseSmokeChecks executes probes sequentially to avoid cold-start con
           status: 'ok',
           timestamp: '2026-04-02T12:00:00.000Z',
         })
+      case 'https://worker.example.com/health':
+        assert.deepEqual(callOrder, [
+          'https://api.example.com/health',
+          'https://api.example.com/api/v1/system/ping',
+          'https://app.example.com/healthz',
+          'https://app.example.com/',
+          'https://jobs.example.com/health',
+          url,
+        ])
+        return Response.json({
+          bindings: {
+            availability: {
+              cacheInvalidationQueueProducer: true,
+              notificationQueueProducer: true,
+              r2Bucket: true,
+            },
+          },
+          name: '@ai-native-os/worker',
+          queues: ['notifications', 'cache-invalidation'],
+          routes: ['/health', '/bindings'],
+          smokeTestPath: '/health',
+          status: 'deployment-contract-ready',
+        })
       default:
         throw new Error(`Unexpected fetch URL: ${url}`)
     }
@@ -398,6 +508,6 @@ test('runReleaseSmokeChecks executes probes sequentially to avoid cold-start con
 
   assert.deepEqual(
     summary.results.map((result) => result.name),
-    ['api-health', 'api-ping', 'web-health', 'web-root', 'jobs-health'],
+    ['api-health', 'api-ping', 'web-health', 'web-root', 'jobs-health', 'worker-health'],
   )
 })
