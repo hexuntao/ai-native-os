@@ -9,6 +9,14 @@ import type { NavigationItem } from '@/config/nav-config'
 import type { AuthenticatedShellState } from '@/lib/api'
 import type { NavigationGroup } from '@/lib/shell'
 import { isNavigationItemActive } from '@/lib/shell'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+  useSidebar,
+} from './sidebar'
 
 interface AppSidebarProps {
   groupedNavigation: readonly NavigationGroup[]
@@ -23,27 +31,49 @@ function BrandMark(): ReactNode {
   )
 }
 
-function SidebarItem({ item, pathname }: { item: NavigationItem; pathname: string }): ReactNode {
+function resolveNavigationGlyph(label: string): string {
+  return label.slice(0, 1).toUpperCase()
+}
+
+function resolveUserInitial(name: string): string {
+  return name.slice(0, 1).toUpperCase()
+}
+
+function SidebarItem({
+  item,
+  open,
+  pathname,
+}: {
+  item: NavigationItem
+  open: boolean
+  pathname: string
+}): ReactNode {
   const isActive = isNavigationItemActive(item.href, pathname)
 
   return (
     <li key={item.href}>
       <Link
         className={cn(
-          'flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors',
+          'flex items-center rounded-xl text-sm font-medium transition-colors',
+          open ? 'gap-3 px-2.5 py-2' : 'justify-center px-0 py-2.5',
           isActive
             ? 'bg-accent text-accent-foreground'
             : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         )}
         href={item.href as Route}
+        title={item.label}
       >
         <span
           className={cn(
-            'h-2 w-2 rounded-full bg-border transition-colors',
-            isActive && 'bg-current',
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] uppercase tracking-[0.12em]',
+            isActive
+              ? 'border-primary/20 bg-background/80 text-foreground'
+              : 'border-border/70 bg-background text-muted-foreground',
           )}
-        />
-        <span className="truncate">{item.label}</span>
+        >
+          {resolveNavigationGlyph(item.label)}
+        </span>
+        {open ? <span className="truncate">{item.label}</span> : null}
       </Link>
     </li>
   )
@@ -51,67 +81,88 @@ function SidebarItem({ item, pathname }: { item: NavigationItem; pathname: strin
 
 export function AppSidebar({ groupedNavigation, shellState }: AppSidebarProps): ReactNode {
   const pathname = usePathname()
+  const { open } = useSidebar()
 
   return (
-    <aside className="hidden h-screen w-64 flex-col border-r border-border/80 bg-background xl:flex">
-      <div className="border-b border-border/80 px-4 py-4">
-        <div className="flex items-start gap-3">
+    <Sidebar>
+      <SidebarHeader className="border-b border-border/80 px-3 py-3">
+        <div className={cn('flex items-start gap-3', !open && 'justify-center')}>
           <BrandMark />
-          <div className="min-w-0">
-            <p className="truncate text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-              AI Native OS
-            </p>
-            <h1 className="mt-1 text-base font-semibold text-foreground">Control Plane</h1>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              AI lifecycle, governance, runtime inspection, and human review.
-            </p>
-          </div>
+          {open ? (
+            <div className="min-w-0">
+              <p className="truncate text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+                AI Native OS
+              </p>
+              <h1 className="mt-1 text-base font-semibold text-foreground">Control Plane</h1>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                AI lifecycle, governance, runtime inspection, and human review.
+              </p>
+            </div>
+          ) : null}
         </div>
-      </div>
+      </SidebarHeader>
 
-      <nav aria-label="Primary navigation" className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="grid gap-5">
+      <SidebarContent className="px-3 py-4">
+        <nav aria-label="Primary navigation" className="grid gap-5">
           {groupedNavigation.map((group) => (
             <section className="grid gap-2" key={group.key}>
-              <div className="px-2">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {group.label}
-                </p>
-              </div>
+              {open ? (
+                <div className="px-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {group.label}
+                  </p>
+                </div>
+              ) : (
+                <div className="mx-auto h-px w-8 bg-border/70" />
+              )}
               <ul className="grid gap-1">
                 {group.items.map((item) => (
-                  <SidebarItem item={item} key={item.href} pathname={pathname} />
+                  <SidebarItem item={item} key={item.href} open={open} pathname={pathname} />
                 ))}
               </ul>
             </section>
           ))}
-        </div>
-      </nav>
+        </nav>
+      </SidebarContent>
 
-      <div className="border-t border-border/80 px-4 py-4">
-        <div className="rounded-2xl border border-border/80 bg-background/80 p-3 shadow-sm">
-          <p className="text-sm font-medium text-foreground">{shellState.session.user.name}</p>
-          <p className="mt-1 truncate text-sm text-muted-foreground">
-            {shellState.session.user.email}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {shellState.roleCodes.map((roleCode) => (
-              <Badge key={roleCode} variant="secondary">
-                {roleCode}
-              </Badge>
-            ))}
-          </div>
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            {shellState.permissionRuleCount} permission rules · {shellState.hiddenNavigationCount}{' '}
-            hidden surfaces
-          </p>
+      <SidebarFooter className="border-t border-border/80 px-3 py-3">
+        <div
+          className={cn(
+            'rounded-2xl border border-border/80 bg-background/80 shadow-sm',
+            open ? 'p-3' : 'flex items-center justify-center p-2',
+          )}
+        >
+          {open ? (
+            <>
+              <p className="text-sm font-medium text-foreground">{shellState.session.user.name}</p>
+              <p className="mt-1 truncate text-sm text-muted-foreground">
+                {shellState.session.user.email}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {shellState.roleCodes.map((roleCode) => (
+                  <Badge key={roleCode} variant="secondary">
+                    {roleCode}
+                  </Badge>
+                ))}
+              </div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                {shellState.permissionRuleCount} permission rules ·{' '}
+                {shellState.hiddenNavigationCount} hidden surfaces
+              </p>
+            </>
+          ) : (
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-foreground">
+              {resolveUserInitial(shellState.session.user.name)}
+            </span>
+          )}
         </div>
         <form action="/auth/sign-out" method="POST">
           <Button className="mt-3 w-full" type="submit" variant="secondary">
-            Sign out
+            {open ? 'Sign out' : 'Out'}
           </Button>
         </form>
-      </div>
-    </aside>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
   )
 }
