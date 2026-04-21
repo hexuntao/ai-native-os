@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Icons } from '@/components/icons';
 import Link from 'next/link';
+import type { Route } from 'next';
 import {
   Infobar,
   InfobarContent,
@@ -69,7 +70,7 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
                           {section.links.map((link) => (
                             <li key={link.title}>
                               <Link
-                                href={link.url}
+                                href={link.url as Route}
                                 className='text-primary flex items-center gap-1.5 text-sm underline'
                                 target='_blank'
                                 rel='noopener noreferrer'

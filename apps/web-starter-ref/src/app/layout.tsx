@@ -16,8 +16,8 @@ const META_THEME_COLORS = {
 };
 
 export const metadata: Metadata = {
-  title: 'Next Shadcn',
-  description: 'Basic dashboard with Next.js and Shadcn'
+  title: 'AI Native OS',
+  description: 'AI-native control plane rebuilt on the next-shadcn-dashboard-starter shell.'
 };
 
 export const viewport: Viewport = {

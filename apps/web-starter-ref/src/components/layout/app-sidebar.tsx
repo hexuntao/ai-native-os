@@ -1,5 +1,10 @@
 'use client';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+import * as React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { Icons } from '@/components/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,78 +23,46 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail
 } from '@/components/ui/sidebar';
-import { navGroups } from '@/config/nav-config';
-import { useMediaQuery } from '@/hooks/use-media-query';
-import { useFilteredNavGroups } from '@/hooks/use-nav';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import * as React from 'react';
-import { Icons } from '../icons';
+import { useShellContext } from '@/components/layout/shell-provider';
+import { isNavigationItemActive } from '@/lib/shell';
 
-export default function AppSidebar() {
+export default function AppSidebar(): ReactNode {
   const pathname = usePathname();
-  const { isOpen } = useMediaQuery();
-  const filteredGroups = useFilteredNavGroups(navGroups);
-
-  React.useEffect(() => {
-    // Side effects based on sidebar state changes
-  }, [isOpen]);
+  const { groupedNavigation, shellState } = useShellContext();
 
   return (
     <Sidebar collapsible='icon'>
-      <SidebarHeader />
+      <SidebarHeader className='border-sidebar-border border-b px-3 py-3'>
+        <div className='flex items-center gap-3 px-2'>
+          <div className='bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-xl'>
+            <Icons.logo className='size-4' />
+          </div>
+          <div className='min-w-0'>
+            <p className='text-muted-foreground truncate text-[11px] tracking-[0.24em] uppercase'>
+              AI Native OS
+            </p>
+            <p className='truncate text-sm font-semibold'>Control Plane</p>
+          </div>
+        </div>
+      </SidebarHeader>
+
       <SidebarContent className='overflow-x-hidden'>
-        {filteredGroups.map((group) => (
-          <SidebarGroup key={group.label || 'ungrouped'} className='py-0'>
-            {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+        {groupedNavigation.map((group) => (
+          <SidebarGroup key={group.key} className='py-0'>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
               {group.items.map((item) => {
-                const Icon = item.icon ? Icons[item.icon] : Icons.logo;
-                return item?.items && item?.items?.length > 0 ? (
-                  <Collapsible
-                    key={item.title}
-                    asChild
-                    defaultOpen={item.isActive}
-                    className='group/collapsible'
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton tooltip={item.title} isActive={pathname === item.url}>
-                          {item.icon && <Icon />}
-                          <span>{item.title}</span>
-                          <Icons.chevronRight className='ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90' />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {item.items?.map((subItem) => (
-                            <SidebarMenuSubItem key={subItem.title}>
-                              <SidebarMenuSubButton asChild isActive={pathname === subItem.url}>
-                                <Link href={subItem.url}>
-                                  <span>{subItem.title}</span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                ) : (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip={item.title}
-                      isActive={pathname === item.url}
-                    >
-                      <Link href={item.url}>
+                const Icon = Icons[item.icon] ?? Icons.logo;
+                const isActive = isNavigationItemActive(item.href, pathname);
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild tooltip={item.label} isActive={isActive}>
+                      <Link href={item.href}>
                         <Icon />
-                        <span>{item.title}</span>
+                        <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -99,6 +72,7 @@ export default function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -108,7 +82,12 @@ export default function AppSidebar() {
                   size='lg'
                   className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
                 >
-                  <span className='truncate'>Account</span>
+                  <div className='grid min-w-0 flex-1 text-left text-sm leading-tight'>
+                    <span className='truncate font-medium'>{shellState.session.user.name}</span>
+                    <span className='text-muted-foreground truncate text-xs'>
+                      {shellState.session.user.email}
+                    </span>
+                  </div>
                   <Icons.chevronsDown className='ml-auto size-4' />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
@@ -119,14 +98,21 @@ export default function AppSidebar() {
                 sideOffset={4}
               >
                 <DropdownMenuLabel className='p-0 font-normal'>
-                  <div className='text-muted-foreground px-1 py-1.5 text-sm'>
-                    Sign in to manage your account
+                  <div className='px-2 py-2'>
+                    <p className='text-sm font-medium'>{shellState.session.user.name}</p>
+                    <p className='text-muted-foreground text-xs'>
+                      {shellState.roleCodes.join(' · ') || 'authenticated'}
+                    </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Icons.notification className='mr-2 h-4 w-4' />
-                  Notifications
+                <DropdownMenuItem asChild>
+                  <form action='/auth/sign-out' className='w-full' method='POST'>
+                    <button className='flex w-full items-center gap-2' type='submit'>
+                      <Icons.logout className='size-4' />
+                      <span>Sign out</span>
+                    </button>
+                  </form>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
