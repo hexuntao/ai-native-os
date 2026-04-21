@@ -1,6 +1,6 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-20
+Last Updated: 2026-04-21
 Current Mode: Post-Phase 6 backlog ready
 Current Phase: Post-Phase 6 `Hardening & Documentation Rollout`
 Overall Status: `phase_6_complete_e2e_remediation_closed`
@@ -128,6 +128,10 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | API-C2 | Post-P6 | Standardize API error contracts, error codes, and OpenAPI error examples across REST-compatible routes | done | API-C1 | lint + typecheck + test + build |
 | API-C3 | Post-P6 | Extract shared pagination/filter/sort helpers for catalog-style API routes to reduce route drift | done | API-C2 | lint + typecheck + test + build |
 | API-C4 | Post-P6 | Expand API regression matrix and cross-surface smoke coverage for helper and contract-first surfaces | done | API-C3 | lint + typecheck + test + build |
+| API-C5-1 | Post-P6 | Audit the standard CRUD template in `docs/api-conventions.md` against the current public route surface | done | API-C4 | lint + typecheck + test + build |
+| API-C5-2 | Post-P6 | Rewrite `docs/api-conventions.md` so required CRUD contracts are separated from optional command routes | done | API-C5-1 | lint + typecheck + test + build |
+| API-C5-3 | Post-P6 | Add a current public contract mapping for `system/*`, `monitor/*`, `ai/*`, and `tools/*` families | done | API-C5-2 | lint + typecheck + test + build |
+| API-C5-4 | Post-P6 | Add regression coverage that detects API conventions document drift before release | done | API-C5-3 | lint + typecheck + test + build |
 | IAM-C2 | Post-P6 | Remove steady-state email fallback from authenticated principal resolution and enforce `auth_user_id` as the primary identity key | done | IAM-C1 | lint + typecheck + test + build |
 | IAM-C3 | Post-P6 | Add explicit principal repair and backfill tooling for legacy users that still require `auth_user_id` binding | done | IAM-C2 | lint + typecheck + test + build |
 | IAM-C4 | Post-P6 | Expand permission regression coverage across resource, field, conditional, and inverted-rule cases | done | IAM-C3 | lint + typecheck + test + build |

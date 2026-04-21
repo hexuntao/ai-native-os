@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import {
@@ -41,6 +42,8 @@ interface OpenApiParameter {
   name?: string
   schema?: unknown
 }
+
+const apiConventionsDocumentPath = new URL('../../../../docs/api-conventions.md', import.meta.url)
 
 // 判断任意值是否为可安全读取属性的对象字面量。
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -124,6 +127,11 @@ function resolvePaginatedItemSchema(
   assert.ok(itemSchema, 'Expected paginated data schema to expose array items')
 
   return resolveOpenApiSchema(document, itemSchema)
+}
+
+// 读取 API 约定文档，验证“标准模板”与公开 contract 是否仍然一致。
+function readApiConventionsDocument(): string {
+  return readFileSync(apiConventionsDocumentPath, 'utf8')
 }
 
 // 将 Better Auth 响应里的 `Set-Cookie` 头转换为后续请求可复用的 `Cookie` 头。
@@ -318,6 +326,36 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
   assert.ok('/api/v1/ai/prompts' in payload.paths)
   assert.ok('/api/v1/tools/gen' in payload.paths)
   assert.ok('/api/v1/tools/jobs' in payload.paths)
+})
+
+test('API conventions document keeps the standard CRUD template aligned with the current public contract', () => {
+  const markdown = readApiConventionsDocument()
+
+  assert.match(markdown, /基础资源 CRUD 模板（必选）/)
+  assert.match(markdown, /list: os\.input\(listSchema\)\.handler\(\.\.\.\)/)
+  assert.match(markdown, /getById: os\.input\(idSchema\)\.handler\(\.\.\.\)/)
+  assert.match(markdown, /create: os\.input\(createSchema\)\.handler\(\.\.\.\)/)
+  assert.match(markdown, /update: os\.input\(updateSchema\)\.handler\(\.\.\.\)/)
+  assert.match(markdown, /delete: os\.input\(idSchema\)\.handler\(\.\.\.\)/)
+  assert.match(markdown, /扩展命令路由（按需，不作为通用要求）/)
+  assert.doesNotMatch(markdown, /batchDelete:\s+os\.input\(idsSchema\)\.handler/)
+  assert.doesNotMatch(markdown, /export:\s+os\.input\(exportSchema\)\.handler/)
+  assert.doesNotMatch(markdown, /import:\s+os\.input\(importSchema\)\.handler/)
+})
+
+test('API conventions document enumerates the current public contract families', () => {
+  const markdown = readApiConventionsDocument()
+
+  assert.match(markdown, /system\/users.+完整 CRUD/)
+  assert.match(markdown, /system\/config.+内置配置只读/)
+  assert.match(markdown, /system\/dicts.+内置字典只读/)
+  assert.match(markdown, /ai\/knowledge.+完整 CRUD/)
+  assert.match(markdown, /ai\/evals.+run \+ runDetail/)
+  assert.match(markdown, /ai\/prompts.+governance commands/)
+  assert.match(markdown, /monitor\/server.+服务与依赖摘要/)
+  assert.match(markdown, /tools\/gen.+工具目录面/)
+  assert.match(markdown, /单一事实来源/)
+  assert.match(markdown, /新增或调整公开 API 时，必须同时完成：/)
 })
 
 test('OpenAPI document exposes rich schema metadata for system user write contracts', async () => {

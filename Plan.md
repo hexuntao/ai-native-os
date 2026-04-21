@@ -572,23 +572,35 @@ Completion note:
 - `system/config` and `system/dicts` now expose audited custom CRUD while preserving built-in runtime/seed resources as read-only contract surfaces.
 - Error payloads now share a stable schema and OpenAPI response component set across REST-compatible routes.
 - Shared catalog query helpers and expanded regression coverage now guard route drift at the contract layer.
+- `API-C5-1` through `API-C5-4` are complete.
+- `docs/api-conventions.md` now distinguishes required CRUD contracts from optional command routes and reflects the current public API surface instead of the historical generic template.
+- Contract regression now verifies the API conventions document against the current public route families to catch documentation drift early.
 
 Milestones:
 - API-C1 Deliver `system/config` and `system/dicts` full CRUD with audit-safe write paths and contract-first OpenAPI
 - API-C2 Standardize API error contracts, error codes, and OpenAPI error examples
 - API-C3 Extract shared pagination/filter/sort helpers to reduce route drift
 - API-C4 Expand API regression matrix and cross-surface smoke coverage
+- API-C5-1 Audit the standard CRUD template against the current public route surface
+- API-C5-2 Rewrite `docs/api-conventions.md` to separate required CRUD from optional command routes
+- API-C5-3 Add a current public contract mapping for `system/*`, `monitor/*`, `ai/*`, and `tools/*`
+- API-C5-4 Add regression coverage that detects API conventions document drift
 
 Dependencies:
 - API-C1 depends on current Post-P6 baseline
 - API-C2 depends on API-C1
 - API-C3 depends on API-C2
 - API-C4 depends on API-C3
+- API-C5-1 depends on API-C4
+- API-C5-2 depends on API-C5-1
+- API-C5-3 depends on API-C5-2
+- API-C5-4 depends on API-C5-3
 
 Definition of Done:
 - Remaining system helper resources reach the same contract-first quality bar.
 - Error contracts are stable and documented across the API.
 - Regression tests catch route drift before release.
+- The API conventions document no longer promises generic resource capabilities that the implementation does not expose.
 
 ### Plan 3: Identity and Permission Hardening
 
