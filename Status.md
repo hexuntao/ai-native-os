@@ -172,6 +172,7 @@ Overall Status: `phase_6_complete_web_arc_complete`
 Priority order as of 2026-04-22:
 
 - `OPS-C3` remains the open production-maturity lane if the thread switches back to deployment validation with real remote credentials.
+- `apps/web-starter-ref` now exists as an isolated `next-shadcn-dashboard-starter`-derived shell baseline; it is validated with `lint + test + typecheck + build` and is ready for provider/page migration work without destabilizing the current `apps/web`.
 - Plan 6 `AI-Native Web Architecture Refactor` is closed; the repository now has a root `DESIGN.md`, canonical AI-lifecycle IA, extracted layout primitives, feature-based flagship workbenches, and compatibility routes for the legacy dashboard taxonomy.
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 - `DOC-C1` is closed; `system/users` now serves as the OpenAPI documentation template for later contract surfaces.

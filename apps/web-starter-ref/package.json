@@ -1,0 +1,28 @@
+{
+  "name": "@ai-native-os/web-starter-ref",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --turbopack",
+    "lint": "biome check .",
+    "start": "next start",
+    "test": "tsx --test $(find src -type f -name '*.test.ts' | sort)",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ai-native-os/shared": "workspace:*",
+    "@ai-native-os/ui": "workspace:*",
+    "@tanstack/react-query": "^5.96.1",
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.2"
+  }
+}
