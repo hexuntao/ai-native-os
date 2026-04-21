@@ -24,15 +24,16 @@ test('resolveDashboardLandingHref returns the first visible route for authentica
     visibleNavigation: [
       {
         action: 'read',
-        description: 'Inspect seeded roles and access surfaces.',
-        href: '/system/roles',
-        label: 'Roles Matrix',
-        subject: 'Role',
+        description: 'System-wide AI operating picture with release, risk, and runtime signals.',
+        group: 'home',
+        href: '/home',
+        label: 'AI Operations Center',
+        subject: 'OperationLog',
       },
     ],
   })
 
-  assert.equal(href, '/system/roles')
+  assert.equal(href, '/home')
 })
 
 test('resolveLoginErrorMessage maps known error codes to user-facing copy', () => {
@@ -42,10 +43,11 @@ test('resolveLoginErrorMessage maps known error codes to user-facing copy', () =
 })
 
 test('resolveShellModuleLabel groups known dashboard routes into stable modules', () => {
-  assert.equal(resolveShellModuleLabel('/system/users'), 'System Control')
-  assert.equal(resolveShellModuleLabel('/monitor/server'), 'Observability')
-  assert.equal(resolveShellModuleLabel('/ai/knowledge'), 'AI Governance')
-  assert.equal(resolveShellModuleLabel('/reports'), 'Exports')
+  assert.equal(resolveShellModuleLabel('/home'), 'Home')
+  assert.equal(resolveShellModuleLabel('/system/users'), 'Admin')
+  assert.equal(resolveShellModuleLabel('/monitor/server'), 'Observe')
+  assert.equal(resolveShellModuleLabel('/ai/knowledge'), 'Knowledge')
+  assert.equal(resolveShellModuleLabel('/reports'), 'Workspace')
 })
 
 test('resolveActiveNavigationItem returns the current route descriptor', () => {
@@ -53,14 +55,18 @@ test('resolveActiveNavigationItem returns the current route descriptor', () => {
     {
       action: 'read',
       description: 'Inspect authenticated principals, status, and assigned roles.',
-      href: '/system/users',
+      group: 'admin',
+      href: '/admin/users',
+      legacyHrefs: ['/system/users'],
       label: 'Users Directory',
       subject: 'User',
     },
     {
       action: 'read',
       description: 'Inspect seeded roles and access surfaces.',
-      href: '/system/roles',
+      group: 'admin',
+      href: '/admin/roles',
+      legacyHrefs: ['/system/roles'],
       label: 'Roles Matrix',
       subject: 'Role',
     },
@@ -69,26 +75,40 @@ test('resolveActiveNavigationItem returns the current route descriptor', () => {
   assert.equal(activeItem?.label, 'Roles Matrix')
 })
 
-test('groupNavigationItems preserves system-monitor-ai-reports ordering', () => {
+test('groupNavigationItems preserves home-build-observe-improve-knowledge-govern-workspace-admin ordering', () => {
   const groups = groupNavigationItems([
+    {
+      action: 'read',
+      description: 'System-wide AI operating picture with release, risk, and runtime signals.',
+      group: 'home',
+      href: '/home',
+      label: 'AI Operations Center',
+      subject: 'OperationLog',
+    },
     {
       action: 'manage',
       description: 'Manage AI knowledge assets and retrieval inputs.',
-      href: '/ai/knowledge',
-      label: 'Knowledge Vault',
+      group: 'knowledge',
+      href: '/knowledge/collections',
+      legacyHrefs: ['/ai/knowledge'],
+      label: 'Knowledge Collections',
       subject: 'AiKnowledge',
     },
     {
       action: 'read',
       description: 'Inspect API and Mastra runtime health.',
-      href: '/monitor/server',
-      label: 'System Health',
+      group: 'observe',
+      href: '/observe/monitor',
+      legacyHrefs: ['/monitor/server'],
+      label: 'Runtime Monitor',
       subject: 'OperationLog',
     },
     {
       action: 'read',
       description: 'Inspect authenticated principals, status, and assigned roles.',
-      href: '/system/users',
+      group: 'admin',
+      href: '/admin/users',
+      legacyHrefs: ['/system/users'],
       label: 'Users Directory',
       subject: 'User',
     },
@@ -96,6 +116,6 @@ test('groupNavigationItems preserves system-monitor-ai-reports ordering', () => 
 
   assert.deepEqual(
     groups.map((group) => group.label),
-    ['System Control', 'Observability', 'AI Governance'],
+    ['Home', 'Observe', 'Knowledge', 'Admin'],
   )
 })

@@ -1,4 +1,12 @@
-import type { AppRoute, NavigationItem } from './ability'
+import {
+  type AppRoute,
+  type NavigationGroupKey,
+  type NavigationItem,
+  navigationGroupOrder,
+  navigationGroups,
+  resolveNavigationGroupLabel,
+  resolveNavigationItemForPath,
+} from '@/config/nav-config'
 import type { AuthenticatedShellState } from './api'
 
 const loginErrorMessages = {
@@ -8,41 +16,19 @@ const loginErrorMessages = {
 } as const
 
 export interface NavigationGroup {
+  description: string
   items: NavigationItem[]
-  key: 'ai' | 'monitor' | 'reports' | 'system'
+  key: NavigationGroupKey
   label: string
 }
-
-const navigationGroupOrder = ['system', 'monitor', 'ai', 'reports'] as const
-
-const navigationGroupLabels = {
-  ai: 'AI Governance',
-  monitor: 'Observability',
-  reports: 'Exports',
-  system: 'System Control',
-} as const
 
 /**
  * 按路由前缀推断当前页面所属模块，供 shell 标题与导航分组复用。
  */
 export function resolveShellModuleLabel(pathname: string): string {
-  if (pathname.startsWith('/system')) {
-    return navigationGroupLabels.system
-  }
+  const navigationItem = resolveNavigationItemForPath(pathname)
 
-  if (pathname.startsWith('/monitor')) {
-    return navigationGroupLabels.monitor
-  }
-
-  if (pathname.startsWith('/ai')) {
-    return navigationGroupLabels.ai
-  }
-
-  if (pathname.startsWith('/reports')) {
-    return navigationGroupLabels.reports
-  }
-
-  return 'Operator Workspace'
+  return navigationItem ? resolveNavigationGroupLabel(navigationItem.group) : 'Operator Workspace'
 }
 
 /**
@@ -63,31 +49,28 @@ export function groupNavigationItems(
 ): NavigationGroup[] {
   const groupedItems = visibleNavigation.reduce<Record<NavigationGroup['key'], NavigationItem[]>>(
     (result, item) => {
-      const groupKey = item.href.startsWith('/system')
-        ? 'system'
-        : item.href.startsWith('/monitor')
-          ? 'monitor'
-          : item.href.startsWith('/ai')
-            ? 'ai'
-            : 'reports'
-
-      result[groupKey].push(item)
+      result[item.group].push(item)
 
       return result
     },
     {
-      ai: [],
-      monitor: [],
-      reports: [],
-      system: [],
+      admin: [],
+      build: [],
+      govern: [],
+      home: [],
+      improve: [],
+      knowledge: [],
+      observe: [],
+      workspace: [],
     },
   )
 
   return navigationGroupOrder
     .map((groupKey) => ({
+      description: navigationGroups[groupKey].description,
       items: groupedItems[groupKey],
       key: groupKey,
-      label: navigationGroupLabels[groupKey],
+      label: navigationGroups[groupKey].label,
     }))
     .filter((group) => group.items.length > 0)
 }
@@ -96,14 +79,21 @@ export function groupNavigationItems(
  * 为已登录主体解析默认落点，保证根路由不会停留在无意义的空白 dashboard。
  */
 export function resolveDashboardLandingHref(state: AuthenticatedShellState): AppRoute {
-  return state.visibleNavigation[0]?.href ?? '/system/roles'
+  return state.visibleNavigation[0]?.href ?? '/home'
 }
 
 /**
  * 判断导航项是否应视为当前激活页面。
  */
 export function isNavigationItemActive(href: AppRoute, pathname: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`)
+  const navigationItem = resolveNavigationItemForPath(href)
+  const candidateHrefs = navigationItem
+    ? [navigationItem.href, ...(navigationItem.legacyHrefs ?? [])]
+    : [href]
+
+  return candidateHrefs.some((candidateHref) => {
+    return pathname === candidateHref || pathname.startsWith(`${candidateHref}/`)
+  })
 }
 
 /**

@@ -22,7 +22,7 @@ test('viewer ability payload only exposes read surfaces', () => {
   })
   const labels = getVisibleNavigationItems(payload).map((item) => item.label)
 
-  assert.deepEqual(labels, ['Roles Matrix', 'Audit Trails', 'System Health'])
+  assert.deepEqual(labels, ['AI Operations Center', 'Runtime Monitor', 'Roles Matrix'])
   assert.equal(canManageUserDirectory(payload), false)
   assert.equal(canManageRoles(payload), false)
   assert.equal(canManagePermissions(payload), false)

@@ -3,11 +3,10 @@ import {
   copilotBridgeSummarySchema,
   currentPermissionsResponseSchema,
 } from '@ai-native-os/shared'
-
+import { navigationItems as configuredNavigationItems } from '@/config/nav-config'
 import {
   type AbilityPayload,
   getVisibleNavigationItems,
-  navigationItems,
   parseSerializedAbilityPayload,
 } from './ability'
 import type { WebEnvironment } from './env'
@@ -193,7 +192,7 @@ export async function loadShellState(
   const visibleNavigation = getVisibleNavigationItems(abilityPayload)
 
   return {
-    hiddenNavigationCount: Math.max(0, navigationItems.length - visibleNavigation.length),
+    hiddenNavigationCount: Math.max(0, configuredNavigationItems.length - visibleNavigation.length),
     kind: 'authenticated',
     permissionRuleCount: permissionsPayload.permissionRuleCount,
     roleCodes: permissionsPayload.roleCodes,

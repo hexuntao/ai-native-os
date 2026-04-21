@@ -683,3 +683,44 @@ Definition of Done:
 - At least one remote deployment path is validated beyond dry-run level.
 - Recovery and release trust are supported by repeatable automation.
 - Operational drift can be detected before it becomes a production incident.
+
+### Plan 6: AI-Native Web Architecture Refactor
+
+Goal:
+- Refactor `apps/web` from a route-first admin dashboard into an AI-native control plane with a config-driven shell, feature-based module layout, and lifecycle-oriented information architecture.
+
+Artifacts:
+- `docs/plans/2026-04-22-web-ai-native-refactor-blueprint.md`
+- root `DESIGN.md`
+- `apps/web/src/config/*`
+- `apps/web/src/components/layout/*`
+- `apps/web/src/features/*`
+
+Milestones:
+- WEB-ARC-C1 Establish web IA baseline and root design source-of-truth
+- WEB-ARC-C2 Extract shell infrastructure into layout primitives plus context rail
+- WEB-ARC-C3 Rebuild navigation and command surfaces around AI lifecycle groups
+- WEB-ARC-C4 Introduce feature-based web module structure and shared feature conventions
+- WEB-ARC-C5 Deliver `home` AI operations center as the new landing page
+- WEB-ARC-C6 Deliver `observe/runs` trace workbench
+- WEB-ARC-C7 Deliver `govern/approvals` review workbench
+- WEB-ARC-C8 Migrate legacy routes into the new IA incrementally without breaking auth, RBAC, or audited write flows
+- WEB-ARC-C9 Remove obsolete shell abstractions and align docs/tests with the new route taxonomy
+
+Dependencies:
+- WEB-ARC-C1 depends on current `UI-C15` baseline and the approved Scheme A direction
+- WEB-ARC-C2 depends on WEB-ARC-C1
+- WEB-ARC-C3 depends on WEB-ARC-C2
+- WEB-ARC-C4 depends on WEB-ARC-C2
+- WEB-ARC-C5 depends on WEB-ARC-C3 and WEB-ARC-C4
+- WEB-ARC-C6 depends on WEB-ARC-C5
+- WEB-ARC-C7 depends on WEB-ARC-C6
+- WEB-ARC-C8 depends on WEB-ARC-C7
+- WEB-ARC-C9 depends on WEB-ARC-C8
+
+Definition of Done:
+- `apps/web` exposes a lifecycle-oriented shell whose canonical navigation is config-driven rather than inferred from route prefixes.
+- Root `DESIGN.md` exists and is specific enough to guide consistent future UI work.
+- `home`, `observe/runs`, and `govern/approvals` establish the new AI-native product language.
+- Legacy `system/*`, `monitor/*`, and `ai/*` routes either migrate cleanly or remain intentionally mapped with documented compatibility.
+- Copilot is expressed as a contextual operator rail instead of a generic chat sidebar.

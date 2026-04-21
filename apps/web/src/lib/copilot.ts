@@ -32,6 +32,10 @@ export interface CopilotPageHandoff {
   title: string
 }
 
+function matchesPathPrefixes(pathname: string, prefixes: readonly string[]): boolean {
+  return prefixes.some((prefix) => pathname.startsWith(prefix))
+}
+
 function normalizeThreadSegment(value: string): string {
   return value
     .trim()
@@ -90,19 +94,24 @@ export function buildCopilotInstructions(
   pathname: string,
 ): string {
   const visibleLabels = shellState.visibleNavigation.map((item) => item.label).join(', ')
-  const routeSpecificInstruction = pathname.startsWith('/ai/knowledge')
+  const routeSpecificInstruction = matchesPathPrefixes(pathname, [
+    '/ai/knowledge',
+    '/knowledge/collections',
+  ])
     ? 'On the knowledge route, prioritize indexed document coverage, source concentration, metadata quality, and safe reindex guidance before suggesting changes.'
-    : pathname.startsWith('/ai/prompts')
+    : matchesPathPrefixes(pathname, ['/ai/prompts', '/build/prompts', '/govern/approvals'])
       ? 'On the prompt-governance route, prioritize release gates, failure audit, rollback readiness, linked eval evidence, and version drift before suggesting changes.'
-      : pathname.startsWith('/ai/evals')
+      : matchesPathPrefixes(pathname, ['/ai/evals', '/improve/evals'])
         ? 'On the eval route, prioritize failed last runs, never-run suites, dataset coverage, and scorer reliability before suggesting changes.'
-        : pathname.startsWith('/ai/audit')
+        : matchesPathPrefixes(pathname, ['/ai/audit', '/govern/audit', '/observe/runs'])
           ? 'On the audit route, prioritize forbidden calls, execution errors, human overrides, and explicit governance boundaries before suggesting changes.'
-          : pathname.startsWith('/monitor/server')
+          : matchesPathPrefixes(pathname, ['/monitor/server', '/observe/monitor'])
             ? 'On the server monitor route, prioritize degraded dependencies, AI capability gaps, and runtime registry anomalies before suggesting changes.'
             : pathname.startsWith('/monitor/online')
               ? 'On the live-session route, prioritize unmapped sessions, expiring sessions, and role-density anomalies before suggesting changes.'
-              : 'Stay focused on the current route and explain operational tradeoffs before suggesting actions.'
+              : pathname.startsWith('/home')
+                ? 'On the AI operations center route, prioritize the highest-risk runtime signal, release gate pressure, and operator attention queue before suggesting changes.'
+                : 'Stay focused on the current route and explain operational tradeoffs before suggesting actions.'
 
   return [
     'You are the in-dashboard operator copilot for AI Native OS.',
@@ -140,7 +149,7 @@ export function buildCopilotSuggestions(
     },
   ]
 
-  if (pathname.startsWith('/ai/knowledge')) {
+  if (matchesPathPrefixes(pathname, ['/ai/knowledge', '/knowledge/collections'])) {
     suggestions.unshift(
       {
         message:
@@ -153,7 +162,7 @@ export function buildCopilotSuggestions(
         title: 'Index triage',
       },
     )
-  } else if (pathname.startsWith('/ai/prompts')) {
+  } else if (matchesPathPrefixes(pathname, ['/ai/prompts', '/build/prompts'])) {
     suggestions.unshift(
       {
         message:
@@ -166,7 +175,7 @@ export function buildCopilotSuggestions(
         title: 'Release gate read',
       },
     )
-  } else if (pathname.startsWith('/ai/evals')) {
+  } else if (matchesPathPrefixes(pathname, ['/ai/evals', '/improve/evals'])) {
     suggestions.unshift(
       {
         message:
@@ -179,7 +188,7 @@ export function buildCopilotSuggestions(
         title: 'Registry summary',
       },
     )
-  } else if (pathname.startsWith('/ai/audit')) {
+  } else if (matchesPathPrefixes(pathname, ['/ai/audit', '/govern/audit', '/observe/runs'])) {
     suggestions.unshift(
       {
         message:
@@ -192,7 +201,7 @@ export function buildCopilotSuggestions(
         title: 'Boundary read',
       },
     )
-  } else if (pathname.startsWith('/monitor/server')) {
+  } else if (matchesPathPrefixes(pathname, ['/monitor/server', '/observe/monitor'])) {
     suggestions.unshift(
       {
         message:
@@ -231,7 +240,7 @@ export function buildCopilotSuggestions(
         title: 'Incident read',
       },
     )
-  } else if (pathname.startsWith('/reports')) {
+  } else if (matchesPathPrefixes(pathname, ['/reports', '/workspace/reports'])) {
     suggestions.unshift(
       {
         message:
@@ -244,7 +253,33 @@ export function buildCopilotSuggestions(
         title: 'Future workbench',
       },
     )
-  } else if (shellState.visibleNavigation.some((item) => item.href === '/ai/knowledge')) {
+  } else if (pathname.startsWith('/govern/approvals')) {
+    suggestions.unshift(
+      {
+        message:
+          'Summarize which approval item has the strongest release evidence, which one is blocked by failures, and which one deserves human review first.',
+        title: 'Approval triage',
+      },
+      {
+        message:
+          'Explain whether the selected approval looks release-ready, rollback-sensitive, or under-evidenced, and tell me the minimum safe next step.',
+        title: 'Evidence read',
+      },
+    )
+  } else if (pathname.startsWith('/home')) {
+    suggestions.unshift(
+      {
+        message:
+          'Summarize the highest-risk signal on the operations center and identify the first operator action worth taking.',
+        title: 'Ops triage',
+      },
+      {
+        message:
+          'Explain whether the current release pipeline looks healthy, blocked by governance, or degraded by runtime issues.',
+        title: 'Release posture',
+      },
+    )
+  } else if (shellState.visibleNavigation.some((item) => item.href === '/knowledge/collections')) {
     suggestions.push({
       message:
         'Search the knowledge workflow and explain how indexed AI knowledge is governed in this environment.',
@@ -259,7 +294,7 @@ export function buildCopilotSuggestions(
  * 为当前路由返回助手侧栏的工作台说明，避免不同 AI 页面继续共享同一段泛化文案。
  */
 export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | null {
-  if (pathname.startsWith('/ai/knowledge')) {
+  if (matchesPathPrefixes(pathname, ['/ai/knowledge', '/knowledge/collections'])) {
     return {
       badge: 'knowledge-workbench',
       guardrail: '只建议安全的索引治理动作，不假设可以直接重写底层 chunk 或绕过审计链。',
@@ -273,7 +308,7 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
     }
   }
 
-  if (pathname.startsWith('/ai/prompts')) {
+  if (matchesPathPrefixes(pathname, ['/ai/prompts', '/build/prompts'])) {
     return {
       badge: 'prompt-governance',
       guardrail:
@@ -289,7 +324,7 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
     }
   }
 
-  if (pathname.startsWith('/ai/evals')) {
+  if (matchesPathPrefixes(pathname, ['/ai/evals', '/improve/evals'])) {
     return {
       badge: 'eval-governance',
       guardrail:
@@ -305,7 +340,7 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
     }
   }
 
-  if (pathname.startsWith('/ai/audit')) {
+  if (matchesPathPrefixes(pathname, ['/ai/audit', '/govern/audit', '/observe/runs'])) {
     return {
       badge: 'audit-governance',
       guardrail: '只解释工具级审计、human override 和当前边界，不把缺失的审批流假装成已经存在。',
@@ -320,7 +355,7 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
     }
   }
 
-  if (pathname.startsWith('/monitor/server')) {
+  if (matchesPathPrefixes(pathname, ['/monitor/server', '/observe/monitor'])) {
     return {
       badge: 'runtime-triage',
       guardrail:
@@ -351,6 +386,38 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
     }
   }
 
+  if (pathname.startsWith('/govern/approvals')) {
+    return {
+      badge: 'approval-governance',
+      guardrail:
+        '只根据当前 review queue、linked eval、failure audit、rollback chain 和 release audit 证据给出建议，不伪造不存在的审批实体。',
+      summary:
+        '优先帮助操作员判断哪些审批项已经具备证据包、哪些仍然受失败或回滚风险影响，以及哪一项最值得先人工复核。',
+      title: 'Approval assistant brief',
+      workstreams: [
+        '按 release evidence、failure pressure 和 rollback sensitivity 给队列排序。',
+        '把 evidence、policy checks 和 next action 串成一条清晰审批判断链。',
+        '建议最小安全动作，而不是扩大到未验证的变更执行。',
+      ],
+    }
+  }
+
+  if (pathname.startsWith('/home')) {
+    return {
+      badge: 'ops-center',
+      guardrail:
+        '只基于当前主页可见的 runtime、eval、governance 和 audit 汇总给出建议，不假装拥有页外 incident 证据。',
+      summary:
+        '优先帮助操作员从全局信号中识别第一优先级风险，再判断问题属于 runtime、release gate 还是知识/评测缺口。',
+      title: 'Operations center brief',
+      workstreams: [
+        '从 attention queue、release pipeline 和 recent events 里识别最值得升级的那条线索。',
+        '把多种状态压缩成一条高信号 operator summary。',
+        '始终先解释证据边界，再建议后续动作。',
+      ],
+    }
+  }
+
   return null
 }
 
@@ -358,7 +425,7 @@ export function resolveCopilotRoutePanel(pathname: string): CopilotRoutePanel | 
  * 为当前页面返回可直接展示在主工作区里的助手移交摘要，帮助操作员把问题准确交给右侧 Copilot。
  */
 export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff | null {
-  if (pathname.startsWith('/system/logs')) {
+  if (matchesPathPrefixes(pathname, ['/system/logs', '/govern/audit', '/observe/runs'])) {
     return {
       badge: 'trace-handoff',
       note: '把问题交给助手时，优先引用当前筛选条件和可见行范围，避免让模型假设它看到了整条审计流。',
@@ -372,7 +439,7 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
     }
   }
 
-  if (pathname.startsWith('/reports')) {
+  if (matchesPathPrefixes(pathname, ['/reports', '/workspace/reports'])) {
     return {
       badge: 'workflow-handoff',
       note: '当前页仍是占位工作台，所以更适合让助手做“缺口梳理”和“优先级建议”，而不是假装已经具备导出执行能力。',
@@ -386,7 +453,7 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
     }
   }
 
-  if (pathname.startsWith('/ai/knowledge')) {
+  if (matchesPathPrefixes(pathname, ['/ai/knowledge', '/knowledge/collections'])) {
     return {
       badge: 'knowledge-handoff',
       note: '优先围绕可见文档、metadata 密度和重建索引成本提问，不要让助手虚构页外知识库状态。',
@@ -400,7 +467,7 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
     }
   }
 
-  if (pathname.startsWith('/ai/prompts')) {
+  if (matchesPathPrefixes(pathname, ['/ai/prompts', '/build/prompts'])) {
     return {
       badge: 'prompt-handoff',
       note: '优先引用当前选中的 promptKey、失败类型、release gate 原因和 linked eval 摘要，不要让助手猜测页外版本历史。',
@@ -415,7 +482,7 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
     }
   }
 
-  if (pathname.startsWith('/ai/evals')) {
+  if (matchesPathPrefixes(pathname, ['/ai/evals', '/improve/evals'])) {
     return {
       badge: 'eval-handoff',
       note: '当前页偏治理视角，适合让助手先解释失败和覆盖缺口，再决定是否触发新的 eval run。',
@@ -430,7 +497,7 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
     }
   }
 
-  if (pathname.startsWith('/ai/audit')) {
+  if (matchesPathPrefixes(pathname, ['/ai/audit', '/govern/audit'])) {
     return {
       badge: 'governance-handoff',
       note: '先让助手区分 forbidden、error、override 三类信号，再决定是否需要升级人工审批或权限调整。',
@@ -445,7 +512,7 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
     }
   }
 
-  if (pathname.startsWith('/monitor/server')) {
+  if (matchesPathPrefixes(pathname, ['/monitor/server', '/observe/monitor'])) {
     return {
       badge: 'runtime-handoff',
       note: '把问题交给助手时，优先引用当前 degraded dependency、AI capability 状态和 telemetry 缺口，不要要求它猜测页外运行环境。',
@@ -470,6 +537,34 @@ export function resolveCopilotPageHandoff(pathname: string): CopilotPageHandoff 
       ],
       summary: '适合把当前在线切片交给助手做身份与会话稳定性解读，再决定是否升级处理。',
       title: 'Presence handoff',
+    }
+  }
+
+  if (pathname.startsWith('/govern/approvals')) {
+    return {
+      badge: 'approval-handoff',
+      note: '优先让助手解释 release evidence、failure pressure、rollback 风险和下一步人工动作，不要让它伪造审批结果。',
+      prompts: [
+        '指出当前队列里最应该先人工复核的一条审批项，并解释原因。',
+        '说明选中的审批项到底是证据不足、失败压力过大，还是已经接近可批准状态。',
+        '给出一条不扩 scope 的最小安全下一步，帮助推进这条审批。',
+      ],
+      summary: '适合把治理队列交给助手做审批排序、证据解释和风险压缩，再决定是否进入人工处理。',
+      title: 'Approval handoff',
+    }
+  }
+
+  if (pathname.startsWith('/home')) {
+    return {
+      badge: 'ops-handoff',
+      note: '优先让助手在全局信号中识别第一优先级风险和最小动作，而不是要求它直接给出大范围修复方案。',
+      prompts: [
+        '总结当前 operations center 里最值得优先处理的一条风险。',
+        '判断这条风险更像 runtime 问题、治理门禁问题，还是知识/评测缺口。',
+        '给出一条不扩 scope 的最小操作建议，帮助我推进第一步。',
+      ],
+      summary: '适合让助手把全局状态压缩成一个高优先级 operator summary，再决定从哪个工作台切入。',
+      title: 'Operations handoff',
     }
   }
 

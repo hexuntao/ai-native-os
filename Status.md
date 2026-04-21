@@ -1,9 +1,9 @@
 # AI Native OS Scheduler Status
 
-Last Updated: 2026-04-21
+Last Updated: 2026-04-22
 Current Mode: Post-Phase 6 backlog ready
-Current Phase: Post-Phase 6 `Hardening & Documentation Rollout`
-Overall Status: `phase_6_complete_e2e_remediation_closed`
+Current Phase: Post-Phase 6 `Hardening, Documentation, and Web Refactor Rollout`
+Overall Status: `phase_6_complete_web_arc_complete`
 
 ## 1. Repository Snapshot
 
@@ -146,6 +146,15 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | GOV-C5 | Post-P6 | Unify prompt, eval, audit, and feedback governance workflows under the Prompt governance contract surface and assistant handoff | done | GOV-C4 | lint + typecheck + test + build |
 | OPS-C1 | Post-P6 | Strengthen Redis/jobs/worker/trigger health probes and runtime summaries across `/health`, monitor surfaces, and release smoke contracts | done | Phase 6 baseline | lint + typecheck + test + build |
 | OPS-C2 | Post-P6 | Add unified release preflight automation that chains backup verification with release smoke and documents the new operator flow | done | OPS-C1 | lint + typecheck + test + build |
+| WEB-ARC-C1 | Post-P6 | Establish web information-architecture baseline and root `DESIGN.md` for the AI-native control plane | done | UI-C15 | design contract review + lint + typecheck + build |
+| WEB-ARC-C2 | Post-P6 | Extract `apps/web` shell infrastructure into config-driven layout primitives and a contextual operator rail | done | WEB-ARC-C1 | lint + typecheck + test + build |
+| WEB-ARC-C3 | Post-P6 | Rebuild navigation and command surfaces around AI lifecycle groups instead of `system / monitor / ai / reports` | done | WEB-ARC-C2 | lint + typecheck + test + build |
+| WEB-ARC-C4 | Post-P6 | Introduce feature-based web module structure and shared view-model conventions for AI-native surfaces | done | WEB-ARC-C2 | lint + typecheck + test + build |
+| WEB-ARC-C5 | Post-P6 | Deliver `home` AI operations center as the new authenticated landing surface | done | WEB-ARC-C3, WEB-ARC-C4 | lint + typecheck + test + build |
+| WEB-ARC-C6 | Post-P6 | Deliver `observe/runs` workbench with run list and trace inspector | done | WEB-ARC-C5 | lint + typecheck + test + build |
+| WEB-ARC-C7 | Post-P6 | Deliver `govern/approvals` workbench with evidence-aware review flow | done | WEB-ARC-C6 | lint + typecheck + test + build |
+| WEB-ARC-C8 | Post-P6 | Migrate legacy `system/*`, `monitor/*`, and `ai/*` routes into the new IA incrementally without breaking auth, RBAC, or audited writes | done | WEB-ARC-C7 | lint + typecheck + test + build |
+| WEB-ARC-C9 | Post-P6 | Remove obsolete shell abstractions and align docs/tests with the new route taxonomy | done | WEB-ARC-C8 | lint + typecheck + test + build |
 
 ## 3.1 Post-Launch Plans
 
@@ -156,12 +165,14 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | 3 | Identity and Permission Hardening | done | none |
 | 4 | AI Governance Deepening | done | none |
 | 5 | Productionization and Operations Maturity | in_progress | OPS-C3 |
+| 6 | AI-Native Web Architecture Refactor | done | none |
 
 ## 4. Current Ready Queue
 
-Priority order as of 2026-04-12:
+Priority order as of 2026-04-22:
 
-- no active ready task in the scheduler DAG.
+- `OPS-C3` remains the open production-maturity lane if the thread switches back to deployment validation with real remote credentials.
+- Plan 6 `AI-Native Web Architecture Refactor` is closed; the repository now has a root `DESIGN.md`, canonical AI-lifecycle IA, extracted layout primitives, feature-based flagship workbenches, and compatibility routes for the legacy dashboard taxonomy.
 - `UX-C1` is closed; no additional CRUD correction task is currently open for `system/users`.
 - `DOC-C1` is closed; `system/users` now serves as the OpenAPI documentation template for later contract surfaces.
 - `DOC-C2` is closed; `system/roles` and `system/permissions` now align with the same OpenAPI documentation baseline.
@@ -217,6 +228,7 @@ Priority order as of 2026-04-12:
 - `OPS-C1` is closed; `/health` and monitor summaries now expose jobs / worker probe state and Trigger runtime wiring instead of only api/db/redis/telemetry.
 - `OPS-C2` is closed; the repository now exposes `pnpm release:preflight`, which unifies optional backup verification with release smoke and is reused by final release regression.
 - Plan 4 `AI Governance Deepening` is complete; the next recommended backlog item is `OPS-C3` under Plan 5 `Productionization and Operations Maturity`.
+- Plan 6 `AI-Native Web Architecture Refactor` is complete; `apps/web` now lands on `/home`, lifecycle navigation is driven by `config/nav-config.ts`, the shell is composed from extracted layout primitives, Copilot follows the new route taxonomy, and canonical `home / observe / govern / admin` routes coexist with legacy compatibility paths.
 
 Auto-unlock rules:
 
