@@ -115,7 +115,7 @@ export function SidebarProvider({ children, defaultOpen = true }: SidebarProvide
 
   return (
     <SidebarContext.Provider value={contextValue}>
-      <div className="flex min-h-screen w-full bg-background/40">{children}</div>
+      <div className="flex min-h-screen w-full bg-muted/30">{children}</div>
     </SidebarContext.Provider>
   )
 }
@@ -140,7 +140,7 @@ export function Sidebar({ children, className }: SidebarProps): ReactNode {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 hidden border-r border-border/80 bg-background transition-[width] duration-200 lg:flex lg:flex-col',
+          'fixed inset-y-0 left-0 z-40 hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:flex lg:flex-col',
           open ? 'w-64' : 'w-[4.5rem]',
           className,
         )}
@@ -159,7 +159,7 @@ export function Sidebar({ children, className }: SidebarProps): ReactNode {
             }}
             type="button"
           />
-          <aside className="flex h-full w-72 flex-col border-l border-border/80 bg-background shadow-2xl">
+          <aside className="flex h-full w-72 flex-col border-l border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl">
             {children}
           </aside>
         </div>
@@ -202,7 +202,7 @@ export function SidebarRail(): ReactNode {
   return (
     <button
       aria-label="Toggle sidebar width"
-      className="absolute top-1/2 -right-2.5 hidden h-14 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-background text-xs text-muted-foreground shadow-sm transition-colors hover:bg-secondary/80 lg:flex"
+      className="absolute top-1/2 -right-2.5 hidden h-14 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-xs text-muted-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:flex"
       onClick={toggleSidebar}
       type="button"
     >

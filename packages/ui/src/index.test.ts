@@ -14,4 +14,7 @@ test('buttonVariants exposes the default semantic classes', () => {
 
 test('design tokens expose semantic color aliases', () => {
   assert.equal(designTokens.color.background, 'var(--background)')
+  assert.equal(designTokens.color.accent, 'var(--accent)')
+  assert.equal(designTokens.color.muted, 'var(--muted)')
+  assert.equal(designTokens.color.sidebar, 'var(--sidebar)')
 })

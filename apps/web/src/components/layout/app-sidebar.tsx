@@ -57,8 +57,8 @@ function SidebarItem({
           'flex items-center rounded-xl border border-transparent text-sm font-medium transition-colors',
           open ? 'gap-3 px-2.5 py-2' : 'justify-center px-0 py-2.5',
           isActive
-            ? 'border-primary/20 bg-primary/10 text-foreground'
-            : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground',
+            ? 'border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-muted-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground',
         )}
         href={item.href as Route}
         title={item.label}
@@ -67,8 +67,8 @@ function SidebarItem({
           className={cn(
             'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] uppercase tracking-[0.12em]',
             isActive
-              ? 'border-primary/20 bg-background/80 text-foreground'
-              : 'border-border/70 bg-background text-muted-foreground',
+              ? 'border-sidebar-border bg-sidebar text-sidebar-foreground'
+              : 'border-sidebar-border bg-sidebar text-muted-foreground',
           )}
         >
           {resolveNavigationGlyph(item.label)}
@@ -85,7 +85,7 @@ export function AppSidebar({ groupedNavigation, shellState }: AppSidebarProps): 
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b border-border/80 px-3 py-3">
+      <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
         <div className={cn('flex items-start gap-3', !open && 'justify-center')}>
           <BrandMark />
           {open ? (
@@ -123,10 +123,10 @@ export function AppSidebar({ groupedNavigation, shellState }: AppSidebarProps): 
         </nav>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/80 px-3 py-3">
+      <SidebarFooter className="border-t border-sidebar-border px-3 py-3">
         <div
           className={cn(
-            'rounded-2xl border border-border/80 bg-background/80 shadow-sm',
+            'rounded-2xl border border-sidebar-border bg-sidebar shadow-sm',
             open ? 'p-3' : 'flex items-center justify-center p-2',
           )}
         >
@@ -149,7 +149,7 @@ export function AppSidebar({ groupedNavigation, shellState }: AppSidebarProps): 
               </p>
             </>
           ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-sm font-semibold text-foreground">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sidebar-accent text-sm font-semibold text-sidebar-accent-foreground">
               {resolveUserInitial(shellState.session.user.name)}
             </span>
           )}
