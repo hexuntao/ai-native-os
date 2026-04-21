@@ -54,11 +54,11 @@ function SidebarItem({
     <li key={item.href}>
       <Link
         className={cn(
-          'flex items-center rounded-xl text-sm font-medium transition-colors',
+          'flex items-center rounded-xl border border-transparent text-sm font-medium transition-colors',
           open ? 'gap-3 px-2.5 py-2' : 'justify-center px-0 py-2.5',
           isActive
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            ? 'border-primary/20 bg-primary/10 text-foreground'
+            : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground',
         )}
         href={item.href as Route}
         title={item.label}
@@ -94,9 +94,7 @@ export function AppSidebar({ groupedNavigation, shellState }: AppSidebarProps): 
                 AI Native OS
               </p>
               <h1 className="mt-1 text-base font-semibold text-foreground">Control Plane</h1>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                AI lifecycle, governance, runtime inspection, and human review.
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">AI operations console</p>
             </div>
           ) : null}
         </div>
@@ -151,7 +149,7 @@ export function AppSidebar({ groupedNavigation, shellState }: AppSidebarProps): 
               </p>
             </>
           ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-foreground">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-sm font-semibold text-foreground">
               {resolveUserInitial(shellState.session.user.name)}
             </span>
           )}

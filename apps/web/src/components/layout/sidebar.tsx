@@ -115,7 +115,7 @@ export function SidebarProvider({ children, defaultOpen = true }: SidebarProvide
 
   return (
     <SidebarContext.Provider value={contextValue}>
-      <div className="flex min-h-screen w-full bg-muted/30">{children}</div>
+      <div className="flex min-h-screen w-full bg-background/40">{children}</div>
     </SidebarContext.Provider>
   )
 }
@@ -202,7 +202,7 @@ export function SidebarRail(): ReactNode {
   return (
     <button
       aria-label="Toggle sidebar width"
-      className="absolute top-6 -right-3 hidden h-10 w-6 rounded-full border border-border/80 bg-background text-xs text-muted-foreground shadow-sm transition-colors hover:bg-muted lg:flex lg:items-center lg:justify-center"
+      className="absolute top-1/2 -right-2.5 hidden h-14 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-background text-xs text-muted-foreground shadow-sm transition-colors hover:bg-secondary/80 lg:flex"
       onClick={toggleSidebar}
       type="button"
     >
