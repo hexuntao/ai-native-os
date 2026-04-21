@@ -2,6 +2,8 @@
 
 import type { CopilotBridgeSummary } from '@ai-native-os/shared'
 import { cn } from '@ai-native-os/ui'
+import type { Route } from 'next'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { type ReactNode, useState } from 'react'
 import { AppSidebar } from '@/components/layout/app-sidebar'
@@ -9,7 +11,11 @@ import { ContextRail } from '@/components/layout/context-rail'
 import { Header } from '@/components/layout/header'
 import { PageContainer } from '@/components/layout/page-container'
 import type { AuthenticatedShellState } from '@/lib/api'
-import { groupNavigationItems, resolveActiveNavigationItem } from '@/lib/shell'
+import {
+  groupNavigationItems,
+  isNavigationItemActive,
+  resolveActiveNavigationItem,
+} from '@/lib/shell'
 
 interface DashboardShellProps {
   children: ReactNode
@@ -43,8 +49,8 @@ export function DashboardShell({
         : 'offline'
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="grid min-h-screen xl:grid-cols-[18rem_minmax(0,1fr)]">
+    <div className="min-h-screen bg-muted/30">
+      <div className="grid min-h-screen xl:grid-cols-[16rem_minmax(0,1fr)]">
         <AppSidebar groupedNavigation={groupedNavigation} shellState={shellState} />
 
         <div className="flex min-h-screen flex-col">
@@ -58,9 +64,28 @@ export function DashboardShell({
             shellState={shellState}
           />
 
+          <div className="border-b border-border/80 bg-background px-4 py-3 xl:hidden">
+            <div className="flex gap-2 overflow-x-auto">
+              {shellState.visibleNavigation.map((item) => (
+                <Link
+                  className={cn(
+                    'whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors',
+                    isNavigationItemActive(item.href, pathname)
+                      ? 'border-primary/20 bg-primary/10 text-foreground'
+                      : 'border-border/80 bg-background text-muted-foreground',
+                  )}
+                  href={item.href as Route}
+                  key={item.href}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div
             className={cn(
-              'grid flex-1 gap-6 px-4 py-5 sm:px-6 xl:grid-cols-[minmax(0,1fr)_24rem]',
+              'grid flex-1 gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_24rem]',
               !assistantOpen && 'xl:grid-cols-[minmax(0,1fr)_5.75rem]',
             )}
           >

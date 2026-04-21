@@ -7,5 +7,5 @@ interface PageContainerProps {
 }
 
 export function PageContainer({ children, className }: PageContainerProps): ReactNode {
-  return <section className={cn('min-w-0', className)}>{children}</section>
+  return <section className={cn('min-w-0 xl:pr-2', className)}>{children}</section>
 }
