@@ -28,6 +28,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 
 import { app } from '@/index'
 import { runMastraEvalSuite } from '@/mastra/evals/runner'
+import { resolveApiRouteContractFamily } from '@/routes/lib/catalog-query'
 
 interface OpenApiDocument {
   components?: {
@@ -88,6 +89,25 @@ function findOperationParameter(
   )
 
   assert.ok(parameter && isRecord(parameter), `Expected query parameter ${parameterName} to exist`)
+
+  return parameter
+}
+
+// 从 operation parameter 列表里按名称定位 header 参数。
+function findOperationHeaderParameter(
+  operation: Record<string, unknown>,
+  parameterName: string,
+): OpenApiParameter {
+  const parameters = operation.parameters
+
+  assert.ok(Array.isArray(parameters), 'Expected operation parameters to exist')
+
+  const parameter = parameters.find(
+    (candidate) =>
+      isRecord(candidate) && candidate.name === parameterName && candidate.in === 'header',
+  )
+
+  assert.ok(parameter && isRecord(parameter), `Expected header parameter ${parameterName} to exist`)
 
   return parameter
 }
@@ -293,6 +313,9 @@ async function loadRoleCrudPermissionIds(): Promise<{
 test('OpenAPI document exposes the contract-first business skeleton paths', async () => {
   const response = await app.request('http://localhost/api/openapi.json')
   const payload = (await response.json()) as OpenApiDocument
+  const publicBusinessPaths = Object.keys(payload.paths).filter((path) =>
+    path.startsWith('/api/v1/'),
+  )
 
   assert.equal(response.status, 200)
   assert.ok('/api/v1/system/users' in payload.paths)
@@ -326,6 +349,10 @@ test('OpenAPI document exposes the contract-first business skeleton paths', asyn
   assert.ok('/api/v1/ai/prompts' in payload.paths)
   assert.ok('/api/v1/tools/gen' in payload.paths)
   assert.ok('/api/v1/tools/jobs' in payload.paths)
+  assert.ok(
+    publicBusinessPaths.every((path) => resolveApiRouteContractFamily(path) !== null),
+    'Expected every /api/v1/* business path to resolve to a stable route contract family',
+  )
 })
 
 test('API conventions document keeps the standard CRUD template aligned with the current public contract', () => {
@@ -970,6 +997,11 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
       feedbackInputSchema.properties.correction.description ===
         '人工修正文案；当 `userAction` 为 `edited` 或 `overridden` 时必填，用于记录人工替代结果。',
   )
+  const feedbackIdempotencyHeader = findOperationHeaderParameter(feedbackPost, 'Idempotency-Key')
+  assert.equal(
+    feedbackIdempotencyHeader.description,
+    '可选幂等键。对同一主体和同一路由重复提交相同请求时，服务端会重放首次成功或失败结果，避免重复副作用。',
+  )
 
   const promptsPath = payload.paths['/api/v1/ai/prompts']
   assert.ok(promptsPath && isRecord(promptsPath), 'Expected /api/v1/ai/prompts path to exist')
@@ -1006,6 +1038,8 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
       promptsInputSchema.properties.releasePolicy.description ===
         '新版本发布门禁策略；未传时使用默认阈值。',
   )
+  const promptsIdempotencyHeader = findOperationHeaderParameter(promptsPost, 'Idempotency-Key')
+  assert.equal(promptsIdempotencyHeader.name, 'Idempotency-Key')
 
   const promptsDetailPath =
     payload.paths['/api/v1/ai/prompts/:id'] ?? payload.paths['/api/v1/ai/prompts/{id}']
@@ -1376,6 +1410,8 @@ test('OpenAPI document exposes rich schema metadata for AI contract surfaces', a
   const evalsRunPost = evalsRunPath.post
   assert.ok(evalsRunPost && isRecord(evalsRunPost), 'Expected POST operation for ai eval run')
   assert.equal(evalsRunPost.summary, '手动执行 AI 评测')
+  const evalsRunIdempotencyHeader = findOperationHeaderParameter(evalsRunPost, 'Idempotency-Key')
+  assert.equal(evalsRunIdempotencyHeader.name, 'Idempotency-Key')
   const evalsRunResponses = evalsRunPost.responses
   const evalsRunJson =
     evalsRunResponses &&
@@ -3427,8 +3463,8 @@ test('prompt governance activation requires eval evidence before release', async
     message: string
   }
 
-  assert.equal(blockedActivateResponse.status, 400)
-  assert.equal(blockedActivatePayload.code, 'BAD_REQUEST')
+  assert.equal(blockedActivateResponse.status, 409)
+  assert.equal(blockedActivatePayload.code, 'AI_PROMPT_RELEASE_GATE_FAILED')
   assert.match(blockedActivatePayload.message, /missing eval evidence/)
 
   await runMastraEvalSuite({
@@ -4000,8 +4036,8 @@ test('prompt governance failure-audit route exposes rejection and exception audi
   }
 
   assert.equal(createResponse.status, 200)
-  assert.equal(activateResponse.status, 400)
-  assert.equal(activatePayload.code, 'BAD_REQUEST')
+  assert.equal(activateResponse.status, 409)
+  assert.equal(activatePayload.code, 'AI_PROMPT_RELEASE_GATE_FAILED')
   assert.match(activatePayload.message, /missing eval evidence/i)
   assert.equal(failureAuditResponse.status, 200)
   assert.equal(failureAuditPayload.json.promptKey, promptKey)
@@ -4242,7 +4278,7 @@ test('ai governance routes expose prompt review queue and linked governance deta
   assert.equal(attachFirstResponse.status, 200)
   assert.equal(activateFirstResponse.status, 200)
   assert.equal(createSecondResponse.status, 200)
-  assert.equal(rejectedActivateResponse.status, 400)
+  assert.equal(rejectedActivateResponse.status, 409)
   assert.equal(attachSecondResponse.status, 200)
   assert.equal(activateSecondResponse.status, 200)
   assert.equal(overviewResponse.status, 200)

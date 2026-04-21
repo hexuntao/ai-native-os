@@ -25,7 +25,9 @@ function createRateLimitedTestApp(
   app.use('*', createApiRateLimitMiddleware(environment, dependencies))
   app.get('/health', (context) => context.json({ ok: true }))
   app.get('/api/v1/demo', (context) => context.json({ ok: true }))
+  app.post('/api/v1/ai/prompts/activate', (context) => context.json({ ok: true }))
   app.post('/api/auth/sign-in/email', (context) => context.json({ ok: true }))
+  app.delete('/api/v1/system/config/demo', (context) => context.json({ ok: true }))
 
   return app
 }
@@ -42,12 +44,16 @@ async function readJsonBody(response: Response): Promise<unknown> {
  */
 function createEnabledRateLimitEnvironment(): ApiRateLimitEnvironment {
   return {
+    aiCommandMaxRequests: 1,
+    aiCommandWindowMs: 60_000,
     authMaxRequests: 1,
     authWindowMs: 60_000,
     enabled: true,
     exemptPathPrefixes: ['/health'],
     generalMaxRequests: 1,
     generalWindowMs: 60_000,
+    systemWriteMaxRequests: 1,
+    systemWriteWindowMs: 60_000,
   }
 }
 
@@ -141,4 +147,64 @@ test('createApiRateLimitMiddleware keeps health probes exempt and uses stricter 
   assert.equal(secondHealthResponse.status, 200)
   assert.equal(firstAuthResponse.status, 200)
   assert.equal(secondAuthResponse.status, 429)
+})
+
+test('createApiRateLimitMiddleware applies dedicated buckets for AI command writes and system writes', async () => {
+  const app = createRateLimitedTestApp(
+    {
+      aiCommandMaxRequests: 1,
+      aiCommandWindowMs: 60_000,
+      authMaxRequests: 5,
+      authWindowMs: 60_000,
+      enabled: true,
+      exemptPathPrefixes: ['/health'],
+      generalMaxRequests: 3,
+      generalWindowMs: 60_000,
+      systemWriteMaxRequests: 1,
+      systemWriteWindowMs: 60_000,
+    },
+    {
+      now: () => 0,
+      store: new Map<string, { count: number; resetAt: number }>(),
+    },
+  )
+
+  const firstAiCommandResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    headers: {
+      'x-forwarded-for': '203.0.113.20',
+    },
+    method: 'POST',
+  })
+  const secondAiCommandResponse = await app.request('http://localhost/api/v1/ai/prompts/activate', {
+    headers: {
+      'x-forwarded-for': '203.0.113.20',
+    },
+    method: 'POST',
+  })
+  const firstSystemWriteResponse = await app.request('http://localhost/api/v1/system/config/demo', {
+    headers: {
+      'x-forwarded-for': '203.0.113.21',
+    },
+    method: 'DELETE',
+  })
+  const secondSystemWriteResponse = await app.request(
+    'http://localhost/api/v1/system/config/demo',
+    {
+      headers: {
+        'x-forwarded-for': '203.0.113.21',
+      },
+      method: 'DELETE',
+    },
+  )
+  const generalReadResponse = await app.request('http://localhost/api/v1/demo', {
+    headers: {
+      'x-forwarded-for': '203.0.113.20',
+    },
+  })
+
+  assert.equal(firstAiCommandResponse.status, 200)
+  assert.equal(secondAiCommandResponse.status, 429)
+  assert.equal(firstSystemWriteResponse.status, 200)
+  assert.equal(secondSystemWriteResponse.status, 429)
+  assert.equal(generalReadResponse.status, 200)
 })

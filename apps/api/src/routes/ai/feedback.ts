@@ -20,8 +20,9 @@ import {
   type ListAiFeedbackInput,
   listAiFeedbackInputSchema,
 } from '@ai-native-os/shared'
-import { ORPCError } from '@orpc/server'
 
+import { domainNotFoundError } from '@/lib/domain-errors'
+import { runIdempotentMutation } from '@/lib/idempotency'
 import { requireAnyPermission } from '@/orpc/procedures'
 
 const aiFeedbackPermissions = [
@@ -67,17 +68,13 @@ export async function getFeedbackById(input: GetAiFeedbackByIdInput): Promise<Ai
   const feedbackRecord = await getAiFeedbackById(input.id)
 
   if (!feedbackRecord) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'AI feedback not found',
-    })
+    throw domainNotFoundError('AI_FEEDBACK_NOT_FOUND')
   }
 
   const auditLogRecord = await getAiAuditLogById(feedbackRecord.auditLogId)
 
   if (!auditLogRecord) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'AI audit log not found',
-    })
+    throw domainNotFoundError('AI_AUDIT_LOG_NOT_FOUND')
   }
 
   return {
@@ -108,44 +105,54 @@ export async function createFeedback(
   input: AiFeedbackCreateInput,
   context: {
     actorAuthUserId: string
+    idempotencyKey: string | null
     actorRbacUserId: string | null
     requestId: string
   },
 ): Promise<AiFeedbackEntry> {
-  let feedbackRecord: Awaited<ReturnType<typeof createAiFeedback>>
-
-  try {
-    feedbackRecord = await createAiFeedback({
-      ...input,
+  return runIdempotentMutation(
+    'ai.feedback.create',
+    input,
+    {
       actorAuthUserId: context.actorAuthUserId,
       actorRbacUserId: context.actorRbacUserId,
-    })
-  } catch (error) {
-    if (error instanceof AiFeedbackAuditLogNotFoundError) {
-      throw new ORPCError('BAD_REQUEST', {
-        message: error.message,
-      })
-    }
-
-    throw error
-  }
-
-  await writeOperationLog({
-    action: input.accepted ? 'create_feedback' : 'record_override',
-    detail: `Recorded ${input.userAction} feedback for AI audit ${input.auditLogId}.`,
-    fallbackActorKind: 'anonymous',
-    module: 'ai_feedback',
-    operatorId: context.actorRbacUserId,
-    requestInfo: {
-      accepted: input.accepted,
-      auditLogId: input.auditLogId,
-      requestId: context.requestId,
-      userAction: input.userAction,
+      idempotencyKey: context.idempotencyKey,
     },
-    targetId: input.auditLogId,
-  })
+    async () => {
+      let feedbackRecord: Awaited<ReturnType<typeof createAiFeedback>>
 
-  return serializeAiFeedbackEntry(feedbackRecord)
+      try {
+        feedbackRecord = await createAiFeedback({
+          ...input,
+          actorAuthUserId: context.actorAuthUserId,
+          actorRbacUserId: context.actorRbacUserId,
+        })
+      } catch (error) {
+        if (error instanceof AiFeedbackAuditLogNotFoundError) {
+          throw domainNotFoundError('AI_AUDIT_LOG_NOT_FOUND', error.message)
+        }
+
+        throw error
+      }
+
+      await writeOperationLog({
+        action: input.accepted ? 'create_feedback' : 'record_override',
+        detail: `Recorded ${input.userAction} feedback for AI audit ${input.auditLogId}.`,
+        fallbackActorKind: 'anonymous',
+        module: 'ai_feedback',
+        operatorId: context.actorRbacUserId,
+        requestInfo: {
+          accepted: input.accepted,
+          auditLogId: input.auditLogId,
+          requestId: context.requestId,
+          userAction: input.userAction,
+        },
+        targetId: input.auditLogId,
+      })
+
+      return serializeAiFeedbackEntry(feedbackRecord)
+    },
+  )
 }
 
 export const aiFeedbackListProcedure = requireAnyPermission(aiFeedbackPermissions)
@@ -185,6 +192,7 @@ export const aiFeedbackCreateProcedure = requireAnyPermission(aiFeedbackPermissi
   .handler(async ({ context, input }) =>
     createFeedback(input, {
       actorAuthUserId: context.userId,
+      idempotencyKey: context.idempotencyKey,
       actorRbacUserId: context.rbacUserId,
       requestId: context.requestId,
     }),

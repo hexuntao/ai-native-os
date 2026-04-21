@@ -64,6 +64,13 @@
       "when": 1776612729688,
       "tag": "0008_faulty_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776745954822,
+      "tag": "0009_rapid_quasar",
+      "breakpoints": true
     }
   ]
 }

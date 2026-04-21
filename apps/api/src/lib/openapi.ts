@@ -53,6 +53,73 @@ function applyStandardErrorResponses(document: Record<string, unknown>): void {
 }
 
 /**
+ * 为具备副作用的命令路由补齐统一幂等请求头说明，便于客户端安全重试。
+ */
+function applyIdempotencyHeaderParameters(document: Record<string, unknown>): void {
+  const paths = document.paths
+
+  if (!paths || typeof paths !== 'object') {
+    return
+  }
+
+  const idempotentPostPaths = new Set([
+    '/api/v1/ai/feedback',
+    '/api/v1/ai/evals/{id}/run',
+    '/api/v1/ai/evals/:id/run',
+    '/api/v1/ai/prompts',
+    '/api/v1/ai/prompts/attach-evidence',
+    '/api/v1/ai/prompts/activate',
+    '/api/v1/ai/prompts/rollback',
+  ])
+
+  for (const [path, pathItem] of Object.entries(paths)) {
+    if (!idempotentPostPaths.has(path) || !pathItem || typeof pathItem !== 'object') {
+      continue
+    }
+
+    const postOperation = 'post' in pathItem ? pathItem.post : null
+
+    if (!postOperation || typeof postOperation !== 'object') {
+      continue
+    }
+
+    const parameters =
+      'parameters' in postOperation && Array.isArray(postOperation.parameters)
+        ? [...postOperation.parameters]
+        : []
+
+    const hasIdempotencyHeader = parameters.some((parameter) => {
+      return (
+        parameter &&
+        typeof parameter === 'object' &&
+        'in' in parameter &&
+        parameter.in === 'header' &&
+        'name' in parameter &&
+        parameter.name === 'Idempotency-Key'
+      )
+    })
+
+    if (!hasIdempotencyHeader) {
+      parameters.push({
+        description:
+          '可选幂等键。对同一主体和同一路由重复提交相同请求时，服务端会重放首次成功或失败结果，避免重复副作用。',
+        in: 'header',
+        name: 'Idempotency-Key',
+        required: false,
+        schema: {
+          examples: ['prompt-activate-2026-04-21-001'],
+          maxLength: 255,
+          minLength: 8,
+          type: 'string',
+        },
+      })
+    }
+
+    ;(postOperation as { parameters: unknown[] }).parameters = parameters
+  }
+}
+
+/**
  * 将统一错误 schema 和 response 组件注入 OpenAPI 文档，供 Scalar 直接展示错误合同。
  */
 function attachStandardErrorComponents(document: Record<string, unknown>): void {
@@ -244,6 +311,7 @@ export async function generateOpenApiDocument() {
 
   attachStandardErrorComponents(mutableDocument)
   applyStandardErrorResponses(mutableDocument)
+  applyIdempotencyHeaderParameters(mutableDocument)
 
   return document
 }

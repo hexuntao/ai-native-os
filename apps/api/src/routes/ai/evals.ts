@@ -23,8 +23,9 @@ import {
   type RunAiEvalInput,
   runAiEvalInputSchema,
 } from '@ai-native-os/shared'
-import { ORPCError } from '@orpc/server'
 
+import { domainNotFoundError } from '@/lib/domain-errors'
+import { runIdempotentMutation } from '@/lib/idempotency'
 import { getMastraEvalSuiteById } from '@/mastra/evals/registry'
 import { buildMastraEvalCatalogSnapshot, runMastraEvalSuite } from '@/mastra/evals/runner'
 import { requireAnyPermission } from '@/orpc/procedures'
@@ -195,9 +196,7 @@ export async function getAiEvalById(input: GetAiEvalByIdInput): Promise<AiEvalDe
   const evalEntry = snapshot.entries.find((entry) => entry.id === input.id)
 
   if (!evalEntry) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'AI eval suite not found',
-    })
+    throw domainNotFoundError('AI_EVAL_NOT_FOUND')
   }
 
   const recentRuns = await listAiEvalRunsByEvalKey(input.id)
@@ -221,17 +220,13 @@ export async function getAiEvalRunById(input: GetAiEvalRunByIdInput): Promise<Ai
   const evalEntry = snapshot.entries.find((entry) => entry.id === input.id)
 
   if (!evalEntry) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'AI eval suite not found',
-    })
+    throw domainNotFoundError('AI_EVAL_NOT_FOUND')
   }
 
   const runDetail = await getAiEvalRunDetailById(input.id, input.runId)
 
   if (!runDetail) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'AI eval run not found',
-    })
+    throw domainNotFoundError('AI_EVAL_RUN_NOT_FOUND')
   }
 
   return {
@@ -249,40 +244,51 @@ export async function getAiEvalRunById(input: GetAiEvalRunByIdInput): Promise<Ai
  */
 export async function runAiEval(
   input: RunAiEvalInput,
-  context: AiEvalMutationContext,
+  context: AiEvalMutationContext & {
+    idempotencyKey: string | null
+  },
 ): Promise<AiEvalRunResult> {
-  const evalSuite = getMastraEvalSuiteById(input.id)
-
-  if (!evalSuite) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'AI eval suite not found',
-    })
-  }
-
-  const runResult = await runMastraEvalSuite({
-    actorAuthUserId: context.actorAuthUserId,
-    actorRbacUserId: context.actorRbacUserId,
-    evalId: evalSuite.id,
-    requestId: context.requestId,
-    triggerSource: 'manual',
-  })
-
-  await writeOperationLog({
-    action: 'run_ai_eval',
-    detail: `Executed AI eval ${runResult.evalId} (${runResult.experimentId}).`,
-    fallbackActorKind: 'anonymous',
-    module: 'ai_evals',
-    operatorId: context.actorRbacUserId,
-    requestInfo: {
-      evalId: runResult.evalId,
-      experimentId: runResult.experimentId,
-      requestId: context.requestId,
-      status: runResult.status,
+  return runIdempotentMutation(
+    'ai.evals.run',
+    input,
+    {
+      actorAuthUserId: context.actorAuthUserId,
+      actorRbacUserId: context.actorRbacUserId,
+      idempotencyKey: context.idempotencyKey,
     },
-    targetId: runResult.experimentId,
-  })
+    async () => {
+      const evalSuite = getMastraEvalSuiteById(input.id)
 
-  return runResult
+      if (!evalSuite) {
+        throw domainNotFoundError('AI_EVAL_NOT_FOUND')
+      }
+
+      const runResult = await runMastraEvalSuite({
+        actorAuthUserId: context.actorAuthUserId,
+        actorRbacUserId: context.actorRbacUserId,
+        evalId: evalSuite.id,
+        requestId: context.requestId,
+        triggerSource: 'manual',
+      })
+
+      await writeOperationLog({
+        action: 'run_ai_eval',
+        detail: `Executed AI eval ${runResult.evalId} (${runResult.experimentId}).`,
+        fallbackActorKind: 'anonymous',
+        module: 'ai_evals',
+        operatorId: context.actorRbacUserId,
+        requestInfo: {
+          evalId: runResult.evalId,
+          experimentId: runResult.experimentId,
+          requestId: context.requestId,
+          status: runResult.status,
+        },
+        targetId: runResult.experimentId,
+      })
+
+      return runResult
+    },
+  )
 }
 
 /**
@@ -347,6 +353,7 @@ export const aiEvalsRunProcedure = requireAnyPermission(aiEvalWritePermissions)
     runAiEval(input, {
       actorAuthUserId: context.userId,
       actorRbacUserId: context.rbacUserId,
+      idempotencyKey: context.idempotencyKey,
       requestId: context.requestId,
     }),
   )

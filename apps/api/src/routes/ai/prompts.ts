@@ -59,8 +59,9 @@ import {
   type RollbackPromptVersionInput,
   rollbackPromptVersionInputSchema,
 } from '@ai-native-os/shared'
-import { ORPCError } from '@orpc/server'
 
+import { domainConflictError, domainNotFoundError } from '@/lib/domain-errors'
+import { runIdempotentMutation } from '@/lib/idempotency'
 import { requireAnyPermission } from '@/orpc/procedures'
 
 interface PromptMutationContext {
@@ -94,17 +95,27 @@ const promptWritePermissions = [
 ] as const
 
 function mapPromptGovernanceError(error: unknown): never {
+  if (error instanceof PromptVersionNotFoundError) {
+    throw domainNotFoundError('AI_PROMPT_NOT_FOUND', error.message)
+  }
+
+  if (error instanceof PromptEvalRunNotFoundError) {
+    throw domainNotFoundError('AI_EVAL_RUN_NOT_FOUND', error.message)
+  }
+
+  if (error instanceof PromptReleaseGateError) {
+    throw domainConflictError('AI_PROMPT_RELEASE_GATE_FAILED', error.message)
+  }
+
   if (
-    error instanceof PromptVersionNotFoundError ||
-    error instanceof PromptEvalRunNotFoundError ||
-    error instanceof PromptReleaseGateError ||
     error instanceof PromptRollbackTargetNotFoundError ||
-    error instanceof PromptActiveVersionNotFoundError ||
-    error instanceof PromptCompareMismatchError
+    error instanceof PromptActiveVersionNotFoundError
   ) {
-    throw new ORPCError('BAD_REQUEST', {
-      message: error.message,
-    })
+    throw domainNotFoundError('AI_PROMPT_NOT_FOUND', error.message)
+  }
+
+  if (error instanceof PromptCompareMismatchError) {
+    throw domainConflictError('AI_PROMPT_COMPARE_MISMATCH', error.message)
   }
 
   throw error
@@ -392,9 +403,7 @@ export async function getPromptVersionEntryById(
   const promptVersionEntry = await getPromptVersionById(input.id)
 
   if (!promptVersionEntry) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'Prompt version not found',
-    })
+    throw domainNotFoundError('AI_PROMPT_NOT_FOUND')
   }
 
   return promptVersionEntry
@@ -414,41 +423,54 @@ export async function listPromptVersionEntries(
  */
 export async function createPromptVersionEntry(
   input: CreatePromptVersionInput,
-  context: PromptMutationContext,
+  context: PromptMutationContext & {
+    idempotencyKey: string | null
+  },
 ): Promise<PromptVersionEntry> {
-  try {
-    const promptVersionEntry = await createPromptVersion({
-      ...input,
+  return runIdempotentMutation(
+    'ai.prompts.create',
+    input,
+    {
       actorAuthUserId: context.actorAuthUserId,
       actorRbacUserId: context.actorRbacUserId,
-    })
+      idempotencyKey: context.idempotencyKey,
+    },
+    async () => {
+      try {
+        const promptVersionEntry = await createPromptVersion({
+          ...input,
+          actorAuthUserId: context.actorAuthUserId,
+          actorRbacUserId: context.actorRbacUserId,
+        })
 
-    await writeOperationLog({
-      action: 'create_prompt_version',
-      detail: `Created prompt ${promptVersionEntry.promptKey} version ${promptVersionEntry.version}.`,
-      fallbackActorKind: 'anonymous',
-      module: 'ai_prompts',
-      operatorId: context.actorRbacUserId,
-      requestInfo: {
-        promptKey: promptVersionEntry.promptKey,
-        promptVersionId: promptVersionEntry.id,
-        requestId: context.requestId,
-      },
-      targetId: promptVersionEntry.id,
-    })
+        await writeOperationLog({
+          action: 'create_prompt_version',
+          detail: `Created prompt ${promptVersionEntry.promptKey} version ${promptVersionEntry.version}.`,
+          fallbackActorKind: 'anonymous',
+          module: 'ai_prompts',
+          operatorId: context.actorRbacUserId,
+          requestInfo: {
+            promptKey: promptVersionEntry.promptKey,
+            promptVersionId: promptVersionEntry.id,
+            requestId: context.requestId,
+          },
+          targetId: promptVersionEntry.id,
+        })
 
-    return promptVersionEntry
-  } catch (error) {
-    await writePromptGovernanceFailureLog(
-      {
-        action: 'create_prompt_version',
-        promptKey: input.promptKey,
-      },
-      error,
-      context,
-    )
-    mapPromptGovernanceError(error)
-  }
+        return promptVersionEntry
+      } catch (error) {
+        await writePromptGovernanceFailureLog(
+          {
+            action: 'create_prompt_version',
+            promptKey: input.promptKey,
+          },
+          error,
+          context,
+        )
+        mapPromptGovernanceError(error)
+      }
+    },
+  )
 }
 
 /**
@@ -456,42 +478,55 @@ export async function createPromptVersionEntry(
  */
 export async function attachPromptVersionEvalEvidence(
   input: AttachPromptEvalEvidenceInput,
-  context: PromptMutationContext,
+  context: PromptMutationContext & {
+    idempotencyKey: string | null
+  },
 ): Promise<PromptVersionEntry> {
-  try {
-    const promptVersionEntry = await attachPromptEvalEvidence({
-      ...input,
+  return runIdempotentMutation(
+    'ai.prompts.attach-evidence',
+    input,
+    {
       actorAuthUserId: context.actorAuthUserId,
       actorRbacUserId: context.actorRbacUserId,
-    })
+      idempotencyKey: context.idempotencyKey,
+    },
+    async () => {
+      try {
+        const promptVersionEntry = await attachPromptEvalEvidence({
+          ...input,
+          actorAuthUserId: context.actorAuthUserId,
+          actorRbacUserId: context.actorRbacUserId,
+        })
 
-    await writeOperationLog({
-      action: 'attach_prompt_eval_evidence',
-      detail: `Attached eval run ${input.evalRunId} to prompt ${promptVersionEntry.promptKey} version ${promptVersionEntry.version}.`,
-      fallbackActorKind: 'anonymous',
-      module: 'ai_prompts',
-      operatorId: context.actorRbacUserId,
-      requestInfo: {
-        evalRunId: input.evalRunId,
-        promptVersionId: input.promptVersionId,
-        requestId: context.requestId,
-      },
-      targetId: promptVersionEntry.id,
-    })
+        await writeOperationLog({
+          action: 'attach_prompt_eval_evidence',
+          detail: `Attached eval run ${input.evalRunId} to prompt ${promptVersionEntry.promptKey} version ${promptVersionEntry.version}.`,
+          fallbackActorKind: 'anonymous',
+          module: 'ai_prompts',
+          operatorId: context.actorRbacUserId,
+          requestInfo: {
+            evalRunId: input.evalRunId,
+            promptVersionId: input.promptVersionId,
+            requestId: context.requestId,
+          },
+          targetId: promptVersionEntry.id,
+        })
 
-    return promptVersionEntry
-  } catch (error) {
-    await writePromptGovernanceFailureLog(
-      {
-        action: 'attach_prompt_eval_evidence',
-        evalRunId: input.evalRunId,
-        promptVersionId: input.promptVersionId,
-      },
-      error,
-      context,
-    )
-    mapPromptGovernanceError(error)
-  }
+        return promptVersionEntry
+      } catch (error) {
+        await writePromptGovernanceFailureLog(
+          {
+            action: 'attach_prompt_eval_evidence',
+            evalRunId: input.evalRunId,
+            promptVersionId: input.promptVersionId,
+          },
+          error,
+          context,
+        )
+        mapPromptGovernanceError(error)
+      }
+    },
+  )
 }
 
 /**
@@ -499,40 +534,53 @@ export async function attachPromptVersionEvalEvidence(
  */
 export async function activatePromptVersionEntry(
   input: ActivatePromptVersionInput,
-  context: PromptMutationContext,
+  context: PromptMutationContext & {
+    idempotencyKey: string | null
+  },
 ): Promise<PromptVersionEntry> {
-  try {
-    const promptVersionEntry = await activatePromptVersion({
-      ...input,
+  return runIdempotentMutation(
+    'ai.prompts.activate',
+    input,
+    {
       actorAuthUserId: context.actorAuthUserId,
       actorRbacUserId: context.actorRbacUserId,
-    })
+      idempotencyKey: context.idempotencyKey,
+    },
+    async () => {
+      try {
+        const promptVersionEntry = await activatePromptVersion({
+          ...input,
+          actorAuthUserId: context.actorAuthUserId,
+          actorRbacUserId: context.actorRbacUserId,
+        })
 
-    await writeOperationLog({
-      action: 'activate_prompt_version',
-      detail: `Activated prompt ${promptVersionEntry.promptKey} version ${promptVersionEntry.version}.`,
-      fallbackActorKind: 'anonymous',
-      module: 'ai_prompts',
-      operatorId: context.actorRbacUserId,
-      requestInfo: {
-        promptVersionId: promptVersionEntry.id,
-        requestId: context.requestId,
-      },
-      targetId: promptVersionEntry.id,
-    })
+        await writeOperationLog({
+          action: 'activate_prompt_version',
+          detail: `Activated prompt ${promptVersionEntry.promptKey} version ${promptVersionEntry.version}.`,
+          fallbackActorKind: 'anonymous',
+          module: 'ai_prompts',
+          operatorId: context.actorRbacUserId,
+          requestInfo: {
+            promptVersionId: promptVersionEntry.id,
+            requestId: context.requestId,
+          },
+          targetId: promptVersionEntry.id,
+        })
 
-    return promptVersionEntry
-  } catch (error) {
-    await writePromptGovernanceFailureLog(
-      {
-        action: 'activate_prompt_version',
-        promptVersionId: input.promptVersionId,
-      },
-      error,
-      context,
-    )
-    mapPromptGovernanceError(error)
-  }
+        return promptVersionEntry
+      } catch (error) {
+        await writePromptGovernanceFailureLog(
+          {
+            action: 'activate_prompt_version',
+            promptVersionId: input.promptVersionId,
+          },
+          error,
+          context,
+        )
+        mapPromptGovernanceError(error)
+      }
+    },
+  )
 }
 
 /**
@@ -540,42 +588,55 @@ export async function activatePromptVersionEntry(
  */
 export async function rollbackPromptVersionEntry(
   input: RollbackPromptVersionInput,
-  context: PromptMutationContext,
+  context: PromptMutationContext & {
+    idempotencyKey: string | null
+  },
 ): Promise<PromptVersionEntry> {
-  try {
-    const promptVersionEntry = await rollbackPromptVersion({
-      ...input,
+  return runIdempotentMutation(
+    'ai.prompts.rollback',
+    input,
+    {
       actorAuthUserId: context.actorAuthUserId,
       actorRbacUserId: context.actorRbacUserId,
-    })
+      idempotencyKey: context.idempotencyKey,
+    },
+    async () => {
+      try {
+        const promptVersionEntry = await rollbackPromptVersion({
+          ...input,
+          actorAuthUserId: context.actorAuthUserId,
+          actorRbacUserId: context.actorRbacUserId,
+        })
 
-    await writeOperationLog({
-      action: 'rollback_prompt_version',
-      detail: `Rolled back prompt ${promptVersionEntry.promptKey} to version ${promptVersionEntry.version}.`,
-      fallbackActorKind: 'anonymous',
-      module: 'ai_prompts',
-      operatorId: context.actorRbacUserId,
-      requestInfo: {
-        promptKey: input.promptKey,
-        requestId: context.requestId,
-        targetVersionId: input.targetVersionId ?? null,
-      },
-      targetId: promptVersionEntry.id,
-    })
+        await writeOperationLog({
+          action: 'rollback_prompt_version',
+          detail: `Rolled back prompt ${promptVersionEntry.promptKey} to version ${promptVersionEntry.version}.`,
+          fallbackActorKind: 'anonymous',
+          module: 'ai_prompts',
+          operatorId: context.actorRbacUserId,
+          requestInfo: {
+            promptKey: input.promptKey,
+            requestId: context.requestId,
+            targetVersionId: input.targetVersionId ?? null,
+          },
+          targetId: promptVersionEntry.id,
+        })
 
-    return promptVersionEntry
-  } catch (error) {
-    await writePromptGovernanceFailureLog(
-      {
-        action: 'rollback_prompt_version',
-        promptKey: input.promptKey,
-        targetVersionId: input.targetVersionId ?? null,
-      },
-      error,
-      context,
-    )
-    mapPromptGovernanceError(error)
-  }
+        return promptVersionEntry
+      } catch (error) {
+        await writePromptGovernanceFailureLog(
+          {
+            action: 'rollback_prompt_version',
+            promptKey: input.promptKey,
+            targetVersionId: input.targetVersionId ?? null,
+          },
+          error,
+          context,
+        )
+        mapPromptGovernanceError(error)
+      }
+    },
+  )
 }
 
 export const aiPromptsListProcedure = requireAnyPermission(promptReadPermissions)
@@ -676,6 +737,7 @@ export const aiPromptsCreateProcedure = requireAnyPermission(promptWritePermissi
     createPromptVersionEntry(input, {
       actorAuthUserId: context.userId,
       actorRbacUserId: context.rbacUserId,
+      idempotencyKey: context.idempotencyKey,
       requestId: context.requestId,
     }),
   )
@@ -694,6 +756,7 @@ export const aiPromptsAttachEvidenceProcedure = requireAnyPermission(promptWrite
     attachPromptVersionEvalEvidence(input, {
       actorAuthUserId: context.userId,
       actorRbacUserId: context.rbacUserId,
+      idempotencyKey: context.idempotencyKey,
       requestId: context.requestId,
     }),
   )
@@ -712,6 +775,7 @@ export const aiPromptsActivateProcedure = requireAnyPermission(promptWritePermis
     activatePromptVersionEntry(input, {
       actorAuthUserId: context.userId,
       actorRbacUserId: context.rbacUserId,
+      idempotencyKey: context.idempotencyKey,
       requestId: context.requestId,
     }),
   )
@@ -730,6 +794,7 @@ export const aiPromptsRollbackProcedure = requireAnyPermission(promptWritePermis
     rollbackPromptVersionEntry(input, {
       actorAuthUserId: context.userId,
       actorRbacUserId: context.rbacUserId,
+      idempotencyKey: context.idempotencyKey,
       requestId: context.requestId,
     }),
   )

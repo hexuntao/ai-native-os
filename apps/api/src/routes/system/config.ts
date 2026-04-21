@@ -26,9 +26,9 @@ import { resolveMastraEnvironment } from '@/mastra/env'
 import { resolveApiRateLimitEnvironment } from '@/middleware/rate-limit'
 import { requireAnyPermission } from '@/orpc/procedures'
 import {
+  createCatalogListResponse,
   matchesCatalogSearch,
   normalizeCatalogSearchTerm,
-  paginateCatalog,
   sortCatalogByString,
 } from '@/routes/lib/catalog-query'
 
@@ -296,7 +296,7 @@ export async function listConfigs(
     ),
     (item) => item.key,
   )
-  const paged = paginateCatalog(catalog, resolvedInput.page, resolvedInput.pageSize)
+  const paged = createCatalogListResponse(catalog, resolvedInput)
 
   return {
     data: paged.data,

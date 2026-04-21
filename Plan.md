@@ -575,6 +575,11 @@ Completion note:
 - `API-C5-1` through `API-C5-4` are complete.
 - `docs/api-conventions.md` now distinguishes required CRUD contracts from optional command routes and reflects the current public API surface instead of the historical generic template.
 - Contract regression now verifies the API conventions document against the current public route families to catch documentation drift early.
+- `API-C6` through `API-C9` are complete.
+- High-risk AI governance mutations now support `Idempotency-Key` replay protection with persisted request fingerprints and conflict detection.
+- Domain-level API error codes now distinguish eval, prompt, feedback, and audit failures from generic transport-layer `BAD_REQUEST` / `NOT_FOUND` buckets.
+- Rate limiting now separates auth, general reads, system writes, and AI governance commands into distinct enforcement profiles.
+- Shared catalog query and route-family helpers now give the public API a single source of truth for list pagination semantics and route-boundary classification.
 
 Milestones:
 - API-C1 Deliver `system/config` and `system/dicts` full CRUD with audit-safe write paths and contract-first OpenAPI
@@ -585,6 +590,10 @@ Milestones:
 - API-C5-2 Rewrite `docs/api-conventions.md` to separate required CRUD from optional command routes
 - API-C5-3 Add a current public contract mapping for `system/*`, `monitor/*`, `ai/*`, and `tools/*`
 - API-C5-4 Add regression coverage that detects API conventions document drift
+- API-C6 Add idempotency governance for command-style API mutations with replay-safe semantics
+- API-C7 Standardize domain-specific error codes and route-level domain error helpers
+- API-C8 Split rate limiting into business-aware profiles for auth, system writes, AI commands, and general reads
+- API-C9 Unify list-query response helpers and classify helper routes by public contract family
 
 Dependencies:
 - API-C1 depends on current Post-P6 baseline
@@ -595,12 +604,18 @@ Dependencies:
 - API-C5-2 depends on API-C5-1
 - API-C5-3 depends on API-C5-2
 - API-C5-4 depends on API-C5-3
+- API-C6 depends on API-C5-4
+- API-C7 depends on API-C6
+- API-C8 depends on API-C7
+- API-C9 depends on API-C8
 
 Definition of Done:
 - Remaining system helper resources reach the same contract-first quality bar.
 - Error contracts are stable and documented across the API.
 - Regression tests catch route drift before release.
 - The API conventions document no longer promises generic resource capabilities that the implementation does not expose.
+- High-risk command routes can be retried safely without duplicating side effects.
+- Route families, list responses, and rate-limit profiles are explicit enough to keep API behavior predictable as the surface grows.
 
 ### Plan 3: Identity and Permission Hardening
 

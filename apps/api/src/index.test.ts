@@ -894,6 +894,83 @@ test('AI feedback route persists feedback, marks human override, and writes an o
   )
 })
 
+test('AI feedback create route replays the first result for the same idempotency key and rejects payload drift', async () => {
+  const authHeaders = await createSessionForRole('admin')
+  const auditLog = await writeAiAuditLog({
+    action: 'read',
+    actorAuthUserId: `auth-feedback-idempotent-${randomUUID()}`,
+    actorRbacUserId: null,
+    input: {
+      prompt: 'summarize the latest audit status',
+    },
+    output: {
+      summary: 'stale answer',
+    },
+    requestInfo: {
+      requestId: `feedback-idempotent-${randomUUID()}`,
+    },
+    roleCodes: ['admin'],
+    status: 'success',
+    subject: 'AiAuditLog',
+    toolId: `api-feedback-idempotent-${randomUUID()}`,
+  })
+  const idempotencyKey = `feedback-${randomUUID()}`
+  const requestHeaders = new Headers({
+    ...Object.fromEntries(authHeaders.entries()),
+    'content-type': 'application/json',
+    'idempotency-key': idempotencyKey,
+  })
+  const requestBody = {
+    accepted: false,
+    auditLogId: auditLog.id,
+    correction: 'Use the corrected audit summary instead.',
+    feedbackText: 'The original answer ignored the latest override state.',
+    userAction: 'edited' as const,
+  }
+
+  const firstResponse = await app.request('http://localhost/api/v1/ai/feedback', {
+    body: JSON.stringify(requestBody),
+    headers: requestHeaders,
+    method: 'POST',
+  })
+  const secondResponse = await app.request('http://localhost/api/v1/ai/feedback', {
+    body: JSON.stringify(requestBody),
+    headers: requestHeaders,
+    method: 'POST',
+  })
+  const mismatchResponse = await app.request('http://localhost/api/v1/ai/feedback', {
+    body: JSON.stringify({
+      ...requestBody,
+      feedbackText: 'This payload should be rejected because it drifted.',
+    }),
+    headers: requestHeaders,
+    method: 'POST',
+  })
+  const firstPayload = (await firstResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+  const secondPayload = (await secondResponse.json()) as {
+    json: {
+      id: string
+    }
+  }
+  const mismatchPayload = (await mismatchResponse.json()) as {
+    code: string
+    message: string
+  }
+  const feedbackRows = await listAiFeedbackByAuditLogId(auditLog.id)
+
+  assert.equal(firstResponse.status, 200)
+  assert.equal(secondResponse.status, 200)
+  assert.equal(secondPayload.json.id, firstPayload.json.id)
+  assert.equal(feedbackRows.length, 1)
+  assert.equal(mismatchResponse.status, 409)
+  assert.equal(mismatchPayload.code, 'IDEMPOTENCY_PAYLOAD_MISMATCH')
+  assert.match(mismatchPayload.message, /idempotency-key/i)
+})
+
 test('Mastra runtime summary route reflects the current runtime registry state', async () => {
   const response = await app.request('http://localhost/api/v1/system/mastra-runtime')
   const payload = (await response.json()) as {

@@ -133,7 +133,12 @@ import {
   handleAgUiRuntimeSummaryRequest,
   handleCopilotKitRequest,
 } from '@/copilotkit/runtime'
-import { createApiErrorPayload, createValidationErrorPayload, jsonApiError } from '@/lib/api-errors'
+import {
+  createApiErrorPayload,
+  createValidationErrorPayload,
+  jsonApiError,
+  normalizeApiHttpStatus,
+} from '@/lib/api-errors'
 import { getApiHealthSnapshot } from '@/lib/health'
 import { generateOpenApiDocument } from '@/lib/openapi'
 import { initializeTelemetry } from '@/lib/telemetry'
@@ -377,6 +382,7 @@ function jsonOrpcError<TEnv extends AppEnv>(
   error: {
     code: string
     message: string
+    status?: number
   },
 ): Response {
   if (error.code === 'UNAUTHORIZED') {
@@ -393,6 +399,35 @@ function jsonOrpcError<TEnv extends AppEnv>(
 
   if (error.code === 'NOT_FOUND') {
     return c.json(createApiErrorPayload('NOT_FOUND', 404, error.message, c.get('requestId')), 404)
+  }
+
+  if (
+    error.code === 'AI_EVAL_NOT_FOUND' ||
+    error.code === 'AI_EVAL_RUN_NOT_FOUND' ||
+    error.code === 'AI_FEEDBACK_NOT_FOUND' ||
+    error.code === 'AI_AUDIT_LOG_NOT_FOUND' ||
+    error.code === 'AI_PROMPT_NOT_FOUND'
+  ) {
+    const normalizedStatus = normalizeApiHttpStatus(error.status)
+
+    return c.json(
+      createApiErrorPayload(error.code, normalizedStatus, error.message, c.get('requestId')),
+      normalizedStatus,
+    )
+  }
+
+  if (
+    error.code === 'IDEMPOTENCY_REQUEST_IN_PROGRESS' ||
+    error.code === 'IDEMPOTENCY_PAYLOAD_MISMATCH' ||
+    error.code === 'AI_PROMPT_RELEASE_GATE_FAILED' ||
+    error.code === 'AI_PROMPT_COMPARE_MISMATCH'
+  ) {
+    const normalizedStatus = normalizeApiHttpStatus(error.status)
+
+    return c.json(
+      createApiErrorPayload(error.code, normalizedStatus, error.message, c.get('requestId')),
+      normalizedStatus,
+    )
   }
 
   throw error
@@ -523,6 +558,7 @@ app.use(
   cors({
     allowHeaders: [
       'content-type',
+      'idempotency-key',
       'last-event-id',
       'mcp-protocol-version',
       'mcp-session-id',
@@ -1254,6 +1290,7 @@ app.post('/api/v1/ai/evals/:id/run', (c) =>
       runAiEval(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
         actorRbacUserId: context.rbacUserId,
+        idempotencyKey: context.idempotencyKey,
         requestId: context.requestId,
       }),
     (requestContext) => ({
@@ -1318,6 +1355,7 @@ app.post('/api/v1/ai/feedback', (c) =>
       createFeedback(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
         actorRbacUserId: context.rbacUserId,
+        idempotencyKey: context.idempotencyKey,
         requestId: context.requestId,
       }),
   ),
@@ -1445,6 +1483,7 @@ app.post('/api/v1/ai/prompts', (c) =>
       createPromptVersionEntry(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
         actorRbacUserId: context.rbacUserId,
+        idempotencyKey: context.idempotencyKey,
         requestId: context.requestId,
       }),
   ),
@@ -1460,6 +1499,7 @@ app.post('/api/v1/ai/prompts/attach-evidence', (c) =>
       attachPromptVersionEvalEvidence(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
         actorRbacUserId: context.rbacUserId,
+        idempotencyKey: context.idempotencyKey,
         requestId: context.requestId,
       }),
   ),
@@ -1475,6 +1515,7 @@ app.post('/api/v1/ai/prompts/activate', (c) =>
       activatePromptVersionEntry(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
         actorRbacUserId: context.rbacUserId,
+        idempotencyKey: context.idempotencyKey,
         requestId: context.requestId,
       }),
   ),
@@ -1490,6 +1531,7 @@ app.post('/api/v1/ai/prompts/rollback', (c) =>
       rollbackPromptVersionEntry(input, {
         actorAuthUserId: context.userId ?? context.session?.user.id ?? 'unknown-user',
         actorRbacUserId: context.rbacUserId,
+        idempotencyKey: context.idempotencyKey,
         requestId: context.requestId,
       }),
   ),

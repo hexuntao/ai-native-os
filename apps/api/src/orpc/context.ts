@@ -6,6 +6,7 @@ import type { ApiEnv } from '@/middleware/auth'
 
 export interface AppContext {
   ability: AppAbility
+  idempotencyKey: string | null
   permissionRules: PermissionRule[]
   requestId: string
   rbacUserId: string | null
@@ -19,6 +20,7 @@ export async function createAppContext<TEnv extends ApiEnv>(c: Context<TEnv>): P
 
   return {
     ability: c.get('ability'),
+    idempotencyKey: c.req.header('idempotency-key')?.trim() || null,
     permissionRules: c.get('permissionRules'),
     requestId: c.get('requestId'),
     rbacUserId: c.get('rbacUserId'),

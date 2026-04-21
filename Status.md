@@ -132,6 +132,10 @@ Overall Status: `phase_6_complete_e2e_remediation_closed`
 | API-C5-2 | Post-P6 | Rewrite `docs/api-conventions.md` so required CRUD contracts are separated from optional command routes | done | API-C5-1 | lint + typecheck + test + build |
 | API-C5-3 | Post-P6 | Add a current public contract mapping for `system/*`, `monitor/*`, `ai/*`, and `tools/*` families | done | API-C5-2 | lint + typecheck + test + build |
 | API-C5-4 | Post-P6 | Add regression coverage that detects API conventions document drift before release | done | API-C5-3 | lint + typecheck + test + build |
+| API-C6 | Post-P6 | Add persisted `Idempotency-Key` governance for high-risk command mutations so retries replay safely and payload drift is rejected | done | API-C5-4 | db:generate + db:migrate + lint + typecheck + test + build |
+| API-C7 | Post-P6 | Standardize domain-specific API error codes and route-level domain error helpers for AI governance command/detail surfaces | done | API-C6 | lint + typecheck + test + build |
+| API-C8 | Post-P6 | Split API rate limiting into auth, general read, system write, and AI command profiles with matching regression coverage | done | API-C7 | lint + typecheck + test + build |
+| API-C9 | Post-P6 | Unify catalog-list response helpers and classify public helper routes by contract family to reduce query and boundary drift | done | API-C8 | lint + typecheck + test + build |
 | IAM-C2 | Post-P6 | Remove steady-state email fallback from authenticated principal resolution and enforce `auth_user_id` as the primary identity key | done | IAM-C1 | lint + typecheck + test + build |
 | IAM-C3 | Post-P6 | Add explicit principal repair and backfill tooling for legacy users that still require `auth_user_id` binding | done | IAM-C2 | lint + typecheck + test + build |
 | IAM-C4 | Post-P6 | Expand permission regression coverage across resource, field, conditional, and inverted-rule cases | done | IAM-C3 | lint + typecheck + test + build |
@@ -199,6 +203,11 @@ Priority order as of 2026-04-12:
 - `UI-C14` is closed; `monitor/server` and `monitor/online` now prioritize incident-like signals instead of acting as plain status tables.
 - `UI-C15` is closed; Copilot now exposes route-specific brief/suggestion/handoff contracts for `monitor/server` and `monitor/online` in addition to existing AI routes.
 - Plan 1 `Web UI/UX Hardening` is complete.
+- `API-C6` is closed; `ai/feedback`, `ai/evals`, and prompt-governance write commands now support persisted `Idempotency-Key` replay with payload-drift rejection and OpenAPI header documentation.
+- `API-C7` is closed; AI governance routes now emit domain-specific error codes instead of collapsing everything into generic transport-layer not-found and bad-request buckets.
+- `API-C8` is closed; API rate limiting now distinguishes auth, general reads, system writes, and AI governance command traffic.
+- `API-C9` is closed; shared catalog list helpers and public contract-family classification now guard query semantics and helper-route boundaries in regression.
+- Plan 2 `API Platform Consistency` remains complete after the API-C6 through API-C9 hardening pass.
 - `IAM-C2` is closed; steady-state authenticated flows now resolve RBAC only through stable `auth_user_id`, while legacy email-linked rows must go through explicit principal repair.
 - `IAM-C3` is closed; operators now have explicit principal repair candidate listing and repair actions instead of hidden sign-in side effects.
 - `IAM-C4` is closed; permission regression coverage now verifies resource, field, conditional, and inverted-rule serialization and enforcement.

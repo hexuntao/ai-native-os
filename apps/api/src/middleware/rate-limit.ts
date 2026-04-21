@@ -11,7 +11,7 @@ interface ApiRateLimitBucketState {
 }
 
 interface ApiRateLimitProfile {
-  bucketName: 'auth' | 'general'
+  bucketName: 'ai_command' | 'auth' | 'general' | 'system_write'
   maxRequests: number
   windowMs: number
 }
@@ -25,12 +25,16 @@ interface ApiRateLimitDecision {
 }
 
 export interface ApiRateLimitEnvironment {
+  aiCommandMaxRequests: number
+  aiCommandWindowMs: number
   authMaxRequests: number
   authWindowMs: number
   enabled: boolean
   exemptPathPrefixes: readonly string[]
   generalMaxRequests: number
   generalWindowMs: number
+  systemWriteMaxRequests: number
+  systemWriteWindowMs: number
 }
 
 export interface ApiRateLimitDependencies {
@@ -54,12 +58,16 @@ export function resolveApiRateLimitEnvironment(
   environment: NodeJS.ProcessEnv = process.env,
 ): ApiRateLimitEnvironment {
   return {
+    aiCommandMaxRequests: 12,
+    aiCommandWindowMs: 60_000,
     authMaxRequests: 20,
     authWindowMs: 60_000,
     enabled: environment.NODE_ENV === 'production',
     exemptPathPrefixes: defaultExemptPathPrefixes,
     generalMaxRequests: 120,
     generalWindowMs: 60_000,
+    systemWriteMaxRequests: 40,
+    systemWriteWindowMs: 60_000,
   }
 }
 
@@ -104,6 +112,7 @@ function resolveClientIdentifier(context: Context): string {
  * - 其余 API 走通用配额，作为基础安全阈值
  */
 function resolveApiRateLimitProfile(
+  requestMethod: string,
   requestPath: string,
   environment: ApiRateLimitEnvironment,
 ): ApiRateLimitProfile {
@@ -112,6 +121,44 @@ function resolveApiRateLimitProfile(
       bucketName: 'auth',
       maxRequests: environment.authMaxRequests,
       windowMs: environment.authWindowMs,
+    }
+  }
+
+  if (
+    requestMethod === 'POST' &&
+    (requestPath === '/api/v1/ai/feedback' ||
+      requestPath.endsWith('/run') ||
+      requestPath === '/api/v1/ai/prompts' ||
+      requestPath === '/api/v1/ai/prompts/attach-evidence' ||
+      requestPath === '/api/v1/ai/prompts/activate' ||
+      requestPath === '/api/v1/ai/prompts/rollback')
+  ) {
+    return {
+      bucketName: 'ai_command',
+      maxRequests: environment.aiCommandMaxRequests,
+      windowMs: environment.aiCommandWindowMs,
+    }
+  }
+
+  if (
+    ['DELETE', 'POST', 'PUT'].includes(requestMethod) &&
+    (requestPath === '/api/v1/system/users' ||
+      requestPath.startsWith('/api/v1/system/users/') ||
+      requestPath === '/api/v1/system/roles' ||
+      requestPath.startsWith('/api/v1/system/roles/') ||
+      requestPath === '/api/v1/system/permissions' ||
+      requestPath.startsWith('/api/v1/system/permissions/') ||
+      requestPath === '/api/v1/system/menus' ||
+      requestPath.startsWith('/api/v1/system/menus/') ||
+      requestPath === '/api/v1/system/config' ||
+      requestPath.startsWith('/api/v1/system/config/') ||
+      requestPath === '/api/v1/system/dicts' ||
+      requestPath.startsWith('/api/v1/system/dicts/'))
+  ) {
+    return {
+      bucketName: 'system_write',
+      maxRequests: environment.systemWriteMaxRequests,
+      windowMs: environment.systemWriteWindowMs,
     }
   }
 
@@ -228,7 +275,7 @@ export function createApiRateLimitMiddleware(
       return
     }
 
-    const profile = resolveApiRateLimitProfile(context.req.path, environment)
+    const profile = resolveApiRateLimitProfile(context.req.method, context.req.path, environment)
     const clientIdentifier = resolveClientIdentifier(context)
     const decision = consumeApiRateLimitToken(
       buildRateLimitBucketKey(clientIdentifier, profile),

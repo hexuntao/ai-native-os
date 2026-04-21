@@ -8,7 +8,7 @@ import type { Context } from 'hono'
 import type { z } from 'zod'
 
 type ApiErrorCodeKey = keyof typeof ErrorCodes
-type ApiHttpStatus = 400 | 401 | 403 | 404 | 429 | 500
+type ApiHttpStatus = 400 | 401 | 403 | 404 | 409 | 429 | 500
 
 /**
  * 生成统一 API 错误载荷，确保 REST 兼容入口、限流与中间件返回相同结构。
@@ -76,4 +76,22 @@ export function jsonApiError<TContext extends Context>(
     createApiErrorPayload(code, status, message, context.get('requestId') as string | undefined),
     status,
   )
+}
+
+/**
+ * 将任意 HTTP 状态映射为仓库内允许的 API 错误状态集合。
+ */
+export function normalizeApiHttpStatus(status: number | undefined): ApiHttpStatus {
+  if (
+    status === 401 ||
+    status === 403 ||
+    status === 404 ||
+    status === 409 ||
+    status === 429 ||
+    status === 500
+  ) {
+    return status
+  }
+
+  return 400
 }
