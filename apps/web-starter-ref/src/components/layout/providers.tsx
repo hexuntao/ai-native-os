@@ -1,24 +1,20 @@
-'use client'
+'use client';
+import React from 'react';
+import { ActiveThemeProvider } from '../themes/active-theme';
+import QueryProvider from './query-provider';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { type ReactNode, useState } from 'react'
-
-interface ProvidersProps {
-  children: ReactNode
-}
-
-export function Providers({ children }: ProvidersProps): ReactNode {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            gcTime: 5 * 60 * 1000,
-            staleTime: 30 * 1000,
-          },
-        },
-      }),
-  )
-
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+export default function Providers({
+  activeThemeValue,
+  children
+}: {
+  activeThemeValue: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <ActiveThemeProvider initialTheme={activeThemeValue}>
+        <QueryProvider>{children}</QueryProvider>
+      </ActiveThemeProvider>
+    </>
+  );
 }

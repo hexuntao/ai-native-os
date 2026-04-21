@@ -1,9 +1,13 @@
-'use client'
-
-import { Badge, Button, cn } from '@ai-native-os/ui'
-import { usePathname } from 'next/navigation'
-import type { ReactNode } from 'react'
-
+'use client';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
@@ -11,119 +15,125 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarLinkButton,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
-  useSidebar,
-} from '@/components/ui/sidebar'
-import { navGroups, type StarterRefNavItem } from '@/config/nav-config'
-import { isItemActive } from '@/lib/navigation'
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarRail
+} from '@/components/ui/sidebar';
+import { navGroups } from '@/config/nav-config';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { useFilteredNavGroups } from '@/hooks/use-nav';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import * as React from 'react';
+import { Icons } from '../icons';
 
-function BrandMark(): ReactNode {
-  return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-sidebar-border bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.96),rgba(226,232,240,0.92))] shadow-sm">
-      <div className="h-5 w-5 rounded-xl bg-[linear-gradient(135deg,var(--sidebar-primary),rgba(15,23,42,0.92))]" />
-    </div>
-  )
-}
+export default function AppSidebar() {
+  const pathname = usePathname();
+  const { isOpen } = useMediaQuery();
+  const filteredGroups = useFilteredNavGroups(navGroups);
 
-function resolveGlyph(title: string): string {
-  return title.slice(0, 1).toUpperCase()
-}
-
-function NavEntry({ item }: { item: StarterRefNavItem }): ReactNode {
-  const pathname = usePathname()
-  const { open } = useSidebar()
-  const isActive = isItemActive(item.url, pathname)
-
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-        <SidebarLinkButton href={item.url}>
-          <span
-            className={cn(
-              'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] uppercase tracking-[0.12em]',
-              isActive
-                ? 'border-sidebar-border bg-sidebar text-sidebar-foreground'
-                : 'border-sidebar-border bg-sidebar text-muted-foreground',
-            )}
-          >
-            {resolveGlyph(item.title)}
-          </span>
-          {open ? <span className="truncate">{item.title}</span> : null}
-        </SidebarLinkButton>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  )
-}
-
-export default function AppSidebar(): ReactNode {
-  const { open } = useSidebar()
+  React.useEffect(() => {
+    // Side effects based on sidebar state changes
+  }, [isOpen]);
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
-        <div className={cn('flex items-start gap-3', !open && 'justify-center')}>
-          <BrandMark />
-          {open ? (
-            <div className="min-w-0">
-              <p className="truncate text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-                AI Native OS
-              </p>
-              <h1 className="mt-1 text-base font-semibold text-foreground">Starter Ref</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Shell migration baseline</p>
-            </div>
-          ) : null}
-        </div>
-      </SidebarHeader>
-
-      <SidebarContent className="px-3 py-4">
-        {navGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+    <Sidebar collapsible='icon'>
+      <SidebarHeader />
+      <SidebarContent className='overflow-x-hidden'>
+        {filteredGroups.map((group) => (
+          <SidebarGroup key={group.label || 'ungrouped'} className='py-0'>
+            {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
             <SidebarMenu>
-              {group.items.map((item) => (
-                <NavEntry item={item} key={item.url} />
-              ))}
+              {group.items.map((item) => {
+                const Icon = item.icon ? Icons[item.icon] : Icons.logo;
+                return item?.items && item?.items?.length > 0 ? (
+                  <Collapsible
+                    key={item.title}
+                    asChild
+                    defaultOpen={item.isActive}
+                    className='group/collapsible'
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton tooltip={item.title} isActive={pathname === item.url}>
+                          {item.icon && <Icon />}
+                          <span>{item.title}</span>
+                          <Icons.chevronRight className='ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90' />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {item.items?.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton asChild isActive={pathname === subItem.url}>
+                                <Link href={subItem.url}>
+                                  <span>{subItem.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                ) : (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={pathname === item.url}
+                    >
+                      <Link href={item.url}>
+                        <Icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroup>
         ))}
       </SidebarContent>
-
-      <SidebarFooter className="border-t border-sidebar-border px-3 py-3">
-        <div
-          className={cn(
-            'rounded-2xl border border-sidebar-border bg-sidebar shadow-sm',
-            open ? 'p-3' : 'flex items-center justify-center p-2',
-          )}
-        >
-          {open ? (
-            <>
-              <p className="text-sm font-medium text-foreground">Starter Ref Operator</p>
-              <p className="mt-1 truncate text-sm text-muted-foreground">
-                migration@ai-native-os.local
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant="secondary">ref</Badge>
-                <Badge variant="secondary">admin</Badge>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                Shell only. No auth, RBAC, or runtime data bindings yet.
-              </p>
-            </>
-          ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sidebar-accent text-sm font-semibold text-sidebar-accent-foreground">
-              R
-            </span>
-          )}
-        </div>
-        <Button className="mt-3 w-full" type="button" variant="secondary">
-          {open ? 'Starter Ref' : 'Ref'}
-        </Button>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size='lg'
+                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+                >
+                  <span className='truncate'>Account</span>
+                  <Icons.chevronsDown className='ml-auto size-4' />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className='w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg'
+                side='bottom'
+                align='end'
+                sideOffset={4}
+              >
+                <DropdownMenuLabel className='p-0 font-normal'>
+                  <div className='text-muted-foreground px-1 py-1.5 text-sm'>
+                    Sign in to manage your account
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Icons.notification className='mr-2 h-4 w-4' />
+                  Notifications
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

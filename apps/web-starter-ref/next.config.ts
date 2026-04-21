@@ -1,23 +1,30 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-import type { NextConfig } from 'next'
-
-function resolveWorkspaceRoot(): string {
-  const currentFilePath = fileURLToPath(import.meta.url)
-  const currentDirectory = path.dirname(currentFilePath)
-
-  return path.join(currentDirectory, '../..')
-}
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  outputFileTracingRoot: resolveWorkspaceRoot(),
-  reactStrictMode: true,
-  turbopack: {
-    root: resolveWorkspaceRoot(),
+  output: process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'api.slingacademy.com',
+        port: ''
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.clerk.com',
+        port: ''
+      },
+      {
+        protocol: 'https',
+        hostname: 'clerk.com',
+        port: ''
+      }
+    ]
   },
-  transpilePackages: ['@ai-native-os/shared', '@ai-native-os/ui'],
-  typedRoutes: true,
-}
+  transpilePackages: ['geist'],
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production'
+  }
+};
 
-export default nextConfig
+export default nextConfig;

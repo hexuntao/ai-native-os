@@ -1,114 +1,85 @@
-export interface StarterRefNavItem {
-  description?: string
-  items?: StarterRefNavItem[]
-  title: string
-  url: string
-}
+import { NavGroup } from '@/types';
 
-export interface StarterRefNavGroup {
-  items: StarterRefNavItem[]
-  label: string
-}
-
-export const navGroups: readonly StarterRefNavGroup[] = [
+/**
+ * Navigation configuration with RBAC support
+ *
+ * This configuration is used for both the sidebar navigation and Cmd+K bar.
+ * Items are organized into groups, each rendered with a SidebarGroupLabel.
+ *
+ * RBAC Access Control:
+ * Each navigation item can have an `access` property that controls visibility
+ * based on permissions, plans, features, roles, and organization context.
+ *
+ * Examples:
+ *
+ * 1. Require organization:
+ *    access: { requireOrg: true }
+ *
+ * 2. Require specific permission:
+ *    access: { requireOrg: true, permission: 'org:teams:manage' }
+ *
+ * 3. Require specific plan:
+ *    access: { plan: 'pro' }
+ *
+ * 4. Require specific feature:
+ *    access: { feature: 'premium_access' }
+ *
+ * 5. Require specific role:
+ *    access: { role: 'admin' }
+ *
+ * 6. Multiple conditions (all must be true):
+ *    access: { requireOrg: true, permission: 'org:teams:manage', plan: 'pro' }
+ *
+ * Note: The `visible` function is deprecated but still supported for backward compatibility.
+ * Use the `access` property for new items.
+ */
+export const navGroups: NavGroup[] = [
   {
-    label: 'Home',
+    label: 'Overview',
     items: [
       {
-        description: 'System-wide AI operating picture.',
-        title: 'AI Operations Center',
-        url: '/dashboard/home',
+        title: 'Dashboard',
+        url: '/dashboard/overview',
+        icon: 'dashboard',
+        isActive: false,
+        shortcut: ['d', 'd'],
+        items: []
       },
-    ],
+      {
+        title: 'Product',
+        url: '/dashboard/product',
+        icon: 'product',
+        shortcut: ['p', 'p'],
+        isActive: false,
+        items: []
+      },
+      {
+        title: 'Users',
+        url: '/dashboard/users',
+        icon: 'teams',
+        shortcut: ['u', 'u'],
+        isActive: false,
+        items: []
+      }
+    ]
   },
   {
-    label: 'Build',
+    label: 'Account',
     items: [
       {
-        description: 'Prompt engineering and release gates.',
-        title: 'Prompt Studio',
-        url: '/dashboard/build/prompts',
-      },
-    ],
-  },
-  {
-    label: 'Observe',
-    items: [
-      {
-        description: 'Runtime inspection and trace review.',
-        title: 'Runs & Traces',
-        url: '/dashboard/observe/runs',
-      },
-      {
-        description: 'Platform health and worker status.',
-        title: 'Runtime Monitor',
-        url: '/dashboard/observe/monitor',
-      },
-    ],
-  },
-  {
-    label: 'Improve',
-    items: [
-      {
-        description: 'Eval suites and quality posture.',
-        title: 'Eval Registry',
-        url: '/dashboard/improve/evals',
-      },
-    ],
-  },
-  {
-    label: 'Knowledge',
-    items: [
-      {
-        description: 'Retrieval inputs and collections.',
-        title: 'Knowledge Collections',
-        url: '/dashboard/knowledge/collections',
-      },
-    ],
-  },
-  {
-    label: 'Govern',
-    items: [
-      {
-        description: 'Approval queue and governance review.',
-        title: 'Approval Queue',
-        url: '/dashboard/govern/approvals',
-      },
-      {
-        description: 'Audit evidence and operator ledger.',
-        title: 'Audit Ledger',
-        url: '/dashboard/govern/audit',
-      },
-    ],
-  },
-  {
-    label: 'Workspace',
-    items: [
-      {
-        description: 'Exports and reporting surfaces.',
-        title: 'Reports Workspace',
-        url: '/dashboard/workspace/reports',
-      },
-    ],
-  },
-  {
-    label: 'Admin',
-    items: [
-      {
-        description: 'Authenticated principals and roles.',
-        title: 'Users Directory',
-        url: '/dashboard/admin/users',
-      },
-      {
-        description: 'Role topology.',
-        title: 'Roles Matrix',
-        url: '/dashboard/admin/roles',
-      },
-      {
-        description: 'Permission contracts.',
-        title: 'Permission Center',
-        url: '/dashboard/admin/permissions',
-      },
-    ],
-  },
-] as const
+        title: 'Account',
+        url: '#',
+        icon: 'account',
+        isActive: true,
+        items: [
+          {
+            title: 'Login',
+            shortcut: ['l', 'l'],
+            url: '/',
+            icon: 'login'
+          }
+        ]
+      }
+    ]
+  }
+];
