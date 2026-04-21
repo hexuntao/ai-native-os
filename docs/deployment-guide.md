@@ -11,7 +11,7 @@
 |------|------|---------|-------------|--------|---------|
 | **模式 A: 全 Serverless** | Vercel | Cloudflare Workers | Trigger.dev Cloud | Neon + Upstash | MVP / 个人 |
 | **模式 B: 混合** | Vercel | Docker (VPS) | Docker (VPS) | Neon / Docker | 小团队 |
-| **模式 C: 全自托管** | Cloudflare Pages | Docker (VPS) | Docker (VPS) | Docker | 企业私有 |
+| **模式 C: 全自托管** | Docker 自托管 Next.js | Docker (VPS) | Docker (VPS) | Docker | 企业私有 |
 
 ---
 
@@ -403,45 +403,35 @@ curl http://localhost:8080/healthz
 ### 5.1 架构图
 
 ```
-用户 → Cloudflare CDN → Cloudflare Pages (Next.js 静态 + SSR)
-                      → VPS (Docker)
-                          ├── Hono API Container
-                          ├── Trigger.dev Self-hosted
-                          │   ├── trigger-webapp
-                          │   └── trigger-worker
-                          ├── PostgreSQL + pgvector
-                          └── Redis
+用户 → Nginx / CDN → VPS (Docker)
+                ├── Next.js Web Container
+                ├── Hono API Container
+                ├── Jobs Container
+                ├── PostgreSQL + pgvector
+                └── Redis
 ```
 
-### 5.2 Next.js 部署到 Cloudflare Pages
+### 5.2 当前仓库已验证的全自托管 Web 形态
 
-需要使用 `@opennextjs/cloudflare` 适配器。
-
-```typescript
-// apps/web/next.config.ts
-import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare'
-
-initOpenNextCloudflareForDev()
-
-const nextConfig = {
-  // Cloudflare Pages 兼容配置
-  output: 'standalone',
-  experimental: {
-    // ...
-  },
-}
-
-export default nextConfig
-```
+当前仓库已经验证的 Mode C 前端不是 Cloudflare Pages，而是 `docker-compose.prod.yml` 中的 `web` 容器：
 
 ```bash
-# 部署到 Cloudflare Pages
-cd apps/web
-pnpm dlx @opennextjs/cloudflare build
-pnpm wrangler pages deploy .open-next/assets --project-name=ai-native-os
+docker compose -f docker/docker-compose.prod.yml --profile ops run --rm migrate
+docker compose -f docker/docker-compose.prod.yml up --build -d
+curl http://localhost:8080/health
+curl http://localhost:8080/healthz
 ```
 
-### 5.3 Trigger.dev 自托管
+说明：
+- `web`、`api`、`jobs` 都由 Docker 镜像统一交付
+- Nginx 负责统一入口与路由分发
+- 这是当前 `Mode C: validated` 的真实依据
+
+### 5.3 Cloudflare Pages 变体（目标态，可选）
+
+如果后续需要把前端切到 Cloudflare Pages，可以再引入 `@opennextjs/cloudflare` 适配器；但这不是当前仓库已经验证过的 Mode C 交付路径。
+
+### 5.4 Trigger.dev 自托管
 
 ```yaml
 # docker/docker-compose.trigger.yml

@@ -23,15 +23,19 @@ Layer 1: LLM 编排层 — Mastra Core + Vercel AI SDK + Model Router
 |------|------|------|
 | Agent 框架 | Mastra | Agent 定义、Tool 编排、Workflow 引擎 |
 | AI SDK | Vercel AI SDK | 流式响应、模型抽象、UI 组件 |
-| Generative UI | CopilotKit + assistant-ui | AI 驱动的交互式前端 |
+| Generative UI | CopilotKit（当前） + assistant-ui（目标态可选） | 当前仓库已落地 CopilotKit + 自定义工作台；assistant-ui 仍保留为后续可选增强 |
 | Agent-UI 协议 | AG-UI | Agent 与前端的实时双向通信 |
-| MCP | @mastra/mcp | 暴露后台工具 + 连接外部工具 |
+| MCP | `@modelcontextprotocol/sdk` / `@ai-sdk/mcp`（当前） + `@mastra/mcp`（目标态） | 当前仓库使用兼容实现保持真实 MCP 协议；`@mastra/mcp` 仍是蓝图口径 |
 | 向量数据库 | pgvector (PostgreSQL) | RAG 嵌入存储与检索 |
-| 任务执行 | Trigger.dev v4 | 长时间运行的 AI 任务 |
+| 任务执行 | Trigger.dev v4 | 当前仓库已使用 Trigger.dev v4 包；任务代码仍通过官方 v3-compatible import surface 接线 |
 | AI 可观测性 | Mastra Tracing + OpenTelemetry | 决策链路追踪 |
 | AI 评估 | Mastra Evals | Agent 质量持续评估 |
 
 ### 1.3 Mastra + Hono 集成方式
+
+> 当前实现口径补充：
+> - 下文若出现 `@mastra/mcp` 代码示例，应理解为目标态蓝图，不代表当前仓库已经直接安装并使用该包
+> - Trigger.dev 部分的 `sdk/v3` import 示例在当前仓库仍然成立，因为项目依赖的是 Trigger.dev v4 包提供的兼容导出面
 
 使用 `@mastra/hono` Server Adapter 将 Mastra 实例挂载到 Hono 应用：
 

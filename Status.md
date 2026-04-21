@@ -208,6 +208,7 @@ Priority order as of 2026-04-12:
 - `API-C8` is closed; API rate limiting now distinguishes auth, general reads, system writes, and AI governance command traffic.
 - `API-C9` is closed; shared catalog list helpers and public contract-family classification now guard query semantics and helper-route boundaries in regression.
 - Plan 2 `API Platform Consistency` remains complete after the API-C6 through API-C9 hardening pass.
+- `DOC-ALIGN-1` is closed; architecture, API, AI, and deployment docs now distinguish current fact from target-state blueprint for Trigger.dev, MCP, helper routes, and Mode C self-hosting.
 - `IAM-C2` is closed; steady-state authenticated flows now resolve RBAC only through stable `auth_user_id`, while legacy email-linked rows must go through explicit principal repair.
 - `IAM-C3` is closed; operators now have explicit principal repair candidate listing and repair actions instead of hidden sign-in side effects.
 - `IAM-C4` is closed; permission regression coverage now verifies resource, field, conditional, and inverted-rule serialization and enforcement.

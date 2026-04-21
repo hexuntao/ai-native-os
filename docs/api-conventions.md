@@ -37,9 +37,15 @@
 /api/v1/system/menus              # 系统管理 - 菜单
 /api/v1/system/dicts              # 系统管理 - 字典（内置项只读，自定义项可写）
 /api/v1/system/config             # 系统管理 - 配置（内置项只读，自定义项可写）
+/api/v1/system/ping               # 系统 - 轻量存活探针
 /api/v1/system/session            # 系统 - 当前会话
 /api/v1/system/rbac-summary       # 系统 - RBAC 摘要
 /api/v1/system/permission-admin-check # 系统 - 权限管理入口校验
+/api/v1/system/permissions/current # 系统 - 当前主体权限规则
+/api/v1/system/permissions/ability # 系统 - 当前主体序列化 Ability
+/api/v1/system/ai/tools/catalog   # 系统 - 当前主体可见 AI Tool 目录
+/api/v1/system/ai/audit-logs/recent # 系统 - 最近 AI 审计日志
+/api/v1/system/mastra-runtime     # 系统 - 当前 Mastra 运行时摘要
 /api/v1/system/users/principal-repair* # 系统 - 历史主体修复
 
 /api/v1/monitor/logs              # 监控 - 操作日志
@@ -257,9 +263,15 @@ const governanceRouter = {
 | `system/menus` | 完整 CRUD | 菜单资源面 |
 | `system/config` | 完整 CRUD | 自定义配置可写，内置配置只读 |
 | `system/dicts` | 完整 CRUD | 自定义字典可写，内置字典只读 |
+| `system/ping` | helper read | 轻量存活探针 |
 | `system/session` | helper read | 当前登录会话摘要 |
 | `system/rbac-summary` | helper read | RBAC 聚合摘要 |
 | `system/permission-admin-check` | helper read | 权限管理入口校验 |
+| `system/permissions/current` | helper read | 当前主体原始权限规则 |
+| `system/permissions/ability` | helper read | 当前主体序列化 Ability |
+| `system/ai/tools/catalog` | helper read | 当前主体可见 AI Tool 目录 |
+| `system/ai/audit-logs/recent` | helper read | 最近 AI 审计日志摘要 |
+| `system/mastra-runtime` | helper read | 当前 Mastra runtime / discovery 摘要 |
 | `system/users/principal-repair*` | operator command | 历史主体修复命令面 |
 | `monitor/logs` | read list | 监控/审计只读面 |
 | `monitor/online` | read list | 在线主体只读面 |

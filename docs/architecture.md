@@ -77,11 +77,11 @@
 | ORM | **Drizzle** | TypeScript 优先，贴近 SQL |
 | 验证 | **Zod** | Schema 验证 + 类型推导，前后端共享 |
 | 缓存 | **Upstash Redis** (Edge) / **Redis** (Docker) | 分层：HTTP Redis 用于 Edge，TCP Redis 用于容器 |
-| 认证 | **Better Auth** + **JWT** | 完整认证方案（OAuth、MFA、Session） |
+| 认证 | **Better Auth**（当前） + **JWT**（目标态可选） | 当前仓库以 Better Auth 会话为主；JWT 仅保留为后续扩展口径 |
 | 权限 | **CASL** + **自建 RBAC** | 前后端同构权限引擎 + DB 存储角色权限 |
-| 任务队列 | **Trigger.dev v4** (重型) + **Cloudflare Queues** (轻量) | 分层队列架构 |
+| 任务队列 | **Trigger.dev v4** (重型) + **Cloudflare Queues** (轻量) | 当前仓库已使用 Trigger.dev v4 包；任务文件仍走官方 v3-compatible import surface |
 | Excel | **excelize-wasm** | WASM 方案，Edge / Serverless 兼容 |
-| API 限流 | **Hono Rate Limiter** | 安全防护 |
+| API 限流 | **Hono 中间件限流基线** | 当前仓库使用自研 Hono middleware 实现生产默认限流，而不是直接接官方 Hono Rate Limiter 包 |
 
 > **Trigger.dev 已升级至 v4 GA**：v4 要求自定义队列（及其并发限制）必须预先定义，解决了 v3 中动态创建队列导致的并发限制混乱问题。V4 已准备好用于生产工作负载。
 
@@ -123,7 +123,7 @@
 | 分类 | 技术 | 说明 |
 |------|------|------|
 | Agentic UI 框架 | **CopilotKit** | CopilotKit 提供 React 组件来快速集成可定制的 AI Copilot 到你的应用。结合 Mastra，可以构建具有双向状态同步和交互式 UI 的复杂 AI 应用。 |
-| AI Chat UI | **assistant-ui** | 构建：可组合的原语来创建任何聊天 UX（消息列表、输入、线程、工具栏）和一个可完全定制的精美 shadcn/ui 主题。交付：开箱即用的生产级 UX——流式传输、自动滚动、重试、附件、Markdown、代码高亮和语音输入。生成：将工具调用和 JSON 渲染为组件，内联收集人工审批，启用安全的前端操作。集成：与 AI SDK、LangGraph、Mastra 或自定义后端兼容。 |
+| AI Chat UI | **CopilotKit 自定义面板**（当前） / **assistant-ui**（目标态可选） | 当前仓库已落地 route-aware Copilot panel 与 AG-UI bridge；assistant-ui 仍保留为后续可选升级方向 |
 | Agent-User 协议 | **AG-UI** | AG-UI 是一个开放、轻量、基于事件的协议，标准化 AI Agent 如何连接到面向用户的应用。为简单性和灵活性而构建，实现 AI Agent、实时用户上下文和用户界面之间的无缝集成。 |
 | Agent 生成式 UI | **A2UI** (Google) | A2UI 旨在解决可互操作、跨平台、生成式或模板式 Agent UI 响应的特定挑战。A2UI 允许 Agent 生成最适合当前对话的界面，并发送给前端应用。 |
 
@@ -135,8 +135,8 @@
 |------|------|------|
 | Agent | **Mastra Agent** | 构建使用 LLM 和工具解决开放式任务的自主 Agent。Agent 对目标进行推理，决定使用哪些工具，并在内部迭代直到模型产生最终答案或满足可选的停止条件。 |
 | Workflow | **Mastra Workflow** | 当需要显式控制执行时，使用基于图的工作流引擎编排复杂的多步骤流程。使用直观语法（.then()、.branch()、.parallel()）。Human-in-the-loop——暂停 Agent 或工作流，等待用户输入或批准后再继续。 |
-| MCP Server | **@mastra/mcp** | MCPServer：将 Mastra 的工具、Agent、Workflow、Prompt 和资源暴露给 MCP 兼容的客户端。 |
-| MCP Client | **@mastra/mcp** | MCPClient 将 Mastra 原语连接到外部 MCP 服务器，可以是本地包（通过 npx 调用）或远程 HTTP(S) 端点。每个服务器必须配置 command 或 url。 |
+| MCP Server | **`@modelcontextprotocol/sdk` 兼容实现**（当前） / **`@mastra/mcp`**（目标态） | 当前仓库使用 MCP 官方 SDK 保持真实协议与 Hono 集成，`@mastra/mcp` 仍是架构蓝图选项 |
+| MCP Client | **`@ai-sdk/mcp` + 外部 MCP 配置**（当前） / **`@mastra/mcp`**（目标态） | 当前仓库已接通外部 MCP client；`@mastra/mcp` 仍保留为未来统一化方案 |
 | 任务持久化 | **Trigger.dev v4** | Mastra 处理 AI Agent 内存和协调，而 Trigger.dev 处理编排、可靠性、可观测性和扩展。 |
 
 #### Layer 5：反馈学习层
