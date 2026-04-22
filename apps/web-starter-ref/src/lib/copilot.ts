@@ -29,6 +29,11 @@ export interface AssistantRailLink {
   label: string
 }
 
+export interface AssistantRailAction {
+  href: string
+  label: string
+}
+
 export interface AssistantRailState {
   detail: string
   status: CopilotStreamStatus
@@ -46,6 +51,8 @@ export interface AssistantRailContent {
   focus: AssistantRailFocus
   guardrail: string
   links: readonly AssistantRailLink[]
+  primaryAction: AssistantRailAction | null
+  secondaryActions: readonly AssistantRailAction[]
   summary: string
   title: string
 }
@@ -149,6 +156,176 @@ function createAssistantRailFocus(
       content?.summary ??
       'Current route summary is available, but no row-level selection is active in the assistant rail.',
     title: content?.title ?? 'Current route',
+  }
+}
+
+function dedupeActions(
+  actions: readonly AssistantRailAction[],
+  primaryAction: AssistantRailAction | null,
+): AssistantRailAction[] {
+  const seen = new Set<string>()
+  const output: AssistantRailAction[] = []
+
+  if (primaryAction) {
+    seen.add(`${primaryAction.href}:${primaryAction.label}`)
+  }
+
+  for (const action of actions) {
+    const key = `${action.href}:${action.label}`
+
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    output.push(action)
+  }
+
+  return output
+}
+
+function createAssistantRailActions(
+  pathname: string,
+  content: {
+    links: readonly AssistantRailLink[]
+  } | null,
+  selection: AssistantRailSelection,
+): {
+  primaryAction: AssistantRailAction | null
+  secondaryActions: readonly AssistantRailAction[]
+} {
+  const normalizedPath = normalizeDashboardPath(pathname)
+  const contentActions = (content?.links ?? []).map((link) => ({
+    href: link.href,
+    label: link.label,
+  }))
+
+  if (normalizedPath === '/home') {
+    const primaryAction = contentActions[0] ?? {
+      href: '/dashboard/govern/approvals',
+      label: 'Open Approval Queue',
+    }
+
+    return {
+      primaryAction,
+      secondaryActions: dedupeActions(
+        [
+          ...contentActions.slice(1),
+          {
+            href: '/dashboard/observe/runs',
+            label: 'Inspect runtime traces',
+          },
+        ],
+        primaryAction,
+      ),
+    }
+  }
+
+  if (normalizedPath.startsWith('/observe/runs') && selection.auditId) {
+    const primaryAction = {
+      href: `/dashboard/govern/audit?auditId=${selection.auditId}`,
+      label: 'Open governance audit',
+    }
+
+    return {
+      primaryAction,
+      secondaryActions: dedupeActions(
+        [
+          {
+            href: `/dashboard/observe/runs?auditId=${selection.auditId}`,
+            label: 'Stay on selected trace',
+          },
+          ...contentActions,
+          {
+            href: '/dashboard/govern/approvals',
+            label: 'Review approval queue',
+          },
+        ],
+        primaryAction,
+      ),
+    }
+  }
+
+  if (normalizedPath.startsWith('/govern/audit') && selection.auditId) {
+    const primaryAction = {
+      href: `/dashboard/observe/runs?auditId=${selection.auditId}`,
+      label: 'Open runtime trace',
+    }
+
+    return {
+      primaryAction,
+      secondaryActions: dedupeActions(
+        [
+          ...contentActions,
+          {
+            href: '/dashboard/govern/approvals',
+            label: 'Jump to approval queue',
+          },
+        ],
+        primaryAction,
+      ),
+    }
+  }
+
+  if (normalizedPath.startsWith('/govern/approvals') && selection.promptKey) {
+    const primaryAction = {
+      href: `/dashboard/build/prompts?promptKey=${encodeURIComponent(selection.promptKey)}`,
+      label: 'Open prompt workbench',
+    }
+
+    return {
+      primaryAction,
+      secondaryActions: dedupeActions(
+        [
+          ...contentActions,
+          {
+            href: `/dashboard/govern/approvals?promptKey=${encodeURIComponent(selection.promptKey)}`,
+            label: 'Keep this approval in focus',
+          },
+        ],
+        primaryAction,
+      ),
+    }
+  }
+
+  if (normalizedPath.startsWith('/build/prompts') && selection.promptKey) {
+    const primaryAction = {
+      href: `/dashboard/govern/approvals?promptKey=${encodeURIComponent(selection.promptKey)}`,
+      label: 'Open approval evidence',
+    }
+
+    return {
+      primaryAction,
+      secondaryActions: dedupeActions(
+        [
+          ...contentActions,
+          {
+            href: `/dashboard/improve/evals?search=${encodeURIComponent(selection.promptKey)}`,
+            label: 'Check eval posture',
+          },
+        ],
+        primaryAction,
+      ),
+    }
+  }
+
+  if (normalizedPath.startsWith('/workspace/reports')) {
+    const primaryAction = contentActions[0] ?? {
+      href: '/dashboard/observe/runs?toolId=workflow%3Areport-schedule',
+      label: 'Open workflow traces',
+    }
+
+    return {
+      primaryAction,
+      secondaryActions: dedupeActions(contentActions.slice(1), primaryAction),
+    }
+  }
+
+  const primaryAction = contentActions[0] ?? null
+
+  return {
+    primaryAction,
+    secondaryActions: dedupeActions(contentActions.slice(1), primaryAction),
   }
 }
 
@@ -480,6 +657,7 @@ export function resolveAssistantRailContent(
   const bridgeEnabled =
     bridgeSummary?.capability.status === 'enabled' && Boolean(bridgeSummary.defaultAgentId)
   const focus = createAssistantRailFocus(pathname, content, selection)
+  const actions = createAssistantRailActions(pathname, content, selection)
 
   return {
     assistantState: {
@@ -492,6 +670,8 @@ export function resolveAssistantRailContent(
     focus,
     guardrail: routePanel?.guardrail ?? 'Stay within the current route and authenticated shell.',
     links: content?.links ?? [],
+    primaryAction: actions.primaryAction,
+    secondaryActions: actions.secondaryActions,
     summary: content?.summary ?? routePanel?.summary ?? 'No route-specific summary is available.',
     title: content?.title ?? routePanel?.title ?? 'Assistant Rail',
   }

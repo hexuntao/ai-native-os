@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import type * as React from 'react'
 import { AssistantPanel } from '@/components/copilot/assistant-panel'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Infobar,
   InfobarContent,
@@ -54,6 +55,17 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
       auditId: searchParams.get('auditId'),
       promptKey: searchParams.get('promptKey'),
     },
+  )
+  const railActionKeys = new Set(
+    [
+      railContent.primaryAction
+        ? `${railContent.primaryAction.href}:${railContent.primaryAction.label}`
+        : null,
+      ...railContent.secondaryActions.map((action) => `${action.href}:${action.label}`),
+    ].filter((value): value is string => Boolean(value)),
+  )
+  const supplementalLinks = railContent.links.filter(
+    (link) => !railActionKeys.has(`${link.href}:${link.label}`),
   )
 
   return (
@@ -123,12 +135,40 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
                 <p className="text-muted-foreground mt-3 text-sm leading-6">
                   {railContent.assistantState.detail}
                 </p>
-                {railContent.links.length > 0 ? (
+                {railContent.primaryAction || railContent.secondaryActions.length > 0 ? (
                   <div className="mt-4 grid gap-2">
                     <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
-                      Recommended links
+                      Recommended next step
                     </p>
-                    {railContent.links.map((link) => (
+                    {railContent.primaryAction ? (
+                      <Button asChild className="justify-start">
+                        <Link href={railContent.primaryAction.href as Route}>
+                          {railContent.primaryAction.label}
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {railContent.secondaryActions.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {railContent.secondaryActions.map((action) => (
+                          <Button
+                            asChild
+                            key={`${action.href}:${action.label}`}
+                            size="sm"
+                            variant="outline"
+                          >
+                            <Link href={action.href as Route}>{action.label}</Link>
+                          </Button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {supplementalLinks.length > 0 ? (
+                  <div className="mt-4 grid gap-2">
+                    <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
+                      More links
+                    </p>
+                    {supplementalLinks.map((link) => (
                       <Link
                         className="text-primary text-sm underline underline-offset-4"
                         href={link.href as Route}
