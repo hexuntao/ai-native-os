@@ -18,10 +18,10 @@ interface EmptyStateCardProps {
 
 function resolveDescription(tone: EmptyStateCardProps['tone']): string {
   if (tone === 'no-match') {
-    return 'No rows match the current filters'
+    return '当前筛选没有匹配结果'
   }
 
-  return 'No visible records yet'
+  return '当前还没有可见记录'
 }
 
 export function EmptyStateCard({

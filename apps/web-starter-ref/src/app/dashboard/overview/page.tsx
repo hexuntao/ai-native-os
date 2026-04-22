@@ -45,27 +45,25 @@ interface PrimaryOperatorCall {
 
 function createInfoContent(primaryCall: PrimaryOperatorCall): InfobarContent {
   return {
-    title: 'AI Operations Center',
+    title: 'AI 运营中心',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Use the operator summary to decide the first safe next step, then move into a single workbench with the highest-confidence evidence.',
+        title: '页面用途',
+        description: '先用操作员摘要判断最安全的下一步，再进入证据最充分的单一工作台继续处理。',
         links: [
           {
             title: primaryCall.ctaLabel,
             url: primaryCall.ctaHref,
           },
           {
-            title: 'Inspect runtime traces',
+            title: '查看运行追踪',
             url: '/dashboard/observe/runs',
           },
         ],
       },
       {
-        title: 'Operator boundary',
-        description:
-          'This page compresses pressure across runtime, approvals, and evals, but detailed judgment still belongs in the dedicated workbenches.',
+        title: '操作边界',
+        description: '这个页面会压缩运行时、审批与评测压力，但具体判断仍应回到对应工作台完成。',
       },
     ],
   }
@@ -92,27 +90,27 @@ function createPostureChips(
 
   return [
     {
-      detail: `${serverSummary.runtime.enabledAgentCount}/${serverSummary.runtime.agentCount} agents enabled across the runtime registry.`,
-      label: 'Runtime',
-      value: serverSummary.health.status === 'ok' ? 'stable' : 'degraded',
+      detail: `${serverSummary.runtime.enabledAgentCount}/${serverSummary.runtime.agentCount} 个代理已在运行时注册表中启用。`,
+      label: '运行时',
+      value: serverSummary.health.status === 'ok' ? '稳定' : '降级',
       variant: serverSummary.health.status === 'ok' ? 'outline' : 'secondary',
     },
     {
       detail:
         governanceOverview.reviewQueue.length === 0
-          ? 'No visible approval pressure in the current governance slice.'
-          : `${formatCount(governanceOverview.reviewQueue.length)} approval items need human review.`,
-      label: 'Release',
-      value: governanceOverview.reviewQueue.length === 0 ? 'clear' : 'review queue',
+          ? '当前治理切片中没有可见的审批压力。'
+          : `${formatCount(governanceOverview.reviewQueue.length)} 个审批项需要人工复核。`,
+      label: '发布',
+      value: governanceOverview.reviewQueue.length === 0 ? '清空' : '待审队列',
       variant: governanceOverview.reviewQueue.length === 0 ? 'outline' : 'secondary',
     },
     {
       detail:
         failedEvalSuites === 0
-          ? 'Latest visible eval runs are stable.'
-          : `${formatCount(failedEvalSuites)} visible eval suites failed their latest run.`,
-      label: 'Eval',
-      value: failedEvalSuites === 0 ? 'stable' : 'regression',
+          ? '最新可见评测运行保持稳定。'
+          : `${formatCount(failedEvalSuites)} 个可见评测套件最近一次运行失败。`,
+      label: '评测',
+      value: failedEvalSuites === 0 ? '稳定' : '回归',
       variant: failedEvalSuites === 0 ? 'outline' : 'secondary',
     },
   ]
@@ -132,14 +130,14 @@ function createPrimaryOperatorCall(
 
   if (degradedEntry) {
     return {
-      badge: degradedEntry.status,
+      badge: degradedEntry.status === 'forbidden' ? '禁止' : '错误',
       ctaHref: `/dashboard/observe/runs?auditId=${degradedEntry.id}`,
-      ctaLabel: 'Open the highest-risk trace',
+      ctaLabel: '打开最高风险追踪',
       detail:
         degradedEntry.status === 'forbidden'
-          ? 'A forbidden runtime event is visible in the current audit slice. Confirm whether it is a policy boundary or a missing capability before escalating.'
-          : 'A failed runtime event is visible in the current audit slice. Verify execution evidence and human feedback before widening scope.',
-      title: `${degradedEntry.action}:${degradedEntry.subject} is the first operator stop`,
+          ? '当前审计切片里出现了一个被禁止的运行时事件。升级之前，先确认它是策略边界触发，还是缺失能力导致。'
+          : '当前审计切片里出现了一个失败的运行时事件。扩大处理范围之前，先核实执行证据和人工反馈。',
+      title: `${degradedEntry.action}:${degradedEntry.subject} 是首个应处理的操作点`,
     }
   }
 
@@ -147,10 +145,10 @@ function createPrimaryOperatorCall(
     return {
       badge: resolveReviewActionLabel(reviewItem.reviewAction),
       ctaHref: `/dashboard/govern/approvals?promptKey=${encodeURIComponent(reviewItem.promptKey)}`,
-      ctaLabel: 'Review the first approval item',
+      ctaLabel: '查看首个审批项',
       detail:
-        'The release queue still needs human judgment. Start with the most visible approval item and confirm that policy, eval, and rollback evidence are aligned.',
-      title: `${reviewItem.promptKey} is blocking release flow`,
+        '发布队列仍然需要人工判断。先从最显眼的审批项开始，确认策略、评测和回滚证据是否一致。',
+      title: `${reviewItem.promptKey} 正在阻塞发布流程`,
     }
   }
 
@@ -158,20 +156,19 @@ function createPrimaryOperatorCall(
     return {
       badge: 'eval regression',
       ctaHref: `/dashboard/improve/evals?search=${encodeURIComponent(failedEvalSuite.id)}`,
-      ctaLabel: 'Inspect eval regressions',
+      ctaLabel: '检查评测回归',
       detail:
-        'No urgent runtime or approval pressure is visible, but at least one eval suite failed. Confirm whether the regression blocks the next release step.',
-      title: `${failedEvalSuite.name} needs eval follow-up`,
+        '当前没有更紧急的运行时或审批压力，但至少有一个评测套件失败。先确认这次回归是否会阻塞下一步发布。',
+      title: `${failedEvalSuite.name} 需要继续跟进评测`,
     }
   }
 
   return {
     badge: serverSummary.health.status === 'ok' ? 'stable' : 'watch',
     ctaHref: '/dashboard/observe/monitor',
-    ctaLabel: 'Inspect runtime posture',
-    detail:
-      'The current slice looks operationally stable. Use runtime posture and recent evidence to confirm nothing is drifting out of tolerance.',
-    title: 'No immediate operator fire is visible',
+    ctaLabel: '检查运行时态势',
+    detail: '当前切片看起来整体稳定。用运行时态势和最近证据再确认，没有任何信号正在越过容忍范围。',
+    title: '当前没有可见的一级告警',
   }
 }
 
@@ -187,7 +184,7 @@ function createAttentionQueue(
       badge: row.status,
       detail: `${row.toolId} · ${formatDateTime(row.createdAt)}`,
       href: `/dashboard/observe/runs?auditId=${row.id}`,
-      label: 'Runtime incident',
+      label: '运行事件',
       priority: 120 - index,
       title: `${row.action}:${row.subject}`,
     }))
@@ -198,7 +195,7 @@ function createAttentionQueue(
       badge: resolveReviewActionLabel(entry.reviewAction),
       detail: entry.reviewReason,
       href: `/dashboard/govern/approvals?promptKey=${encodeURIComponent(entry.promptKey)}`,
-      label: 'Approval pressure',
+      label: '审批压力',
       priority: 90 - index,
       title: entry.promptKey,
     }))
@@ -207,10 +204,10 @@ function createAttentionQueue(
     .filter((row) => row.lastRunStatus === 'failed')
     .slice(0, 2)
     .map((row, index) => ({
-      badge: 'failed',
-      detail: `${formatCount(row.scorerCount)} scorers · dataset ${row.datasetSize ?? 'unknown'} rows.`,
+      badge: '失败',
+      detail: `${formatCount(row.scorerCount)} 个评分器 · 数据集 ${row.datasetSize ?? '未知'} 行。`,
       href: `/dashboard/improve/evals?search=${encodeURIComponent(row.id)}`,
-      label: 'Eval regression',
+      label: '评测回归',
       priority: 70 - index,
       title: row.name,
     }))
@@ -223,17 +220,17 @@ function createAttentionQueue(
 function resolveReviewActionLabel(action: string): string {
   switch (action) {
     case 'activate_ready_version':
-      return 'activate'
+      return '激活'
     case 'attach_eval_evidence':
-      return 'attach eval'
+      return '补充评测'
     case 'investigate_exception':
-      return 'investigate'
+      return '调查'
     case 'review_override':
-      return 'override'
+      return '接管'
     case 'review_release_gate':
-      return 'release gate'
+      return '发布门禁'
     default:
-      return 'review'
+      return '复核'
   }
 }
 
@@ -268,8 +265,8 @@ export default async function OverViewPage(): Promise<ReactNode> {
 
   return (
     <PageContainer
-      pageTitle="AI Operations Center"
-      pageDescription="System-wide AI operating picture with runtime, governance, eval, and recent evidence signals."
+      pageTitle="AI 运营中心"
+      pageDescription="面向全局的 AI 运行视图，汇总运行时、治理、评测与最近证据信号。"
       infoContent={createInfoContent(primaryCall)}
     >
       <div className="flex flex-1 flex-col space-y-4">
@@ -277,11 +274,11 @@ export default async function OverViewPage(): Promise<ReactNode> {
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
             <CardHeader className="gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">Operator summary</Badge>
+                <Badge variant="secondary">操作摘要</Badge>
                 <Badge variant="outline">{primaryCall.badge}</Badge>
               </div>
               <div className="grid gap-3">
-                <CardDescription>Current global conclusion</CardDescription>
+                <CardDescription>当前全局结论</CardDescription>
                 <CardTitle className="text-3xl leading-tight xl:text-4xl">
                   {primaryCall.title}
                 </CardTitle>
@@ -296,7 +293,7 @@ export default async function OverViewPage(): Promise<ReactNode> {
                   <Link href={primaryCall.ctaHref as Route}>{primaryCall.ctaLabel}</Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/dashboard/observe/runs">Inspect runtime traces</Link>
+                  <Link href="/dashboard/observe/runs">查看运行追踪</Link>
                 </Button>
               </div>
               <div className="grid gap-3 lg:grid-cols-3">
@@ -315,19 +312,19 @@ export default async function OverViewPage(): Promise<ReactNode> {
 
           <Card>
             <CardHeader>
-              <CardDescription>Operator posture</CardDescription>
-              <CardTitle>What to inspect next</CardTitle>
+              <CardDescription>操作员态势</CardDescription>
+              <CardTitle>下一步先看什么</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6">
               <div className="rounded-lg border p-4">
                 <span className="text-muted-foreground block text-xs tracking-[0.16em] uppercase">
-                  Runtime stage
+                  运行阶段
                 </span>
                 <span className="mt-2 block font-medium">{serverSummary.runtime.runtimeStage}</span>
               </div>
               <div className="rounded-lg border p-4">
                 <span className="text-muted-foreground block text-xs tracking-[0.16em] uppercase">
-                  AI capability
+                  AI 能力
                 </span>
                 <span className="mt-2 block font-medium">
                   {serverSummary.health.ai.status} · {serverSummary.health.ai.reason}
@@ -335,11 +332,11 @@ export default async function OverViewPage(): Promise<ReactNode> {
               </div>
               <div className="rounded-lg border p-4">
                 <span className="text-muted-foreground block text-xs tracking-[0.16em] uppercase">
-                  Release ready
+                  发布就绪
                 </span>
                 <span className="mt-2 block font-medium">
-                  {formatCount(governanceOverview.summary.releaseReadyPromptVersions)} prompt
-                  versions are currently release-ready.
+                  当前有 {formatCount(governanceOverview.summary.releaseReadyPromptVersions)} 个
+                  Prompt 版本处于发布就绪状态。
                 </span>
               </div>
             </CardContent>
@@ -349,16 +346,15 @@ export default async function OverViewPage(): Promise<ReactNode> {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]">
           <Card>
             <CardHeader>
-              <CardDescription>Highest-pressure surfaces</CardDescription>
-              <CardTitle>Attention queue</CardTitle>
+              <CardDescription>当前压力最高的工作面</CardDescription>
+              <CardTitle>关注队列</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
               {attentionQueue.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-4 text-sm leading-6">
-                  <p className="font-medium">No high-pressure queue items are visible</p>
+                  <p className="font-medium">当前没有可见的高压队列项</p>
                   <p className="text-muted-foreground mt-2">
-                    The current slice does not show runtime failures, approval pressure, or eval
-                    regressions that need immediate triage.
+                    当前切片没有出现需要立刻分诊的运行失败、审批压力或评测回归。
                   </p>
                 </div>
               ) : (
@@ -382,8 +378,8 @@ export default async function OverViewPage(): Promise<ReactNode> {
 
           <Card>
             <CardHeader>
-              <CardDescription>Latest high-impact trail</CardDescription>
-              <CardTitle>Recent evidence</CardTitle>
+              <CardDescription>最近的高影响链路</CardDescription>
+              <CardTitle>最近证据</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
               {recentEvidence.map((row) => (
@@ -394,7 +390,7 @@ export default async function OverViewPage(): Promise<ReactNode> {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={row.status === 'success' ? 'outline' : 'secondary'}>
-                      {row.status}
+                      {row.status === 'success' ? '成功' : row.status === 'error' ? '错误' : '禁止'}
                     </Badge>
                     <span className="text-muted-foreground text-xs">
                       {formatDateTime(row.createdAt)}
@@ -404,7 +400,7 @@ export default async function OverViewPage(): Promise<ReactNode> {
                     {row.action}:{row.subject}
                   </p>
                   <p className="text-muted-foreground mt-1 text-sm leading-6">
-                    {row.toolId} · Request {row.requestId ?? 'not captured'}
+                    {row.toolId} · 请求 {row.requestId ?? '未捕获'}
                   </p>
                 </Link>
               ))}
@@ -415,43 +411,42 @@ export default async function OverViewPage(): Promise<ReactNode> {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <Card>
             <CardHeader>
-              <CardDescription>Lower-weight runtime context</CardDescription>
-              <CardTitle>Runtime map</CardTitle>
+              <CardDescription>次一级运行时上下文</CardDescription>
+              <CardTitle>运行时地图</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6">
               <div className="rounded-lg border p-4">
-                Agents: {serverSummary.runtime.enabledAgentCount} enabled /{' '}
-                {serverSummary.runtime.agentCount} registered
+                代理: 已启用 {serverSummary.runtime.enabledAgentCount} / 已注册{' '}
+                {serverSummary.runtime.agentCount}
               </div>
               <div className="rounded-lg border p-4">
-                Tools: {serverSummary.runtime.toolCount} registered tool surfaces
+                工具: {serverSummary.runtime.toolCount} 个已注册工具工作面
               </div>
               <div className="rounded-lg border p-4">
-                Workflows: {serverSummary.runtime.workflowCount} active workflow entries
+                工作流: {serverSummary.runtime.workflowCount} 个活动工作流入口
               </div>
               <div className="rounded-lg border p-4">
-                Jobs: {serverSummary.health.jobs.status} · {serverSummary.health.jobs.detail}
+                任务: {serverSummary.health.jobs.status} · {serverSummary.health.jobs.detail}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardDescription>Release evidence posture</CardDescription>
-              <CardTitle>Release pipeline</CardTitle>
+              <CardDescription>发布证据态势</CardDescription>
+              <CardTitle>发布流水线</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6">
-              <div className="rounded-lg border p-4">Prompt draft → Eval → Approval → Release</div>
+              <div className="rounded-lg border p-4">Prompt 草稿 → 评测 → 审批 → 发布</div>
               <div className="rounded-lg border p-4">
-                Release-ready prompt versions:{' '}
+                发布就绪 Prompt 版本:{' '}
                 {formatCount(governanceOverview.summary.releaseReadyPromptVersions)}
               </div>
               <div className="rounded-lg border p-4">
-                Total eval experiments:{' '}
-                {formatCount(governanceOverview.summary.totalEvalExperiments)}
+                评测实验总数: {formatCount(governanceOverview.summary.totalEvalExperiments)}
               </div>
               <div className="rounded-lg border p-4">
-                Human overrides in current governance slice:{' '}
+                当前治理切片中的人工接管:{' '}
                 {formatCount(governanceOverview.summary.humanOverrideCount)}
               </div>
             </CardContent>

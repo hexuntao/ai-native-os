@@ -36,20 +36,19 @@ interface ObserveRunsPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Runs & Traces',
+    title: '运行与追踪',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Inspect runtime evidence one execution at a time, then decide whether the next step belongs in triage, approval, or prompt iteration.',
+        title: '页面用途',
+        description: '逐条检查运行时证据，再决定下一步应该进入分诊、审批还是 Prompt 迭代。',
       },
       {
-        title: 'Operator boundary',
+        title: '操作边界',
         description:
-          'This page is read-model only. It surfaces execution evidence and human overrides, but it does not directly mutate release or governance state.',
+          '这个页面只提供只读视图。它暴露执行证据和人工接管，但不会直接修改发布或治理状态。',
         links: [
           {
-            title: 'Open Approval Queue',
+            title: '打开审批队列',
             url: '/dashboard/govern/approvals',
           },
         ],
@@ -117,36 +116,36 @@ export default async function ObserveRunsPage({
 
   return (
     <PageContainer
-      pageTitle="Runs & Traces"
-      pageDescription="Operator-visible execution slice with filters, runtime status, and trace-level evidence."
+      pageTitle="运行与追踪"
+      pageDescription="面向操作员的执行切片，包含筛选、运行状态与追踪级证据。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="runs"
-            detail="Total visible audit events in the current runtime slice."
-            label="Visible runs"
+            detail="当前运行时切片里可见的审计事件总数。"
+            label="可见运行"
             value={formatCount(payload.pagination.total)}
           />
           <MetricCard
             badge={degradedCount === 0 ? 'clear' : 'triage'}
-            detail="Rows in this slice with error or forbidden outcomes."
-            label="Needs triage"
+            detail="当前切片中结果为错误或禁止的行。"
+            label="需要分诊"
             value={formatCount(degradedCount)}
             variant={degradedCount === 0 ? 'outline' : 'secondary'}
           />
           <MetricCard
             badge={overrideCount === 0 ? 'none' : 'human-loop'}
-            detail="Executions already touched by human override."
-            label="Overrides"
+            detail="已经被人工接管过的执行。"
+            label="人工接管"
             value={formatCount(overrideCount)}
             variant={overrideCount === 0 ? 'outline' : 'secondary'}
           />
           <MetricCard
             badge="feedback"
-            detail="Human feedback records linked to the current page slice."
-            label="Feedback links"
+            detail="与当前页面切片相关联的人工反馈记录。"
+            label="反馈记录"
             value={formatCount(feedbackCount)}
           />
         </div>
@@ -155,8 +154,8 @@ export default async function ObserveRunsPage({
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardDescription>Filters</CardDescription>
-                <CardTitle>Trace query</CardTitle>
+                <CardDescription>筛选</CardDescription>
+                <CardTitle>追踪查询</CardTitle>
               </CardHeader>
               <CardContent>
                 <form
@@ -171,32 +170,32 @@ export default async function ObserveRunsPage({
                   ) : null}
 
                   <Field>
-                    <FieldLabel htmlFor="search">Trace search</FieldLabel>
+                    <FieldLabel htmlFor="search">追踪搜索</FieldLabel>
                     <Input
                       defaultValue={filters.search}
                       id="search"
                       name="search"
-                      placeholder="request id or tool"
+                      placeholder="请求 ID 或工具"
                     />
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="status">Status</FieldLabel>
+                    <FieldLabel htmlFor="status">状态</FieldLabel>
                     <select
                       className={selectClassName}
                       defaultValue={filters.status}
                       id="status"
                       name="status"
                     >
-                      <option value="all">All statuses</option>
-                      <option value="success">Success</option>
-                      <option value="forbidden">Forbidden</option>
-                      <option value="error">Error</option>
+                      <option value="all">全部状态</option>
+                      <option value="success">成功</option>
+                      <option value="forbidden">禁止</option>
+                      <option value="error">错误</option>
                     </select>
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="toolId">Tool ID</FieldLabel>
+                    <FieldLabel htmlFor="toolId">工具 ID</FieldLabel>
                     <Input
                       defaultValue={filters.toolId}
                       id="toolId"
@@ -210,7 +209,7 @@ export default async function ObserveRunsPage({
                       className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                       href="/dashboard/observe/runs"
                     >
-                      Reset
+                      重置
                     </Link>
                   </div>
                 </form>
@@ -219,17 +218,16 @@ export default async function ObserveRunsPage({
 
             <Card>
               <CardHeader>
-                <CardDescription>Run table</CardDescription>
-                <CardTitle>Operator-visible execution slice</CardTitle>
+                <CardDescription>运行表格</CardDescription>
+                <CardTitle>操作员可见执行切片</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {selectionFellBack ? (
                   <div className="px-4 pt-4">
                     <Alert>
-                      <AlertTitle>Selection moved to the first visible row</AlertTitle>
+                      <AlertTitle>当前选择已回退到首个可见行</AlertTitle>
                       <AlertDescription>
-                        The previously selected audit log is outside the current slice, so the
-                        inspector fell back to the first visible run.
+                        之前选中的审计日志已经不在当前切片中，所以详情面板自动回退到第一条可见运行。
                       </AlertDescription>
                     </Alert>
                   </div>
@@ -237,13 +235,13 @@ export default async function ObserveRunsPage({
                 {payload.data.length === 0 ? (
                   <div className="p-4">
                     <EmptyStateCard
-                      action={{ href: '/dashboard/observe/runs', label: 'Reset trace query' }}
+                      action={{ href: '/dashboard/observe/runs', label: '重置追踪查询' }}
                       description={
                         hasActiveFilters
-                          ? 'The current filters do not expose any matching runtime evidence. Reset the query first, then decide whether the gap is expected or a visibility issue.'
-                          : 'No runtime audit rows are visible yet for this route. Wait for the next execution or verify that audit evidence is being written.'
+                          ? '当前筛选没有匹配的运行时证据。先重置查询，再判断这是预期空缺还是可见性问题。'
+                          : '这个路由目前还没有可见的运行时审计记录。等待下一次执行，或确认审计证据是否已经写入。'
                       }
-                      title={hasActiveFilters ? 'No runs match this query' : 'No visible runs yet'}
+                      title={hasActiveFilters ? '没有运行记录匹配当前查询' : '当前还没有可见运行'}
                       tone={hasActiveFilters ? 'no-match' : 'no-data'}
                     />
                   </div>
@@ -253,12 +251,12 @@ export default async function ObserveRunsPage({
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Time</TableHead>
-                            <TableHead>Tool</TableHead>
-                            <TableHead>Action</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Feedback</TableHead>
-                            <TableHead>Request</TableHead>
+                            <TableHead>时间</TableHead>
+                            <TableHead>工具</TableHead>
+                            <TableHead>动作</TableHead>
+                            <TableHead>状态</TableHead>
+                            <TableHead>反馈</TableHead>
+                            <TableHead>请求</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -301,7 +299,7 @@ export default async function ObserveRunsPage({
                                 </TableCell>
                                 <TableCell>{row.feedbackCount}</TableCell>
                                 <TableCell className="text-muted-foreground">
-                                  {row.requestId ?? 'no request id'}
+                                  {row.requestId ?? '无请求 ID'}
                                 </TableCell>
                               </TableRow>
                             )
@@ -339,8 +337,8 @@ export default async function ObserveRunsPage({
 
           <Card>
             <CardHeader>
-              <CardDescription>Trace inspector</CardDescription>
-              <CardTitle>{selectedEntry ? selectedEntry.toolId : 'Select a run'}</CardTitle>
+              <CardDescription>追踪详情</CardDescription>
+              <CardTitle>{selectedEntry ? selectedEntry.toolId : '选择一条运行记录'}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               {selectedEntry ? (
@@ -353,7 +351,7 @@ export default async function ObserveRunsPage({
                       {selectedEntry.action}:{selectedEntry.subject}
                     </Badge>
                     <Badge variant="outline">
-                      override:{selectedEntry.humanOverride ? 'yes' : 'no'}
+                      人工接管:{selectedEntry.humanOverride ? '是' : '否'}
                     </Badge>
                   </div>
 
@@ -368,58 +366,51 @@ export default async function ObserveRunsPage({
                   <div className="grid gap-4 text-sm leading-6">
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Execution summary
+                        执行摘要
                       </p>
                       <div className="grid gap-2">
-                        <p>createdAt: {formatDateTime(selectedEntry.createdAt)}</p>
-                        <p>toolId: {selectedEntry.toolId}</p>
+                        <p>创建时间: {formatDateTime(selectedEntry.createdAt)}</p>
+                        <p>工具 ID: {selectedEntry.toolId}</p>
                         <p>
-                          scope: {selectedEntry.action}:{selectedEntry.subject}
+                          范围: {selectedEntry.action}:{selectedEntry.subject}
                         </p>
-                        <p>status: {selectedEntry.status}</p>
+                        <p>状态: {selectedEntry.status}</p>
                         <p>
-                          actor:{' '}
-                          {selectedEntry.actorRbacUserId ??
-                            selectedEntry.actorAuthUserId ??
-                            'system'}
+                          操作主体:{' '}
+                          {selectedEntry.actorRbacUserId ?? selectedEntry.actorAuthUserId ?? '系统'}
                         </p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Evidence / metadata
+                        证据 / 元数据
                       </p>
                       <div className="grid gap-2">
-                        <p>requestId: {selectedEntry.requestId ?? 'none'}</p>
-                        <p>feedbackCount: {selectedEntry.feedbackCount}</p>
-                        <p>errorMessage: {selectedEntry.errorMessage ?? 'none'}</p>
+                        <p>请求 ID: {selectedEntry.requestId ?? '无'}</p>
+                        <p>反馈数: {selectedEntry.feedbackCount}</p>
+                        <p>错误信息: {selectedEntry.errorMessage ?? '无'}</p>
+                        <p>人工接管: {selectedEntry.humanOverride ? '已进入人工环路' : '无接管'}</p>
+                        <p>最新用户动作: {selectedEntry.latestUserAction ?? '无用户动作'}</p>
                         <p>
-                          override:{' '}
-                          {selectedEntry.humanOverride ? 'human-in-the-loop' : 'no override'}
-                        </p>
-                        <p>
-                          latestUserAction: {selectedEntry.latestUserAction ?? 'no user action'}
-                        </p>
-                        <p>
-                          roles:{' '}
+                          角色:{' '}
                           {selectedEntry.roleCodes.length > 0
                             ? selectedEntry.roleCodes.join(', ')
-                            : 'none'}
+                            : '无'}
                         </p>
-                        <p>sourceType: {selectedDetail?.requestInfo?.sourceType ?? 'none'}</p>
-                        <p>latestFeedbackAt: {selectedEntry.latestFeedbackAt ?? 'none'}</p>
+                        <p>来源类型: {selectedDetail?.requestInfo?.sourceType ?? '无'}</p>
+                        <p>最近反馈时间: {selectedEntry.latestFeedbackAt ?? '无'}</p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Human feedback / override
+                        人工反馈 / 接管
                       </p>
                       <p className="text-muted-foreground mb-3 text-sm leading-6">
                         {selectedEntry.humanOverride
-                          ? 'This run already crossed a human-in-the-loop boundary. Review feedback history before deciding whether the issue belongs in governance or runtime triage.'
-                          : 'No human override has been recorded yet. Use feedback links only when the current evidence is insufficient.'}
+                          ? '这条运行已经跨过人工接管边界。决定它应归入治理还是运行时分诊之前，先查看反馈历史。'
+                          : '当前还没有记录人工接管。只有在现有证据不足时，才使用反馈入口继续补充判断。'}
                       </p>
                       {selectedDetail?.feedback.length ? (
                         <div className="grid gap-3">
@@ -428,13 +419,11 @@ export default async function ObserveRunsPage({
                               <div className="flex flex-wrap gap-2">
                                 <Badge variant="secondary">{feedback.userAction}</Badge>
                                 <Badge variant="outline">
-                                  {feedback.accepted ? 'accepted' : 'corrected'}
+                                  {feedback.accepted ? '已接受' : '已修正'}
                                 </Badge>
                               </div>
                               <p className="mt-2 text-muted-foreground">
-                                {feedback.feedbackText ??
-                                  feedback.correction ??
-                                  'No note recorded.'}
+                                {feedback.feedbackText ?? feedback.correction ?? '没有记录备注。'}
                               </p>
                               <p className="mt-2 text-xs text-muted-foreground">
                                 {formatDateTime(feedback.createdAt)}
@@ -443,15 +432,15 @@ export default async function ObserveRunsPage({
                           ))}
                         </div>
                       ) : (
-                        <p className="text-muted-foreground">No feedback evidence linked yet.</p>
+                        <p className="text-muted-foreground">当前还没有关联的反馈证据。</p>
                       )}
                     </div>
                   </div>
                 </>
               ) : (
                 <EmptyStateCard
-                  description="Select a run from the table to inspect execution summary, evidence metadata, and human override posture."
-                  title="No selected run"
+                  description="从表格中选择一条运行记录，查看执行摘要、证据元数据和人工接管态势。"
+                  title="当前没有选中运行记录"
                   tone="no-data"
                 />
               )}

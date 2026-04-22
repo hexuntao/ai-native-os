@@ -35,17 +35,15 @@ interface BuildPromptsPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Prompt Studio',
+    title: 'Prompt 工作台',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Bring prompt release posture, linked eval evidence, and version pressure into one builder-facing workbench.',
+        title: '页面用途',
+        description: '把 Prompt 发布态势、关联评测证据和版本压力汇总到同一个面向构建者的工作台。',
       },
       {
-        title: 'Operator boundary',
-        description:
-          'This page explains which prompt should be reviewed next and why. Activation still belongs to governance workflows.',
+        title: '操作边界',
+        description: '这个页面用于解释接下来该复核哪个 Prompt 以及原因，但激活仍属于治理工作流。',
       },
     ],
   }
@@ -67,30 +65,30 @@ function resolveSelectedPromptKey(
 
 function resolveReviewToneLabel(tone: 'critical' | 'neutral' | 'warning'): string {
   if (tone === 'critical') {
-    return 'Critical'
+    return '严重'
   }
 
   if (tone === 'warning') {
-    return 'Warning'
+    return '警告'
   }
 
-  return 'Stable'
+  return '稳定'
 }
 
 function resolveReviewActionLabel(action: string): string {
   switch (action) {
     case 'activate_ready_version':
-      return 'Activate'
+      return '激活'
     case 'attach_eval_evidence':
-      return 'Attach eval'
+      return '补充评测'
     case 'investigate_exception':
-      return 'Investigate'
+      return '调查'
     case 'review_override':
-      return 'Review override'
+      return '复核接管'
     case 'review_release_gate':
-      return 'Review gate'
+      return '复核门禁'
     default:
-      return 'Watch'
+      return '观察'
   }
 }
 
@@ -117,35 +115,35 @@ export default async function BuildPromptsPage({
 
   return (
     <PageContainer
-      pageTitle="Prompt Studio"
-      pageDescription="Builder-facing prompt governance surface with review queue, version posture, and linked evidence."
+      pageTitle="Prompt 工作台"
+      pageDescription="面向构建者的 Prompt 治理工作面，包含复核队列、版本态势与关联证据。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="prompt-keys"
-            detail="Prompt governance keys visible in the current slice."
-            label="Prompt keys"
+            detail="当前切片中可见的 Prompt 治理键。"
+            label="Prompt 键"
             value={formatCount(overview.summary.totalPromptKeys)}
           />
           <MetricCard
             badge="release-ready"
-            detail="Prompt versions that currently satisfy release gate checks."
-            label="Ready versions"
+            detail="当前已满足发布门禁检查的 Prompt 版本。"
+            label="就绪版本"
             value={formatCount(overview.summary.releaseReadyPromptVersions)}
           />
           <MetricCard
             badge="failure-audit"
-            detail="Failure events linked to prompt review pressure."
-            label="Failure events"
+            detail="与 Prompt 复核压力相关联的失败事件。"
+            label="失败事件"
             value={formatCount(overview.summary.promptFailureEvents)}
             variant={overview.summary.promptFailureEvents > 0 ? 'secondary' : 'outline'}
           />
           <MetricCard
             badge="human-loop"
-            detail="Human override count attached to the current prompt slice."
-            label="Human overrides"
+            detail="与当前 Prompt 切片相关的人工接管次数。"
+            label="人工接管"
             value={formatCount(overview.summary.humanOverrideCount)}
             variant={overview.summary.humanOverrideCount > 0 ? 'secondary' : 'outline'}
           />
@@ -155,8 +153,8 @@ export default async function BuildPromptsPage({
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardDescription>Filters</CardDescription>
-                <CardTitle>Prompt queue search</CardTitle>
+                <CardDescription>筛选</CardDescription>
+                <CardTitle>Prompt 队列搜索</CardTitle>
               </CardHeader>
               <CardContent>
                 <form
@@ -171,7 +169,7 @@ export default async function BuildPromptsPage({
                   ) : null}
 
                   <Field>
-                    <FieldLabel htmlFor="search">Prompt key search</FieldLabel>
+                    <FieldLabel htmlFor="search">Prompt 键搜索</FieldLabel>
                     <Input
                       defaultValue={filters.search}
                       id="search"
@@ -185,7 +183,7 @@ export default async function BuildPromptsPage({
                       className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                       href="/dashboard/build/prompts"
                     >
-                      Reset
+                      重置
                     </Link>
                   </div>
                 </form>
@@ -194,17 +192,17 @@ export default async function BuildPromptsPage({
 
             <Card>
               <CardHeader>
-                <CardDescription>Review queue</CardDescription>
-                <CardTitle>Prompt review priorities</CardTitle>
+                <CardDescription>复核队列</CardDescription>
+                <CardTitle>Prompt 复核优先级</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {selectionFellBack ? (
                   <div className="px-4 pt-4">
                     <Alert>
-                      <AlertTitle>Selection moved to the first visible prompt</AlertTitle>
+                      <AlertTitle>当前选择已回退到首个可见 Prompt</AlertTitle>
                       <AlertDescription>
-                        The previously selected prompt key is outside the current slice, so the
-                        builder inspector fell back to the first visible row.
+                        之前选中的 Prompt
+                        键已经不在当前切片中，所以构建者详情面板回退到了第一条可见行。
                       </AlertDescription>
                     </Alert>
                   </div>
@@ -212,16 +210,14 @@ export default async function BuildPromptsPage({
                 {overview.reviewQueue.length === 0 ? (
                   <div className="p-4">
                     <EmptyStateCard
-                      action={{ href: '/dashboard/build/prompts', label: 'Reset prompt search' }}
+                      action={{ href: '/dashboard/build/prompts', label: '重置 Prompt 搜索' }}
                       description={
                         hasActiveFilters
-                          ? 'The current prompt key query does not expose any builder-facing review items. Reset the search first, then decide whether the queue is genuinely clear.'
-                          : 'No prompt governance items are visible yet in this slice. Wait for the next review item or confirm that prompt evidence is being emitted.'
+                          ? '当前 Prompt 键查询没有匹配任何面向构建者的复核项。先重置搜索，再判断队列是否真的已经清空。'
+                          : '这个切片里当前还没有可见 Prompt 治理项。等待下一条复核项，或确认 Prompt 证据是否正在产出。'
                       }
                       title={
-                        hasActiveFilters
-                          ? 'No prompt items match this query'
-                          : 'No prompt items are visible'
+                        hasActiveFilters ? '没有 Prompt 项匹配当前查询' : '当前没有可见 Prompt 项'
                       }
                       tone={hasActiveFilters ? 'no-match' : 'no-data'}
                     />
@@ -232,12 +228,12 @@ export default async function BuildPromptsPage({
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Prompt key</TableHead>
-                            <TableHead>Review</TableHead>
+                            <TableHead>Prompt 键</TableHead>
+                            <TableHead>复核</TableHead>
                             <TableHead>Version</TableHead>
-                            <TableHead>Failures</TableHead>
-                            <TableHead>Linked eval</TableHead>
-                            <TableHead>Updated</TableHead>
+                            <TableHead>失败数</TableHead>
+                            <TableHead>关联评测</TableHead>
+                            <TableHead>更新时间</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -289,7 +285,7 @@ export default async function BuildPromptsPage({
                                 </TableCell>
                                 <TableCell>{formatCount(entry.failureCount)}</TableCell>
                                 <TableCell>
-                                  {entry.latestVersion.evalEvidence?.evalKey ?? 'not linked'}
+                                  {entry.latestVersion.evalEvidence?.evalKey ?? '未关联'}
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">
                                   {formatDateTime(entry.latestVersion.updatedAt)}
@@ -330,8 +326,8 @@ export default async function BuildPromptsPage({
 
           <Card>
             <CardHeader>
-              <CardDescription>Selected prompt</CardDescription>
-              <CardTitle>{selectedReview?.promptKey ?? 'Select a prompt'}</CardTitle>
+              <CardDescription>选中 Prompt</CardDescription>
+              <CardTitle>{selectedReview?.promptKey ?? '选择一个 Prompt'}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               {selectedReview ? (
@@ -344,58 +340,53 @@ export default async function BuildPromptsPage({
                       v{selectedReview.reviewItem.latestVersion.version}
                     </Badge>
                     <Badge variant="outline">
-                      eval:
+                      评测:
                       {selectedReview.linkedEval.lastRunStatus ??
                         selectedReview.linkedEval.evidenceStatus ??
-                        'none'}
+                        '无'}
                     </Badge>
                   </div>
 
                   <div className="grid gap-4 text-sm leading-6">
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Release posture
+                        发布态势
                       </p>
                       <div className="grid gap-2">
-                        <p>review reason: {selectedReview.reviewItem.reviewReason}</p>
+                        <p>复核原因: {selectedReview.reviewItem.reviewReason}</p>
+                        <p>已配置关联评测: {selectedReview.linkedEval.configured ? '是' : '否'}</p>
                         <p>
-                          linked eval configured:{' '}
-                          {selectedReview.linkedEval.configured ? 'yes' : 'no'}
-                        </p>
-                        <p>
-                          latest release action:{' '}
-                          {selectedReview.latestReleaseAudit?.summary.latestAction ??
-                            'not recorded'}
+                          最新发布动作:{' '}
+                          {selectedReview.latestReleaseAudit?.summary.latestAction ?? '未记录'}
                         </p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Evidence posture
+                        证据态势
                       </p>
                       <div className="grid gap-2">
                         <p>
-                          latest eval:{' '}
+                          最新评测:{' '}
                           {selectedReview.linkedEval.evalName ??
                             selectedReview.linkedEval.evalKey ??
-                            'not linked'}
+                            '未关联'}
                         </p>
                         <p>
-                          rollback events:{' '}
+                          回滚事件:{' '}
                           {formatCount(selectedReview.rollbackChain.summary.totalRollbackEvents)}
                         </p>
                         <p>
-                          changed fields:{' '}
+                          变更字段:{' '}
                           {selectedReview.compareToPrevious?.summary.changedFields.join(', ') ??
-                            'none'}
+                            '无'}
                         </p>
                         <p>
-                          history versions:{' '}
-                          {formatCount(selectedReview.history.summary.totalVersions)}
+                          历史版本数: {formatCount(selectedReview.history.summary.totalVersions)}
                         </p>
                         <p>
-                          release-ready versions:{' '}
+                          已就绪发布版本:{' '}
                           {formatCount(selectedReview.history.summary.releaseReadyCount)}
                         </p>
                       </div>
@@ -403,22 +394,22 @@ export default async function BuildPromptsPage({
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Builder notes
+                        构建者备注
                       </p>
                       <div className="grid gap-2">
-                        <p>status: {selectedReview.reviewItem.latestVersion.status}</p>
+                        <p>状态: {selectedReview.reviewItem.latestVersion.status}</p>
                         <p>
-                          active version id:{' '}
-                          {selectedReview.history.summary.activeVersionId ?? 'none'}
+                          当前激活版本 ID: {selectedReview.history.summary.activeVersionId ?? '无'}
                         </p>
                         <p>
-                          release reason:{' '}
-                          {selectedReview.reviewItem.latestVersion.releaseReason ?? 'release-ready'}
+                          发布原因:{' '}
+                          {selectedReview.reviewItem.latestVersion.releaseReason ??
+                            '已满足发布条件'}
                         </p>
                         <p>
-                          linked eval score:{' '}
+                          关联评测得分:{' '}
                           {selectedReview.linkedEval.evidenceScoreAverage === null
-                            ? 'n/a'
+                            ? '暂无'
                             : `${Math.round(selectedReview.linkedEval.evidenceScoreAverage * 100)}%`}
                         </p>
                       </div>
@@ -427,8 +418,8 @@ export default async function BuildPromptsPage({
                 </>
               ) : (
                 <EmptyStateCard
-                  description="Select a prompt key to inspect version posture, release pressure, and linked eval evidence."
-                  title="No selected prompt"
+                  description="选择一个 Prompt 键，查看版本态势、发布压力和关联评测证据。"
+                  title="当前没有选中 Prompt"
                   tone="no-data"
                 />
               )}

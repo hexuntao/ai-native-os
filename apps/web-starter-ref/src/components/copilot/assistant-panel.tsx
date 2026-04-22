@@ -49,22 +49,22 @@ function resolveStatusVariant(
 function resolveStatusLabel(status: CopilotStreamStatus): string {
   switch (status) {
     case 'connecting':
-      return 'Bridge syncing'
+      return '桥接同步中'
     case 'error':
-      return 'Bridge degraded'
+      return '桥接降级'
     case 'ready':
-      return 'Bridge ready'
+      return '桥接就绪'
     default:
-      return 'Bridge idle'
+      return '桥接空闲'
   }
 }
 
 function formatRequestContext(sessionContext: CopilotSessionContextEvent | null): string {
   if (!sessionContext) {
-    return 'Waiting for authenticated runtime bootstrap.'
+    return '等待已认证运行时完成初始化。'
   }
 
-  return `Request ${sessionContext.requestId.slice(0, 8)} · ${sessionContext.roleCodes.join(', ')}`
+  return `请求 ${sessionContext.requestId.slice(0, 8)} · ${sessionContext.roleCodes.join(', ')}`
 }
 
 function CopilotFocusBridge({
@@ -80,8 +80,7 @@ function CopilotFocusBridge({
 
   useCopilotReadable(
     {
-      description:
-        'Current starter-based dashboard context available to the assistant for generating read-only focus cards.',
+      description: '当前 Starter 控制台上下文，可供助手生成只读聚焦卡片。',
       value: {
         pathname,
         permissionRuleCount: shellState.permissionRuleCount,
@@ -105,8 +104,7 @@ function CopilotFocusBridge({
   useCopilotAction(
     {
       available: 'enabled',
-      description:
-        'Render a read-only dashboard focus card for the current route without mutating data.',
+      description: '为当前路由生成只读聚焦卡片，不执行任何数据变更。',
       handler: ({
         headline,
         narrative,
@@ -128,19 +126,19 @@ function CopilotFocusBridge({
       name: 'preview_dashboard_focus',
       parameters: [
         {
-          description: 'Short title for the generated focus card.',
+          description: '聚焦卡片的短标题。',
           name: 'headline',
           required: true,
           type: 'string',
         },
         {
-          description: 'One concise paragraph explaining the focus.',
+          description: '一段简洁说明，解释当前聚焦点。',
           name: 'narrative',
           required: true,
           type: 'string',
         },
         {
-          description: 'Route or surface name that this focus card applies to.',
+          description: '这张聚焦卡片对应的路由或工作面名称。',
           name: 'routeScope',
           required: true,
           type: 'string',
@@ -149,7 +147,7 @@ function CopilotFocusBridge({
       render: ({ args, status }) => (
         <div className="rounded-lg border bg-background/80 p-3">
           <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
-            AI-triggered focus
+            AI 生成聚焦
           </p>
           <p className="mt-2 text-sm font-medium">{args.headline}</p>
           <p className="text-muted-foreground mt-2 text-sm leading-6">{args.narrative}</p>
@@ -170,8 +168,7 @@ function CopilotFocusBridge({
           AI-triggered focus
         </p>
         <p className="text-muted-foreground mt-2 text-sm leading-6">
-          Ask the assistant to call <code>preview_dashboard_focus</code> to pin a read-only focus
-          card for the current route.
+          让助手调用 <code>preview_dashboard_focus</code>，为当前路由固定一张只读聚焦卡片。
         </p>
       </div>
     )
@@ -182,7 +179,7 @@ function CopilotFocusBridge({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-2">
           <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
-            AI-triggered focus
+            AI 生成聚焦
           </p>
           <p className="text-sm font-medium">{generatedFocusCard.headline}</p>
         </div>
@@ -190,7 +187,7 @@ function CopilotFocusBridge({
       </div>
       <p className="text-muted-foreground mt-3 text-sm leading-6">{generatedFocusCard.narrative}</p>
       <p className="text-muted-foreground mt-3 text-xs tracking-[0.16em] uppercase">
-        Generated at {generatedFocusCard.generatedAt}
+        生成时间 {generatedFocusCard.generatedAt}
       </p>
     </div>
   )
@@ -287,32 +284,32 @@ export function AssistantPanel({
         <div className="flex items-start justify-between gap-3">
           <div className="grid gap-1">
             <p className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-              Assistant panel
+              助手面板
             </p>
-            <CardTitle className="text-xl">Operator Assistant</CardTitle>
+            <CardTitle className="text-xl">操作员助手</CardTitle>
           </div>
           <Badge variant={resolveStatusVariant(streamStatus)}>
             {resolveStatusLabel(streamStatus)}
           </Badge>
         </div>
         <div className="text-muted-foreground text-sm leading-6">
-          Authenticated AG-UI bridge bound to the current operator, route, and RBAC scope.
+          已认证的 AG-UI 桥接已绑定到当前操作员、路由与 RBAC 范围。
         </div>
       </CardHeader>
 
       <CardContent className="grid gap-4 p-4">
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{bridgeSummary?.defaultAgentId ?? 'bridge-unavailable'}</Badge>
+          <Badge variant="outline">{bridgeSummary?.defaultAgentId ?? '桥接不可用'}</Badge>
           <Badge variant="secondary">{pathname}</Badge>
           <Badge variant="secondary">{shellState.roleCodes.join(', ')}</Badge>
         </div>
 
         <div className="rounded-lg border bg-background/80 p-3">
-          <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">Runtime</p>
+          <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">运行时</p>
           <p className="mt-2 text-sm leading-6">
             {bridgeSummary
-              ? `${bridgeSummary.agentIds.length} agents available over ${bridgeSummary.transport}.`
-              : 'Copilot bridge summary is unavailable for this session.'}
+              ? `${bridgeSummary.agentIds.length} 个代理可通过 ${bridgeSummary.transport} 使用。`
+              : '当前会话无法获取 Copilot 桥接摘要。'}
           </p>
           {bridgeSummary ? (
             <p className="text-muted-foreground mt-2 text-sm">{bridgeSummary.capability.reason}</p>
@@ -349,7 +346,7 @@ export function AssistantPanel({
             <p className="text-muted-foreground text-sm leading-6">
               {bridgeSummary
                 ? bridgeSummary.capability.reason
-                : 'The authenticated Copilot bridge could not be loaded. Retry after the runtime summary path is healthy again.'}
+                : '已认证 Copilot 桥接加载失败。请在运行时摘要恢复健康后重试。'}
             </p>
             <Button
               onClick={() => {
@@ -358,7 +355,7 @@ export function AssistantPanel({
               type="button"
               variant="secondary"
             >
-              Retry bridge discovery
+              重试桥接发现
             </Button>
           </div>
         )}

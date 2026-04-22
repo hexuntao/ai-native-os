@@ -1,5 +1,5 @@
-import type { AppActions, AppSubjects } from '@ai-native-os/shared';
-import { Icons } from '@/components/icons';
+import type { AppActions, AppSubjects } from '@ai-native-os/shared'
+import type { Icons } from '@/components/icons'
 
 export type AppRoute =
   | '/dashboard/admin/menus'
@@ -14,7 +14,7 @@ export type AppRoute =
   | '/dashboard/observe/monitor'
   | '/dashboard/observe/runs'
   | '/dashboard/overview'
-  | '/dashboard/workspace/reports';
+  | '/dashboard/workspace/reports'
 
 export type NavigationGroupKey =
   | 'admin'
@@ -24,31 +24,31 @@ export type NavigationGroupKey =
   | 'improve'
   | 'knowledge'
   | 'observe'
-  | 'workspace';
+  | 'workspace'
 
 export interface NavigationGroupConfig {
-  description: string;
-  key: NavigationGroupKey;
-  label: string;
+  description: string
+  key: NavigationGroupKey
+  label: string
 }
 
 export interface NavigationItem {
-  action: AppActions;
-  aliases?: readonly string[];
-  description: string;
-  group: NavigationGroupKey;
-  href: AppRoute;
-  icon: keyof typeof Icons;
-  label: string;
-  shortcut?: [string, string];
-  subject: AppSubjects;
+  action: AppActions
+  aliases?: readonly string[]
+  description: string
+  group: NavigationGroupKey
+  href: AppRoute
+  icon: keyof typeof Icons
+  label: string
+  shortcut?: [string, string]
+  subject: AppSubjects
 }
 
 export interface NavigationGroup {
-  description: string;
-  items: NavigationItem[];
-  key: NavigationGroupKey;
-  label: string;
+  description: string
+  items: NavigationItem[]
+  key: NavigationGroupKey
+  label: string
 }
 
 export const navigationGroupOrder = [
@@ -59,196 +59,196 @@ export const navigationGroupOrder = [
   'knowledge',
   'govern',
   'workspace',
-  'admin'
-] as const;
+  'admin',
+] as const
 
 export const navigationGroups: Record<NavigationGroupKey, NavigationGroupConfig> = {
   admin: {
-    description: 'Identity, permissions, and control-plane administration.',
+    description: '身份、权限与控制台管理。',
     key: 'admin',
-    label: 'Admin'
+    label: '管理',
   },
   build: {
-    description: 'Define prompts and other AI runtime building blocks.',
+    description: '定义 Prompt 与 AI 运行时构件。',
     key: 'build',
-    label: 'Build'
+    label: '构建',
   },
   govern: {
-    description: 'Review audit, approvals, and release boundaries.',
+    description: '审核审计、审批与发布边界。',
     key: 'govern',
-    label: 'Govern'
+    label: '治理',
   },
   home: {
-    description: 'System-wide AI operating picture.',
+    description: '全局 AI 运行态势。',
     key: 'home',
-    label: 'Home'
+    label: '首页',
   },
   improve: {
-    description: 'Quality, eval, and iteration surfaces.',
+    description: '质量、评测与迭代工作面。',
     key: 'improve',
-    label: 'Improve'
+    label: '改进',
   },
   knowledge: {
-    description: 'Context engineering and retrieval operations.',
+    description: '上下文工程与检索运营。',
     key: 'knowledge',
-    label: 'Knowledge'
+    label: '知识',
   },
   observe: {
-    description: 'Runtime inspection, traces, and platform health.',
+    description: '运行时巡检、追踪与平台健康。',
     key: 'observe',
-    label: 'Observe'
+    label: '观测',
   },
   workspace: {
-    description: 'Human-in-the-loop work queues and reports.',
+    description: '人工参与的工作队列与报表。',
     key: 'workspace',
-    label: 'Workspace'
-  }
-};
+    label: '工作区',
+  },
+}
 
 export const navigationItems: readonly NavigationItem[] = [
   {
     action: 'read',
     aliases: ['/dashboard/home'],
-    description: 'System-wide AI operating picture with release, risk, and runtime signals.',
+    description: '全局 AI 运行态势，聚合发布、风险与运行时信号。',
     group: 'home',
     href: '/dashboard/overview',
     icon: 'dashboard',
-    label: 'AI Operations Center',
+    label: 'AI 运营中心',
     shortcut: ['g', 'h'],
-    subject: 'OperationLog'
+    subject: 'OperationLog',
   },
   {
     action: 'read',
-    description: 'Review prompt governance, release gates, and linked eval evidence.',
+    description: '查看 Prompt 治理、发布门禁与关联评测证据。',
     group: 'build',
     href: '/dashboard/build/prompts',
     icon: 'sparkles',
-    label: 'Prompt Studio',
+    label: 'Prompt 工作台',
     shortcut: ['g', 'b'],
-    subject: 'AiAuditLog'
+    subject: 'AiAuditLog',
   },
   {
     action: 'read',
-    description: 'Inspect AI runtime runs, request context, and execution evidence.',
+    description: '检查 AI 运行、请求上下文与执行证据。',
     group: 'observe',
     href: '/dashboard/observe/runs',
     icon: 'checks',
-    label: 'Runs & Traces',
+    label: '运行与追踪',
     shortcut: ['g', 'r'],
-    subject: 'AiAuditLog'
+    subject: 'AiAuditLog',
   },
   {
     action: 'read',
-    description: 'Inspect API, worker, Trigger, and authenticated session health.',
+    description: '检查 API、Worker、Trigger 与登录会话健康。',
     group: 'observe',
     href: '/dashboard/observe/monitor',
     icon: 'settings',
-    label: 'Runtime Monitor',
+    label: '运行监控',
     shortcut: ['g', 'm'],
-    subject: 'OperationLog'
+    subject: 'OperationLog',
   },
   {
     action: 'read',
-    description: 'Track evaluation readiness, failures, and quality coverage.',
+    description: '跟踪评测就绪度、失败态与质量覆盖。',
     group: 'improve',
     href: '/dashboard/improve/evals',
     icon: 'badgeCheck',
-    label: 'Eval Registry',
+    label: '评测注册表',
     shortcut: ['g', 'e'],
-    subject: 'AiAuditLog'
+    subject: 'AiAuditLog',
   },
   {
     action: 'manage',
-    description: 'Operate indexed knowledge documents and retrieval inputs.',
+    description: '管理已索引知识文档与检索输入。',
     group: 'knowledge',
     href: '/dashboard/knowledge/collections',
     icon: 'workspace',
-    label: 'Knowledge Collections',
+    label: '知识集合',
     shortcut: ['g', 'k'],
-    subject: 'AiKnowledge'
+    subject: 'AiKnowledge',
   },
   {
     action: 'read',
-    description: 'Review approval queue, evidence packs, and governance next actions.',
+    description: '查看审批队列、证据包与治理下一步。',
     group: 'govern',
     href: '/dashboard/govern/approvals',
     icon: 'circleCheck',
-    label: 'Approval Queue',
+    label: '审批队列',
     shortcut: ['g', 'a'],
-    subject: 'AiAuditLog'
+    subject: 'AiAuditLog',
   },
   {
     action: 'read',
-    description: 'Inspect AI audit and operation-log driven governance evidence.',
+    description: '检查 AI 审计与操作日志驱动的治理证据。',
     group: 'govern',
     href: '/dashboard/govern/audit',
     icon: 'post',
-    label: 'Audit Ledger',
+    label: '审计台账',
     shortcut: ['g', 'u'],
-    subject: 'AiAuditLog'
+    subject: 'AiAuditLog',
   },
   {
     action: 'export',
-    description: 'Inspect report workflow gaps and export-oriented operating surfaces.',
+    description: '检查报表工作流缺口与导出相关工作面。',
     group: 'workspace',
     href: '/dashboard/workspace/reports',
     icon: 'page',
-    label: 'Reports Workspace',
+    label: '报表工作区',
     shortcut: ['g', 'w'],
-    subject: 'Report'
+    subject: 'Report',
   },
   {
     action: 'read',
-    description: 'Inspect authenticated principals, status, and assigned roles.',
+    description: '查看认证主体、状态与分配角色。',
     group: 'admin',
     href: '/dashboard/admin/users',
     icon: 'teams',
-    label: 'Users Directory',
+    label: '用户目录',
     shortcut: ['g', '1'],
-    subject: 'User'
+    subject: 'User',
   },
   {
     action: 'read',
-    description: 'Inspect seeded roles and their visible control-plane surfaces.',
+    description: '查看种子角色及其可见控制台面。',
     group: 'admin',
     href: '/dashboard/admin/roles',
     icon: 'account',
-    label: 'Roles Matrix',
+    label: '角色矩阵',
     shortcut: ['g', '2'],
-    subject: 'Role'
+    subject: 'Role',
   },
   {
     action: 'manage',
-    description: 'Inspect and change permission topology with audit-safe writes.',
+    description: '查看并修改权限拓扑，同时保留审计安全写入。',
     group: 'admin',
     href: '/dashboard/admin/permissions',
     icon: 'lock',
-    label: 'Permission Center',
+    label: '权限中心',
     shortcut: ['g', '3'],
-    subject: 'Permission'
+    subject: 'Permission',
   },
   {
     action: 'read',
-    description: 'Inspect routed menu definitions and their permission bindings.',
+    description: '查看路由菜单定义及其权限绑定。',
     group: 'admin',
     href: '/dashboard/admin/menus',
     icon: 'panelLeft',
-    label: 'Navigation Registry',
+    label: '导航注册表',
     shortcut: ['g', '4'],
-    subject: 'Menu'
-  }
-] as const;
+    subject: 'Menu',
+  },
+] as const
 
 export function resolveNavigationItemForPath(pathname: string): NavigationItem | undefined {
   return navigationItems.find((item) => {
-    const candidatePaths = [item.href, ...(item.aliases ?? [])];
+    const candidatePaths = [item.href, ...(item.aliases ?? [])]
 
     return candidatePaths.some(
-      (candidatePath) => pathname === candidatePath || pathname.startsWith(`${candidatePath}/`)
-    );
-  });
+      (candidatePath) => pathname === candidatePath || pathname.startsWith(`${candidatePath}/`),
+    )
+  })
 }
 
 export function resolveNavigationGroupLabel(group: NavigationGroupKey): string {
-  return navigationGroups[group].label;
+  return navigationGroups[group].label
 }

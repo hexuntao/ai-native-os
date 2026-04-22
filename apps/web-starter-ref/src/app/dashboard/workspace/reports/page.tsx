@@ -19,27 +19,26 @@ import { loadReportWorkspace, loadServerSummary } from '@/lib/server-ai-manageme
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Reports Workspace',
+    title: '报表工作区',
     sections: [
       {
-        title: 'When to use this page',
-        description:
-          'Check schedule health first, then inspect export history and jump into workflow traces when the report pipeline looks stale or degraded.',
+        title: '何时使用本页',
+        description: '先检查调度健康，再查看导出历史；当报表流水线陈旧或降级时，再进入工作流追踪。',
         links: [
           {
-            title: 'Open report workflow traces',
+            title: '打开报表工作流追踪',
             url: '/dashboard/observe/runs?toolId=workflow%3Areport-schedule',
           },
           {
-            title: 'Open report eval posture',
+            title: '打开报表评测态势',
             url: '/dashboard/improve/evals?search=report-schedule',
           },
         ],
       },
       {
-        title: 'Assistant boundary',
+        title: '助手边界',
         description:
-          'The assistant may explain schedule gaps, failed exports, and missing snapshots, but this starter shell still keeps report execution read-only.',
+          '助手可以解释调度缺口、导出失败与快照缺失，但这个 Starter 控制台仍将报表执行保持为只读。',
       },
     ],
   }
@@ -71,29 +70,29 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
 
   return (
     <PageContainer
-      pageTitle="Reports Workspace"
-      pageDescription="Schedule health, export history, and workflow evidence for the report pipeline."
+      pageTitle="报表工作区"
+      pageDescription="聚合报表流水线的调度健康、导出历史与工作流证据。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardDescription>Report schedule</CardDescription>
+              <CardDescription>报表调度</CardDescription>
               <CardTitle>{reportWorkspace.schedule.name}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6">
               <div className="rounded-lg border px-4 py-3">
                 <span className="text-muted-foreground block text-xs tracking-[0.16em] uppercase">
-                  Cron
+                  调度
                 </span>
                 <span className="mt-2 block font-medium">
-                  {reportWorkspace.schedule.schedule ?? 'manual'}
+                  {reportWorkspace.schedule.schedule ?? '手动'}
                 </span>
               </div>
               <div className="rounded-lg border px-4 py-3">
                 <span className="text-muted-foreground block text-xs tracking-[0.16em] uppercase">
-                  Trigger health
+                  触发器健康
                 </span>
                 <span className="mt-2 block font-medium">
                   {serverSummary.health.trigger.status}
@@ -105,11 +104,11 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
 
           <Card>
             <CardHeader>
-              <CardDescription>Latest run</CardDescription>
+              <CardDescription>最近运行</CardDescription>
               <CardTitle>
                 {reportWorkspace.latestRun
                   ? formatDateTime(reportWorkspace.latestRun.value.createdAt)
-                  : 'No visible runs'}
+                  : '当前没有可见运行'}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6">
@@ -119,18 +118,22 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
                     <Badge
                       variant={resolveStatusBadgeVariant(reportWorkspace.latestRun.value.status)}
                     >
-                      {reportWorkspace.latestRun.value.status}
+                      {reportWorkspace.latestRun.value.status === 'success'
+                        ? '成功'
+                        : reportWorkspace.latestRun.value.status === 'error'
+                          ? '错误'
+                          : '禁止'}
                     </Badge>
                     <Badge variant="outline">{reportWorkspace.latestRun.label}</Badge>
                   </div>
                   <p>{reportWorkspace.latestRun.value.toolId}</p>
                   <p className="text-muted-foreground">
-                    Request ID: {reportWorkspace.latestRun.value.requestId ?? 'not captured'}
+                    请求 ID：{reportWorkspace.latestRun.value.requestId ?? '未记录'}
                   </p>
                 </>
               ) : (
                 <p className="text-muted-foreground">
-                  The report workflow has not produced a visible audit row yet for this subject.
+                  当前主体下，报表工作流还没有产生可见的审计记录。
                 </p>
               )}
             </CardContent>
@@ -138,11 +141,9 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
 
           <Card>
             <CardHeader>
-              <CardDescription>Latest export result</CardDescription>
+              <CardDescription>最近导出结果</CardDescription>
               <CardTitle>
-                {reportWorkspace.latestExport
-                  ? reportWorkspace.latestExport.label
-                  : 'No success yet'}
+                {reportWorkspace.latestExport ? reportWorkspace.latestExport.label : '尚无成功记录'}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm leading-6">
@@ -152,7 +153,11 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
                     <Badge
                       variant={resolveStatusBadgeVariant(reportWorkspace.latestExport.value.status)}
                     >
-                      {reportWorkspace.latestExport.value.status}
+                      {reportWorkspace.latestExport.value.status === 'success'
+                        ? '成功'
+                        : reportWorkspace.latestExport.value.status === 'error'
+                          ? '错误'
+                          : '禁止'}
                     </Badge>
                     <Badge variant="secondary">
                       {formatDateTime(reportWorkspace.latestExport.value.createdAt)}
@@ -164,13 +169,12 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
                   </p>
                   <p className="text-muted-foreground">
                     {reportWorkspace.latestExport.value.errorMessage ??
-                      'Latest export evidence is healthy.'}
+                      '最近一次导出证据看起来健康。'}
                   </p>
                 </>
               ) : (
                 <p className="text-muted-foreground">
-                  No successful workflow export is visible yet. Inspect scheduled trigger rows
-                  first.
+                  当前还没有可见的成功工作流导出。请先检查调度触发行。
                 </p>
               )}
             </CardContent>
@@ -180,25 +184,24 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.95fr)]">
           <Card>
             <CardHeader>
-              <CardDescription>Export history</CardDescription>
-              <CardTitle>Recent report evidence</CardTitle>
+              <CardDescription>导出历史</CardDescription>
+              <CardTitle>最近报表证据</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {reportWorkspace.exportHistory.length === 0 ? (
                 <div className="text-muted-foreground p-6 text-sm leading-7">
-                  No report workflow evidence is visible yet. Start with schedule health, then
-                  confirm whether report audit rows are being written at all.
+                  当前还没有可见的报表工作流证据。先检查调度健康，再确认报表审计记录是否真的在写入。
                 </div>
               ) : (
                 <div className="overflow-x-auto px-4">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Source</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Tool</TableHead>
-                        <TableHead>Request</TableHead>
+                        <TableHead>时间</TableHead>
+                        <TableHead>来源</TableHead>
+                        <TableHead>状态</TableHead>
+                        <TableHead>工具</TableHead>
+                        <TableHead>请求</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -217,12 +220,16 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
                           <TableCell>{entry.label}</TableCell>
                           <TableCell>
                             <Badge variant={resolveStatusBadgeVariant(entry.value.status)}>
-                              {entry.value.status}
+                              {entry.value.status === 'success'
+                                ? '成功'
+                                : entry.value.status === 'error'
+                                  ? '错误'
+                                  : '禁止'}
                             </Badge>
                           </TableCell>
                           <TableCell>{entry.value.toolId}</TableCell>
                           <TableCell className="text-muted-foreground">
-                            {entry.value.requestId ?? 'not captured'}
+                            {entry.value.requestId ?? '未捕获'}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -235,57 +242,55 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
 
           <Card>
             <CardHeader>
-              <CardDescription>Operator actions</CardDescription>
-              <CardTitle>Next entry points</CardTitle>
+              <CardDescription>操作入口</CardDescription>
+              <CardTitle>下一步入口</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
               <ReadBoundaryCard
-                description="Read-only execution boundary"
+                description="只读执行边界"
                 links={[
                   {
                     href: '/dashboard/observe/runs?toolId=workflow%3Areport-schedule',
-                    label: 'Open workflow traces',
+                    label: '打开工作流追踪',
                   },
                 ]}
-                nextStep="Use schedule health and workflow traces to confirm that the report pipeline is stable before introducing any write trigger."
-                reason="Manual export remains backend-owned in this starter shell, so the reports workspace only exposes evidence, snapshots, and workflow drill-down."
-                title="Manual export is not exposed here"
+                nextStep="在引入任何写入触发前，先用调度健康和工作流追踪确认报表流水线是否稳定。"
+                reason="在这个 starter 壳层里，手动导出仍由后端统一接管，因此报表工作区只暴露证据、快照和工作流下钻。"
+                title="这里不暴露手动导出"
               />
 
               <div className="rounded-lg border p-4">
-                <p className="text-sm font-medium">Primary next step</p>
+                <p className="text-sm font-medium">首要下一步</p>
                 <p className="text-muted-foreground mt-2 text-sm leading-6">
-                  Start with the latest successful export evidence, then move into workflow traces
-                  only if the snapshot is stale or degraded.
+                  先从最近一次成功导出证据开始；只有当快照陈旧或降级时，再进入工作流追踪。
                 </p>
                 <div className="mt-4">
                   <Link
                     className="bg-primary text-primary-foreground inline-flex h-9 w-full items-center justify-center rounded-md px-4 text-sm font-medium"
                     href={latestSnapshotHref}
                   >
-                    Open latest snapshot
+                    打开最新快照
                   </Link>
                 </div>
               </div>
 
               <div className="rounded-lg border p-4">
-                <p className="text-sm font-medium">Secondary drill-downs</p>
+                <p className="text-sm font-medium">次级下钻入口</p>
                 <p className="text-muted-foreground mt-2 text-sm leading-6">
-                  Inspect scheduled trigger rows, workflow execution rows, and report eval posture
-                  in the canonical dashboard routes.
+                  在标准 dashboard 路由里继续查看调度触发行、工作流执行记录和报表评测态势。
                 </p>
                 <div className="mt-4 grid gap-2">
                   <Link
                     className="inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm"
                     href="/dashboard/observe/runs?toolId=task%3Areport-schedule-trigger"
                   >
-                    Scheduled trigger traces
+                    调度触发追踪
                   </Link>
                   <Link
                     className="inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm"
                     href="/dashboard/improve/evals?search=report-schedule"
                   >
-                    Report eval posture
+                    报表评测态势
                   </Link>
                 </div>
               </div>

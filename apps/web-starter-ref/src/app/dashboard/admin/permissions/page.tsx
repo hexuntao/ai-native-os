@@ -45,12 +45,12 @@ interface AdminPermissionsPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Permission Center',
+    title: '权限中心',
     sections: [
       {
-        title: 'What this page is for',
+        title: '页面用途',
         description:
-          'Inspect resource-action topology, field scoping, role linkage, and allow/deny mode without leaving the starter-based admin shell.',
+          '在不离开 Starter 管理控制台的前提下，查看资源-动作拓扑、字段范围、角色关联以及允许/拒绝模式。',
       },
     ],
   }
@@ -114,8 +114,8 @@ export default async function AdminPermissionsPage({
   if (!canReadPermissionDirectory) {
     return (
       <PageContainer
-        pageTitle="Permission Center"
-        pageDescription="Permission topology with filters for resource, action, field scope, and role linkage."
+        pageTitle="权限中心"
+        pageDescription="带资源、动作、字段范围与角色关联筛选的权限拓扑视图。"
         infoContent={createInfoContent()}
       >
         <div className="flex flex-1 flex-col gap-4">
@@ -124,20 +124,20 @@ export default async function AdminPermissionsPage({
           ) : null}
 
           <ReadBoundaryCard
-            description="Access boundary"
+            description="访问边界"
             links={[
               {
                 href: '/dashboard/admin/roles',
-                label: 'Open Roles Matrix',
+                label: '打开角色矩阵',
               },
               {
                 href: '/dashboard/overview',
-                label: 'Back to Operations Center',
+                label: '返回运营中心',
               },
             ]}
-            nextStep="当前页面不会请求受限的权限目录接口。若要继续评估 RBAC 影响面，请先查看 Roles Matrix；若只需要整体态势，则返回 Operations Center。"
+            nextStep="当前页面不会请求受限的权限目录接口。若要继续评估 RBAC 影响面，请先查看角色矩阵；若只需要整体态势，则返回运营中心。"
             reason="当前主体缺少 `read:Permission` 能力，因此 starter shell 只展示权限边界，而不暴露目录读模型或写操作入口。"
-            title="Permission directory is unavailable"
+            title="权限目录当前不可用"
           />
         </div>
       </PageContainer>
@@ -148,8 +148,8 @@ export default async function AdminPermissionsPage({
 
   return (
     <PageContainer
-      pageTitle="Permission Center"
-      pageDescription="Permission topology with filters for resource, action, field scope, and role linkage."
+      pageTitle="权限中心"
+      pageDescription="带资源、动作、字段范围与角色关联筛选的权限拓扑视图。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
@@ -160,27 +160,27 @@ export default async function AdminPermissionsPage({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="rules"
-            detail="Total permission records currently registered."
-            label="Permission rows"
+            detail="当前已注册的权限记录总数。"
+            label="权限行"
             value={formatCount(payload.pagination.total)}
           />
           <MetricCard
             badge="field-scope"
-            detail="Rows in the current slice with field-level scope."
-            label="Field scoped"
+            detail="当前切片中具有字段级范围的行数。"
+            label="字段范围"
             value={formatCount(payload.data.filter((row) => (row.fields?.length ?? 0) > 0).length)}
           />
           <MetricCard
             badge="role-link"
-            detail="Rows currently linked to at least one role."
-            label="Role linked"
+            detail="当前至少关联一个角色的行数。"
+            label="角色关联"
             value={formatCount(payload.data.filter((row) => row.roleCount > 0).length)}
           />
           <MetricCard
             badge={canWritePermissions ? 'write-enabled' : 'read-only'}
-            detail="Whether the current operator can mutate permission records."
-            label="Mutation mode"
-            value={canWritePermissions ? 'write' : 'read'}
+            detail="当前操作员是否可以修改权限记录。"
+            label="写入模式"
+            value={canWritePermissions ? '可写' : '只读'}
             variant={canWritePermissions ? 'secondary' : 'outline'}
           />
         </div>
@@ -188,8 +188,8 @@ export default async function AdminPermissionsPage({
         {canWritePermissions ? (
           <Card>
             <CardHeader>
-              <CardDescription>Permission authoring</CardDescription>
-              <CardTitle>Write workflow</CardTitle>
+              <CardDescription>权限编写</CardDescription>
+              <CardTitle>写入工作流</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">
               <div className="max-w-2xl text-sm leading-7 text-muted-foreground">
@@ -198,19 +198,19 @@ export default async function AdminPermissionsPage({
               <ManagementDialog
                 contentClassName="sm:max-w-4xl"
                 description="创建自定义权限规则；系统基线权限和完全重复规则仍会被后端拒绝。"
-                title="Create permission"
+                title="创建权限"
                 triggerId="permissions-create-trigger"
-                triggerLabel="New permission"
+                triggerLabel="新建权限"
               >
                 <form
                   action={createPermissionAction}
-                  aria-label="Create permission form"
+                  aria-label="创建权限表单"
                   className="grid gap-4"
                 >
                   <input name="returnTo" type="hidden" value={returnTo} />
                   <div className="grid gap-4 xl:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="create-permission-resource">Resource</FieldLabel>
+                      <FieldLabel htmlFor="create-permission-resource">资源</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="User"
@@ -225,7 +225,7 @@ export default async function AdminPermissionsPage({
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-permission-action">Action</FieldLabel>
+                      <FieldLabel htmlFor="create-permission-action">动作</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="read"
@@ -240,23 +240,23 @@ export default async function AdminPermissionsPage({
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-permission-mode">Mode</FieldLabel>
+                      <FieldLabel htmlFor="create-permission-mode">模式</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="allow"
                         id="create-permission-mode"
                         name="mode"
                       >
-                        <option value="allow">Allow</option>
-                        <option value="deny">Deny</option>
+                        <option value="allow">允许</option>
+                        <option value="deny">拒绝</option>
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-permission-description">Description</FieldLabel>
+                      <FieldLabel htmlFor="create-permission-description">描述</FieldLabel>
                       <Input id="create-permission-description" name="description" />
                     </Field>
                     <Field className="xl:col-span-2">
-                      <FieldLabel htmlFor="create-permission-fields">Fields CSV</FieldLabel>
+                      <FieldLabel htmlFor="create-permission-fields">字段 CSV</FieldLabel>
                       <Input
                         id="create-permission-fields"
                         name="fields"
@@ -265,9 +265,7 @@ export default async function AdminPermissionsPage({
                       <FieldDescription>留空表示不限制字段范围。</FieldDescription>
                     </Field>
                     <Field className="xl:col-span-2">
-                      <FieldLabel htmlFor="create-permission-conditions">
-                        Conditions JSON
-                      </FieldLabel>
+                      <FieldLabel htmlFor="create-permission-conditions">条件 JSON</FieldLabel>
                       <Textarea
                         id="create-permission-conditions"
                         name="conditions"
@@ -276,7 +274,7 @@ export default async function AdminPermissionsPage({
                     </Field>
                   </div>
                   <div className="flex justify-end gap-3">
-                    <Button type="submit">Create permission</Button>
+                    <Button type="submit">创建权限</Button>
                   </div>
                 </form>
               </ManagementDialog>
@@ -286,8 +284,8 @@ export default async function AdminPermissionsPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Filters</CardDescription>
-            <CardTitle>Permission slice</CardTitle>
+            <CardDescription>筛选</CardDescription>
+            <CardTitle>权限切片</CardTitle>
           </CardHeader>
           <CardContent>
             <form
@@ -299,17 +297,17 @@ export default async function AdminPermissionsPage({
               <input name="pageSize" type="hidden" value={String(filters.pageSize)} />
 
               <Field>
-                <FieldLabel htmlFor="search">Search</FieldLabel>
+                <FieldLabel htmlFor="search">搜索</FieldLabel>
                 <Input
                   defaultValue={filters.search}
                   id="search"
                   name="search"
-                  placeholder="Search resource or action"
+                  placeholder="搜索资源或动作"
                 />
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="resource">Resource</FieldLabel>
+                <FieldLabel htmlFor="resource">资源</FieldLabel>
                 <Input
                   defaultValue={filters.resource}
                   id="resource"
@@ -319,7 +317,7 @@ export default async function AdminPermissionsPage({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="action">Action</FieldLabel>
+                <FieldLabel htmlFor="action">动作</FieldLabel>
                 <Input
                   defaultValue={filters.action}
                   id="action"
@@ -333,7 +331,7 @@ export default async function AdminPermissionsPage({
                   className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                   href="/dashboard/admin/permissions"
                 >
-                  Reset
+                  重置
                 </Link>
               </div>
             </form>
@@ -342,22 +340,22 @@ export default async function AdminPermissionsPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Permission table</CardDescription>
-            <CardTitle>Resource-action topology</CardTitle>
+            <CardDescription>权限表格</CardDescription>
+            <CardTitle>资源-动作拓扑</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto px-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Scope</TableHead>
-                    <TableHead>Mode</TableHead>
-                    <TableHead>Field scope</TableHead>
-                    <TableHead>Conditions</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>范围</TableHead>
+                    <TableHead>模式</TableHead>
+                    <TableHead>字段范围</TableHead>
+                    <TableHead>条件</TableHead>
+                    <TableHead>角色数</TableHead>
+                    <TableHead>创建时间</TableHead>
                     {canWritePermissions ? (
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
                     ) : null}
                   </TableRow>
                 </TableHeader>
@@ -380,20 +378,20 @@ export default async function AdminPermissionsPage({
                               {row.action}:{row.resource}
                             </span>
                             <span className="text-muted-foreground text-xs">
-                              {row.description ?? 'No description'}
+                              {row.description ?? '无描述'}
                             </span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={row.inverted ? 'outline' : 'secondary'}>
-                            {row.inverted ? 'deny' : 'allow'}
+                            {row.inverted ? '拒绝' : '允许'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {row.fields?.length ? row.fields.join(', ') : 'all fields'}
+                          {row.fields?.length ? row.fields.join(', ') : '全部字段'}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {row.conditions ? JSON.stringify(row.conditions) : 'none'}
+                          {row.conditions ? JSON.stringify(row.conditions) : '无'}
                         </TableCell>
                         <TableCell>{formatCount(row.roleCount)}</TableCell>
                         <TableCell className="text-muted-foreground">
@@ -402,20 +400,20 @@ export default async function AdminPermissionsPage({
                         {canWritePermissions ? (
                           <TableCell className="text-right">
                             {protectedPermission ? (
-                              <Badge variant="outline">seeded</Badge>
+                              <Badge variant="outline">种子权限</Badge>
                             ) : (
                               <div className="flex justify-end gap-2">
                                 <ManagementDialog
                                   contentClassName="sm:max-w-4xl"
                                   description="更新资源、动作、字段范围和条件 JSON。"
-                                  title={`Edit ${row.action}:${row.resource}`}
-                                  triggerLabel="Edit"
+                                  title={`编辑 ${row.action}:${row.resource}`}
+                                  triggerLabel="编辑"
                                   triggerSize="sm"
                                   triggerVariant="outline"
                                 >
                                   <form
                                     action={updatePermissionAction}
-                                    aria-label={`Edit ${row.action}:${row.resource}`}
+                                    aria-label={`编辑 ${row.action}:${row.resource}`}
                                     className="grid gap-4"
                                   >
                                     <input name="id" type="hidden" value={row.id} />
@@ -425,7 +423,7 @@ export default async function AdminPermissionsPage({
                                         <FieldLabel
                                           htmlFor={`update-permission-resource-${row.id}`}
                                         >
-                                          Resource
+                                          资源
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -442,7 +440,7 @@ export default async function AdminPermissionsPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-permission-action-${row.id}`}>
-                                          Action
+                                          动作
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -459,7 +457,7 @@ export default async function AdminPermissionsPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-permission-mode-${row.id}`}>
-                                          Mode
+                                          模式
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -467,15 +465,15 @@ export default async function AdminPermissionsPage({
                                           id={`update-permission-mode-${row.id}`}
                                           name="mode"
                                         >
-                                          <option value="allow">Allow</option>
-                                          <option value="deny">Deny</option>
+                                          <option value="allow">允许</option>
+                                          <option value="deny">拒绝</option>
                                         </select>
                                       </Field>
                                       <Field>
                                         <FieldLabel
                                           htmlFor={`update-permission-description-${row.id}`}
                                         >
-                                          Description
+                                          描述
                                         </FieldLabel>
                                         <Input
                                           defaultValue={row.description ?? ''}
@@ -485,7 +483,7 @@ export default async function AdminPermissionsPage({
                                       </Field>
                                       <Field className="xl:col-span-2">
                                         <FieldLabel htmlFor={`update-permission-fields-${row.id}`}>
-                                          Fields CSV
+                                          字段 CSV
                                         </FieldLabel>
                                         <Input
                                           defaultValue={stringifyFields(row.fields)}
@@ -497,7 +495,7 @@ export default async function AdminPermissionsPage({
                                         <FieldLabel
                                           htmlFor={`update-permission-conditions-${row.id}`}
                                         >
-                                          Conditions JSON
+                                          条件 JSON
                                         </FieldLabel>
                                         <Textarea
                                           defaultValue={stringifyConditions(row.conditions)}
@@ -507,21 +505,21 @@ export default async function AdminPermissionsPage({
                                       </Field>
                                     </div>
                                     <div className="flex justify-end gap-3">
-                                      <Button type="submit">Save changes</Button>
+                                      <Button type="submit">保存变更</Button>
                                     </div>
                                   </form>
                                 </ManagementDialog>
                                 <DestructiveActionDialog
                                   action={deletePermissionAction}
-                                  confirmLabel="Delete permission"
+                                  confirmLabel="删除权限"
                                   consequences="删除权限会影响所有引用该规则的角色能力推导。"
                                   description="确认后将永久删除该自定义权限规则。"
                                   hiddenFields={[
                                     { name: 'id', value: row.id },
                                     { name: 'returnTo', value: returnTo },
                                   ]}
-                                  title={`Delete ${row.action}:${row.resource}?`}
-                                  triggerLabel="Delete"
+                                  title={`删除 ${row.action}:${row.resource}？`}
+                                  triggerLabel="删除"
                                 />
                               </div>
                             )}

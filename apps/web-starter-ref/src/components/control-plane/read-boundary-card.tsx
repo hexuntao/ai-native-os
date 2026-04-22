@@ -33,13 +33,13 @@ export function ReadBoundaryCard({
       <CardContent className="grid gap-4">
         <div className="rounded-lg border p-4">
           <p className="text-muted-foreground mb-2 text-xs tracking-[0.16em] uppercase">
-            Why blocked
+            为什么被限制
           </p>
           <p className="text-sm leading-7">{reason}</p>
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-muted-foreground mb-2 text-xs tracking-[0.16em] uppercase">
-            What is still visible
+            当前仍可查看
           </p>
           <p className="text-sm leading-7">{nextStep}</p>
         </div>

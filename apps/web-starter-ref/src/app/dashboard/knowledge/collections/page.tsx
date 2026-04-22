@@ -35,17 +35,15 @@ interface KnowledgeCollectionsPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Knowledge Collections',
+    title: '知识集合',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Inspect indexed documents, source coverage, and retrieval footprint in a single context-engineering surface.',
+        title: '页面用途',
+        description: '在同一个上下文工程工作面中查看已索引文档、来源覆盖和检索占用。',
       },
       {
-        title: 'Operator boundary',
-        description:
-          'This page focuses on document-level retrieval posture. Semantic search behavior and downstream agent usage still depend on shared runtime indexes.',
+        title: '操作边界',
+        description: '这个页面聚焦文档级检索态势。语义搜索行为和下游代理使用仍依赖共享运行时索引。',
       },
     ],
   }
@@ -96,8 +94,8 @@ export default async function KnowledgeCollectionsPage({
 
   return (
     <PageContainer
-      pageTitle="Knowledge Collections"
-      pageDescription="Indexed document registry with source filters, metadata coverage, and retrieval footprint."
+      pageTitle="知识集合"
+      pageDescription="带来源筛选、元数据覆盖与检索占用信息的已索引文档注册表。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
@@ -107,28 +105,28 @@ export default async function KnowledgeCollectionsPage({
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            badge="indexed"
-            detail="Documents visible in the current filter slice."
-            label="Documents"
+            badge="已索引"
+            detail="当前筛选切片中可见的文档数量。"
+            label="文档"
             value={formatCount(payload.pagination.total)}
           />
           <MetricCard
-            badge={`${sourceClassCount} source types`}
-            detail="Total chunk count represented in the current page slice."
-            label="Chunks"
+            badge={`${sourceClassCount} 种来源类型`}
+            detail="当前页面切片中代表的总 chunk 数量。"
+            label="分块"
             value={formatCount(totalChunks)}
           />
           <MetricCard
-            badge="coverage"
-            detail="Documents whose metadata is not empty."
-            label="Metadata coverage"
+            badge="覆盖率"
+            detail="元数据不为空的文档数量。"
+            label="元数据覆盖"
             value={`${metadataCoverageCount}/${payload.data.length}`}
             variant={metadataCoverageCount > 0 ? 'default' : 'secondary'}
           />
           <MetricCard
-            badge="reindex cost"
-            detail="Largest document by chunk count in this page slice."
-            label="Largest document"
+            badge="重建索引成本"
+            detail="当前页面切片中按 chunk 数量计算的最大文档。"
+            label="最大文档"
             value={formatCount(largestChunkCount)}
             variant={largestChunkCount > 150 ? 'secondary' : 'outline'}
           />
@@ -138,8 +136,8 @@ export default async function KnowledgeCollectionsPage({
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardDescription>Filters</CardDescription>
-                <CardTitle>Knowledge slice</CardTitle>
+                <CardDescription>筛选</CardDescription>
+                <CardTitle>知识切片</CardTitle>
               </CardHeader>
               <CardContent>
                 <form
@@ -151,17 +149,17 @@ export default async function KnowledgeCollectionsPage({
                   <input name="pageSize" type="hidden" value={String(filters.pageSize)} />
 
                   <Field>
-                    <FieldLabel htmlFor="search">Search</FieldLabel>
+                    <FieldLabel htmlFor="search">搜索</FieldLabel>
                     <Input
                       defaultValue={filters.search}
                       id="search"
                       name="search"
-                      placeholder="Search title or content"
+                      placeholder="搜索标题或正文"
                     />
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="sourceType">Source type</FieldLabel>
+                    <FieldLabel htmlFor="sourceType">来源类型</FieldLabel>
                     <Input
                       defaultValue={filters.sourceType}
                       id="sourceType"
@@ -175,7 +173,7 @@ export default async function KnowledgeCollectionsPage({
                       className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                       href="/dashboard/knowledge/collections"
                     >
-                      Reset
+                      重置
                     </Link>
                   </div>
                 </form>
@@ -184,13 +182,13 @@ export default async function KnowledgeCollectionsPage({
 
             <Card>
               <CardHeader>
-                <CardDescription>Document registry</CardDescription>
-                <CardTitle>Visible knowledge documents</CardTitle>
+                <CardDescription>文档注册表</CardDescription>
+                <CardTitle>可见知识文档</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {payload.data.length === 0 ? (
                   <div className="text-muted-foreground p-6 text-sm leading-7">
-                    No knowledge documents are visible under the current filters.
+                    当前筛选下没有可见知识文档。
                   </div>
                 ) : (
                   <>
@@ -198,13 +196,13 @@ export default async function KnowledgeCollectionsPage({
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Document</TableHead>
-                            <TableHead>Source</TableHead>
-                            <TableHead>Chunks</TableHead>
+                            <TableHead>文档</TableHead>
+                            <TableHead>来源</TableHead>
+                            <TableHead>分块</TableHead>
                             <TableHead>URI</TableHead>
-                            <TableHead>Indexed</TableHead>
+                            <TableHead>索引时间</TableHead>
                             {canWriteKnowledge ? (
-                              <TableHead className="text-right">Actions</TableHead>
+                              <TableHead className="text-right">操作</TableHead>
                             ) : null}
                           </TableRow>
                         </TableHeader>
@@ -225,7 +223,7 @@ export default async function KnowledgeCollectionsPage({
                                     {Object.entries(row.metadata)
                                       .slice(0, 2)
                                       .map(([key, value]) => `${key}: ${String(value)}`)
-                                      .join(' · ') || 'No metadata'}
+                                      .join(' · ') || '无元数据'}
                                   </span>
                                 </div>
                               </TableCell>
@@ -234,7 +232,7 @@ export default async function KnowledgeCollectionsPage({
                               </TableCell>
                               <TableCell>{formatCount(row.chunkCount)}</TableCell>
                               <TableCell className="text-muted-foreground">
-                                {row.sourceUri ?? 'internal'}
+                                {row.sourceUri ?? '内部'}
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {formatDateTime(row.lastIndexedAt)}
@@ -292,14 +290,14 @@ export default async function KnowledgeCollectionsPage({
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardDescription>Operator actions</CardDescription>
-                <CardTitle>Write workflow</CardTitle>
+                <CardDescription>操作入口</CardDescription>
+                <CardTitle>写入工作流</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm leading-7">
                 <p>
-                  Mutation mode:{' '}
+                  写入模式:{' '}
                   <Badge variant={canWriteKnowledge ? 'secondary' : 'outline'}>
-                    {canWriteKnowledge ? 'write-enabled' : 'read-only'}
+                    {canWriteKnowledge ? '可写' : '只读'}
                   </Badge>
                 </p>
                 {canWriteKnowledge ? (
@@ -314,17 +312,16 @@ export default async function KnowledgeCollectionsPage({
 
             <Card>
               <CardHeader>
-                <CardDescription>Retrieval note</CardDescription>
-                <CardTitle>Source posture</CardTitle>
+                <CardDescription>检索说明</CardDescription>
+                <CardTitle>来源态势</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm leading-7">
                 <p>
-                  Distinct source types in this slice:{' '}
-                  <strong>{formatCount(sourceClassCount)}</strong>
+                  当前切片中的不同来源类型: <strong>{formatCount(sourceClassCount)}</strong>
                 </p>
                 <p className="text-muted-foreground">
-                  Use metadata coverage and chunk concentration to decide whether the next step is
-                  cleanup, reindexing, or prompt-side context changes.
+                  用元数据覆盖率和分块集中度判断，下一步应该做清理、重建索引，还是改 Prompt
+                  侧上下文。
                 </p>
               </CardContent>
             </Card>

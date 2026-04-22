@@ -36,17 +36,15 @@ interface GovernAuditPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Audit Ledger',
+    title: '审计台账',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Inspect tool-level governance evidence, including forbidden calls, runtime errors, and human overrides, in a single ledger.',
+        title: '页面用途',
+        description: '在同一份台账中查看工具级治理证据，包括禁止调用、运行错误与人工接管。',
       },
       {
-        title: 'Operator boundary',
-        description:
-          'This page explains audit pressure. It does not replace approval review or prompt release controls.',
+        title: '操作边界',
+        description: '这个页面用于解释审计压力，但不能替代审批复核或 Prompt 发布控制。',
       },
     ],
   }
@@ -109,36 +107,36 @@ export default async function GovernAuditPage({
 
   return (
     <PageContainer
-      pageTitle="Audit Ledger"
-      pageDescription="Tool-level audit evidence with status filters, pressure signals, and selected event detail."
+      pageTitle="审计台账"
+      pageDescription="工具级审计证据视图，包含状态筛选、压力信号与选中事件详情。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="ledger"
-            detail="Visible AI audit events in the current governance slice."
-            label="Audit events"
+            detail="当前治理切片中可见的 AI 审计事件。"
+            label="审计事件"
             value={formatCount(payload.pagination.total)}
           />
           <MetricCard
             badge={forbiddenCount === 0 ? 'clear' : 'attention'}
-            detail="Rows blocked by policy or permission boundaries."
-            label="Forbidden"
+            detail="被策略或权限边界阻止的行。"
+            label="禁止"
             value={formatCount(forbiddenCount)}
             variant={forbiddenCount === 0 ? 'outline' : 'secondary'}
           />
           <MetricCard
             badge={overrideCount === 0 ? 'none' : 'human-loop'}
-            detail="Events already linked to human override."
-            label="Overrides"
+            detail="已关联人工接管的事件。"
+            label="人工接管"
             value={formatCount(overrideCount)}
             variant={overrideCount === 0 ? 'outline' : 'secondary'}
           />
           <MetricCard
             badge={errorCount === 0 ? 'stable' : 'investigate'}
-            detail="Runtime failures that are not simple permission denials."
-            label="Errors"
+            detail="不属于简单权限拒绝的运行失败。"
+            label="错误"
             value={formatCount(errorCount)}
             variant={errorCount === 0 ? 'outline' : 'destructive'}
           />
@@ -148,8 +146,8 @@ export default async function GovernAuditPage({
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardDescription>Filters</CardDescription>
-                <CardTitle>Audit query</CardTitle>
+                <CardDescription>筛选</CardDescription>
+                <CardTitle>审计查询</CardTitle>
               </CardHeader>
               <CardContent>
                 <form
@@ -164,7 +162,7 @@ export default async function GovernAuditPage({
                   ) : null}
 
                   <Field>
-                    <FieldLabel htmlFor="toolId">Tool ID</FieldLabel>
+                    <FieldLabel htmlFor="toolId">工具 ID</FieldLabel>
                     <Input
                       defaultValue={filters.toolId}
                       id="toolId"
@@ -174,14 +172,14 @@ export default async function GovernAuditPage({
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="status">Status</FieldLabel>
+                    <FieldLabel htmlFor="status">状态</FieldLabel>
                     <select
                       className={selectClassName}
                       defaultValue={filters.status}
                       id="status"
                       name="status"
                     >
-                      <option value="all">All statuses</option>
+                      <option value="all">全部状态</option>
                       <option value="success">Success</option>
                       <option value="forbidden">Forbidden</option>
                       <option value="error">Error</option>
@@ -193,7 +191,7 @@ export default async function GovernAuditPage({
                       className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                       href="/dashboard/govern/audit"
                     >
-                      Reset
+                      重置
                     </Link>
                   </div>
                 </form>
@@ -202,17 +200,16 @@ export default async function GovernAuditPage({
 
             <Card>
               <CardHeader>
-                <CardDescription>Audit table</CardDescription>
-                <CardTitle>Tool execution ledger</CardTitle>
+                <CardDescription>审计表格</CardDescription>
+                <CardTitle>工具执行台账</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {selectionFellBack ? (
                   <div className="px-4 pt-4">
                     <Alert>
-                      <AlertTitle>Selection moved to the first visible audit event</AlertTitle>
+                      <AlertTitle>当前选择已回退到首个可见审计事件</AlertTitle>
                       <AlertDescription>
-                        The previously selected audit row is outside the current slice, so the
-                        evidence panel fell back to the first visible entry.
+                        之前选中的审计行已经不在当前切片中，所以证据面板回退到了第一条可见记录。
                       </AlertDescription>
                     </Alert>
                   </div>
@@ -220,17 +217,13 @@ export default async function GovernAuditPage({
                 {payload.data.length === 0 ? (
                   <div className="p-4">
                     <EmptyStateCard
-                      action={{ href: '/dashboard/govern/audit', label: 'Reset audit query' }}
+                      action={{ href: '/dashboard/govern/audit', label: '重置审计查询' }}
                       description={
                         hasActiveFilters
-                          ? 'The current audit query does not expose any visible governance events. Reset the slice first, then decide whether the empty result is expected.'
-                          : 'No governance audit rows are visible yet. Wait for the next event or verify that tool-level audit evidence is being written.'
+                          ? '当前审计查询没有可见治理事件。先重置切片，再判断这个空结果是否符合预期。'
+                          : '当前还没有可见治理审计记录。等待下一次事件，或确认工具级审计证据是否正在写入。'
                       }
-                      title={
-                        hasActiveFilters
-                          ? 'No audit rows match this query'
-                          : 'No audit rows are visible'
-                      }
+                      title={hasActiveFilters ? '没有审计记录匹配当前查询' : '当前没有可见审计记录'}
                       tone={hasActiveFilters ? 'no-match' : 'no-data'}
                     />
                   </div>
@@ -240,12 +233,12 @@ export default async function GovernAuditPage({
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Tool</TableHead>
-                            <TableHead>Scope</TableHead>
-                            <TableHead>Actor</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Feedback</TableHead>
-                            <TableHead>Created</TableHead>
+                            <TableHead>工具</TableHead>
+                            <TableHead>范围</TableHead>
+                            <TableHead>主体</TableHead>
+                            <TableHead>状态</TableHead>
+                            <TableHead>反馈</TableHead>
+                            <TableHead>创建时间</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -281,7 +274,7 @@ export default async function GovernAuditPage({
                                   {row.action}:{row.subject}
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">
-                                  {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
+                                  {row.actorRbacUserId ?? row.actorAuthUserId ?? '系统'}
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant={resolveBadgeVariant(row.status)}>
@@ -289,7 +282,7 @@ export default async function GovernAuditPage({
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  {row.feedbackCount} · {row.latestUserAction ?? 'no action'}
+                                  {row.feedbackCount} · {row.latestUserAction ?? '无动作'}
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">
                                   {formatDateTime(row.createdAt)}
@@ -330,8 +323,8 @@ export default async function GovernAuditPage({
 
           <Card>
             <CardHeader>
-              <CardDescription>Selected evidence</CardDescription>
-              <CardTitle>{selectedEntry?.toolId ?? 'Select an audit event'}</CardTitle>
+              <CardDescription>选中证据</CardDescription>
+              <CardTitle>{selectedEntry?.toolId ?? '选择一个审计事件'}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               {selectedEntry ? (
@@ -344,7 +337,7 @@ export default async function GovernAuditPage({
                       {selectedEntry.action}:{selectedEntry.subject}
                     </Badge>
                     <Badge variant="outline">
-                      override:{selectedEntry.humanOverride ? 'yes' : 'no'}
+                      人工接管:{selectedEntry.humanOverride ? '是' : '否'}
                     </Badge>
                   </div>
 
@@ -359,57 +352,55 @@ export default async function GovernAuditPage({
                   <div className="grid gap-4 text-sm leading-6">
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Execution summary
+                        执行摘要
                       </p>
                       <div className="grid gap-2">
-                        <p>createdAt: {formatDateTime(selectedEntry.createdAt)}</p>
-                        <p>toolId: {selectedEntry.toolId}</p>
+                        <p>创建时间: {formatDateTime(selectedEntry.createdAt)}</p>
+                        <p>工具 ID: {selectedEntry.toolId}</p>
                         <p>
-                          scope: {selectedEntry.action}:{selectedEntry.subject}
+                          范围: {selectedEntry.action}:{selectedEntry.subject}
                         </p>
-                        <p>status: {selectedEntry.status}</p>
-                        <p>requestId: {selectedEntry.requestId ?? 'none'}</p>
+                        <p>状态: {selectedEntry.status}</p>
+                        <p>请求 ID: {selectedEntry.requestId ?? '无'}</p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Evidence / metadata
+                        证据 / 元数据
                       </p>
                       <div className="grid gap-2">
-                        <p>feedbackCount: {selectedEntry.feedbackCount}</p>
-                        <p>latestUserAction: {selectedEntry.latestUserAction ?? 'none'}</p>
-                        <p>latestFeedbackAt: {selectedEntry.latestFeedbackAt ?? 'none'}</p>
+                        <p>反馈数: {selectedEntry.feedbackCount}</p>
+                        <p>最新用户动作: {selectedEntry.latestUserAction ?? '无'}</p>
+                        <p>最近反馈时间: {selectedEntry.latestFeedbackAt ?? '无'}</p>
                         <p>
-                          requestId:{' '}
+                          请求 ID:{' '}
                           {selectedDetail?.requestInfo?.requestId ??
                             selectedEntry.requestId ??
-                            'none'}
+                            '无'}
                         </p>
-                        <p>sourceType: {selectedDetail?.requestInfo?.sourceType ?? 'none'}</p>
+                        <p>来源类型: {selectedDetail?.requestInfo?.sourceType ?? '无'}</p>
                         <p>
-                          actor:{' '}
-                          {selectedEntry.actorRbacUserId ??
-                            selectedEntry.actorAuthUserId ??
-                            'system'}
+                          操作主体:{' '}
+                          {selectedEntry.actorRbacUserId ?? selectedEntry.actorAuthUserId ?? '系统'}
                         </p>
                         <p>
-                          role snapshot:{' '}
+                          角色快照:{' '}
                           {selectedEntry.roleCodes.length > 0
                             ? selectedEntry.roleCodes.join(', ')
-                            : 'none'}
+                            : '无'}
                         </p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Human feedback / override
+                        人工反馈 / 接管
                       </p>
                       <p className="text-muted-foreground mb-3 text-sm leading-6">
                         {selectedEntry.humanOverride
-                          ? 'This event already crossed a human override boundary. Review the feedback trail before escalating to prompt review or runtime triage.'
-                          : 'No human override is attached yet. Use this trail to determine whether the event should stay in audit review or move into another workbench.'}
+                          ? '这个事件已经跨过人工接管边界。升级到 Prompt 复核或运行时分诊之前，先查看反馈轨迹。'
+                          : '当前还没有人工接管。使用这条轨迹判断它应继续留在审计复核，还是转入其他工作台。'}
                       </p>
                       {selectedDetail?.feedback.length ? (
                         <div className="grid gap-3">
@@ -418,13 +409,11 @@ export default async function GovernAuditPage({
                               <div className="flex flex-wrap gap-2">
                                 <Badge variant="secondary">{feedback.userAction}</Badge>
                                 <Badge variant="outline">
-                                  {feedback.accepted ? 'accepted' : 'human edit'}
+                                  {feedback.accepted ? '已接受' : '人工编辑'}
                                 </Badge>
                               </div>
                               <p className="mt-2 text-muted-foreground">
-                                {feedback.feedbackText ??
-                                  feedback.correction ??
-                                  'No note recorded.'}
+                                {feedback.feedbackText ?? feedback.correction ?? '没有记录备注。'}
                               </p>
                               <p className="mt-2 text-xs text-muted-foreground">
                                 {formatDateTime(feedback.createdAt)}
@@ -433,15 +422,15 @@ export default async function GovernAuditPage({
                           ))}
                         </div>
                       ) : (
-                        <p className="text-muted-foreground">No feedback entries are linked yet.</p>
+                        <p className="text-muted-foreground">当前还没有关联反馈记录。</p>
                       )}
                     </div>
                   </div>
                 </>
               ) : (
                 <EmptyStateCard
-                  description="Select an audit event to inspect execution summary, evidence metadata, and human feedback posture."
-                  title="No selected audit event"
+                  description="选择一个审计事件，查看执行摘要、证据元数据和人工反馈态势。"
+                  title="当前没有选中审计事件"
                   tone="no-data"
                 />
               )}

@@ -28,7 +28,7 @@ interface AiFeedbackDialogProps {
 const acceptedFeedbackActionOption = {
   accepted: true,
   description: '确认当前 AI 建议已被采纳，无需人工修正。',
-  label: 'Accepted',
+  label: '已接受',
   value: 'accepted',
 } as const satisfies {
   accepted: boolean
@@ -47,19 +47,19 @@ const feedbackActionOptions: ReadonlyArray<{
   {
     accepted: false,
     description: '拒绝当前 AI 建议，但没有替换文本。',
-    label: 'Rejected',
+    label: '已拒绝',
     value: 'rejected',
   },
   {
     accepted: false,
     description: '对 AI 建议进行了人工编辑或修正。',
-    label: 'Edited',
+    label: '已编辑',
     value: 'edited',
   },
   {
     accepted: false,
     description: '人工完全覆盖了 AI 建议或决定。',
-    label: 'Overridden',
+    label: '已覆盖',
     value: 'overridden',
   },
 ]
@@ -105,7 +105,7 @@ export function AiFeedbackDialog({
     event.preventDefault()
 
     if (requiresCorrection && correction.trim().length === 0) {
-      setErrorMessage('Edited 或 overridden 反馈必须填写人工修正内容。')
+      setErrorMessage('编辑或覆盖类反馈必须填写人工修正内容。')
       return
     }
 
@@ -130,7 +130,7 @@ export function AiFeedbackDialog({
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { message?: string } | null
 
-        throw new Error(payload?.message ?? 'Failed to submit AI feedback.')
+        throw new Error(payload?.message ?? '提交 AI 反馈失败。')
       }
 
       setOpen(false)
@@ -149,30 +149,29 @@ export function AiFeedbackDialog({
     <div className="flex flex-col items-start gap-2">
       <div className="flex flex-wrap gap-2">
         <Badge variant={resolveActionBadgeVariant(latestUserAction)}>
-          {latestUserAction ?? 'no feedback'}
+          {latestUserAction ?? '无反馈'}
         </Badge>
         <Badge variant={humanOverride ? 'outline' : 'secondary'}>
-          {humanOverride ? 'override recorded' : 'no override'}
+          {humanOverride ? '已记录接管' : '无接管'}
         </Badge>
-        <Badge variant="secondary">{feedbackCount} feedback</Badge>
+        <Badge variant="secondary">{feedbackCount} 条反馈</Badge>
       </div>
 
       <Dialog onOpenChange={setOpen} open={open}>
         <Button size="sm" type="button" variant="secondary" onClick={() => setOpen(true)}>
-          Record feedback
+          记录反馈
         </Button>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Record AI feedback</DialogTitle>
+            <DialogTitle>记录 AI 反馈</DialogTitle>
             <DialogDescription>
-              Attach operator feedback to audit log <code>{auditLogId}</code> for tool{' '}
-              <code>{toolId}</code>.
+              将操作员反馈附加到工具 <code>{toolId}</code> 的审计日志 <code>{auditLogId}</code>。
             </DialogDescription>
           </DialogHeader>
 
-          <form aria-label="AI feedback form" className="grid gap-4" onSubmit={handleSubmit}>
+          <form aria-label="AI 反馈表单" className="grid gap-4" onSubmit={handleSubmit}>
             <Field>
-              <FieldLabel htmlFor={`feedback-action-${auditLogId}`}>User action</FieldLabel>
+              <FieldLabel htmlFor={`feedback-action-${auditLogId}`}>用户动作</FieldLabel>
               <select
                 className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none"
                 id={`feedback-action-${auditLogId}`}
@@ -191,27 +190,27 @@ export function AiFeedbackDialog({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor={`feedback-correction-${auditLogId}`}>Correction</FieldLabel>
+              <FieldLabel htmlFor={`feedback-correction-${auditLogId}`}>修正内容</FieldLabel>
               <Input
                 disabled={!requiresCorrection}
                 id={`feedback-correction-${auditLogId}`}
-                placeholder="Describe the human-corrected output"
+                placeholder="描述人工修正后的输出"
                 required={requiresCorrection}
                 value={correction}
                 onChange={(event) => setCorrection(event.currentTarget.value)}
               />
               <FieldDescription>
                 {requiresCorrection
-                  ? 'This action requires a concrete correction.'
-                  : 'Optional when the AI response was accepted or simply rejected.'}
+                  ? '当前动作必须填写明确的修正结果。'
+                  : '当 AI 响应被接受或仅被拒绝时，这一项可以留空。'}
               </FieldDescription>
             </Field>
 
             <Field>
-              <FieldLabel htmlFor={`feedback-note-${auditLogId}`}>Feedback note</FieldLabel>
+              <FieldLabel htmlFor={`feedback-note-${auditLogId}`}>反馈备注</FieldLabel>
               <Textarea
                 id={`feedback-note-${auditLogId}`}
-                placeholder="Explain why the operator accepted, rejected, or overrode the AI suggestion"
+                placeholder="说明操作员为什么接受、拒绝或覆盖 AI 建议"
                 value={feedbackText}
                 onChange={(event) => setFeedbackText(event.currentTarget.value)}
               />
@@ -225,10 +224,10 @@ export function AiFeedbackDialog({
 
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
-                Cancel
+                取消
               </Button>
               <Button isLoading={submitting} type="submit">
-                Save feedback
+                保存反馈
               </Button>
             </DialogFooter>
           </form>

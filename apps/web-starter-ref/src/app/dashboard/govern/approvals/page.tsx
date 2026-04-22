@@ -35,17 +35,17 @@ interface GovernApprovalsPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Approval Queue',
+    title: '审批队列',
     sections: [
       {
-        title: 'What this page is for',
+        title: '页面用途',
         description:
-          'Review governance queue pressure, then inspect one evidence bundle at a time before deciding whether the prompt is ready for activation or further investigation.',
+          '先审视治理队列压力，再逐条检查证据包，判断 Prompt 是否已经可以激活或仍需继续排查。',
       },
       {
-        title: 'Operator boundary',
+        title: '操作边界',
         description:
-          'This queue does not execute release writes. It aggregates release gate, eval evidence, failure audit, and rollback chain into a human review surface.',
+          '这个队列不会直接执行发布写入。它把发布门禁、评测证据、失败审计和回滚链压缩成一个人工复核面。',
       },
     ],
   }
@@ -54,17 +54,17 @@ function createInfoContent(): InfobarContent {
 function resolveApprovalLabel(action: string): string {
   switch (action) {
     case 'activate_ready_version':
-      return 'Activate'
+      return '激活'
     case 'attach_eval_evidence':
-      return 'Attach eval'
+      return '补充评测'
     case 'investigate_exception':
-      return 'Investigate'
+      return '调查'
     case 'review_override':
-      return 'Review override'
+      return '复核接管'
     case 'review_release_gate':
-      return 'Review gate'
+      return '复核门禁'
     default:
-      return 'Watch'
+      return '观察'
   }
 }
 
@@ -105,36 +105,36 @@ export default async function GovernApprovalsPage({
 
   return (
     <PageContainer
-      pageTitle="Approval Queue"
-      pageDescription="Release gate, eval evidence, failure audit, and rollback chain in one governance review surface."
+      pageTitle="审批队列"
+      pageDescription="在同一治理复核面中查看发布门禁、评测证据、失败审计与回滚链。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="queue"
-            detail="Prompt governance items waiting for human review."
-            label="Approval items"
+            detail="等待人工复核的 Prompt 治理项。"
+            label="审批项"
             value={formatCount(overview.reviewQueue.length)}
             variant={overview.reviewQueue.length > 0 ? 'secondary' : 'outline'}
           />
           <MetricCard
             badge="release-ready"
-            detail="Prompt versions currently satisfying release gate checks."
-            label="Ready versions"
+            detail="当前已满足发布门禁检查的 Prompt 版本。"
+            label="就绪版本"
             value={formatCount(overview.summary.releaseReadyPromptVersions)}
           />
           <MetricCard
             badge="failures"
-            detail="Failure events contributing pressure to the current queue slice."
-            label="Failure pressure"
+            detail="对当前队列切片造成压力的失败事件。"
+            label="失败压力"
             value={formatCount(overview.summary.promptFailureEvents)}
             variant={overview.summary.promptFailureEvents > 0 ? 'secondary' : 'outline'}
           />
           <MetricCard
             badge="human-loop"
-            detail="Human override count captured in the current governance slice."
-            label="Overrides"
+            detail="当前治理切片中记录到的人工接管次数。"
+            label="人工接管"
             value={formatCount(overview.summary.humanOverrideCount)}
             variant={overview.summary.humanOverrideCount > 0 ? 'secondary' : 'outline'}
           />
@@ -144,8 +144,8 @@ export default async function GovernApprovalsPage({
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardDescription>Filters</CardDescription>
-                <CardTitle>Queue search</CardTitle>
+                <CardDescription>筛选</CardDescription>
+                <CardTitle>队列搜索</CardTitle>
               </CardHeader>
               <CardContent>
                 <form
@@ -160,7 +160,7 @@ export default async function GovernApprovalsPage({
                   ) : null}
 
                   <Field>
-                    <FieldLabel htmlFor="search">Prompt key search</FieldLabel>
+                    <FieldLabel htmlFor="search">Prompt 键搜索</FieldLabel>
                     <Input
                       defaultValue={filters.search}
                       id="search"
@@ -174,7 +174,7 @@ export default async function GovernApprovalsPage({
                       className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                       href="/dashboard/govern/approvals"
                     >
-                      Reset
+                      重置
                     </Link>
                   </div>
                 </form>
@@ -183,17 +183,17 @@ export default async function GovernApprovalsPage({
 
             <Card>
               <CardHeader>
-                <CardDescription>Approval queue</CardDescription>
-                <CardTitle>Governance review priorities</CardTitle>
+                <CardDescription>审批队列</CardDescription>
+                <CardTitle>治理复核优先级</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {selectionFellBack ? (
                   <div className="px-4 pt-4">
                     <Alert>
-                      <AlertTitle>Selection moved to the first visible approval item</AlertTitle>
+                      <AlertTitle>当前选择已回退到首个可见审批项</AlertTitle>
                       <AlertDescription>
-                        The previously selected prompt key is outside the current slice, so the
-                        evidence inspector fell back to the first visible queue item.
+                        之前选中的 Prompt
+                        键已经不在当前切片中，所以证据面板回退到了第一条可见队列项。
                       </AlertDescription>
                     </Alert>
                   </div>
@@ -201,17 +201,13 @@ export default async function GovernApprovalsPage({
                 {overview.reviewQueue.length === 0 ? (
                   <div className="p-4">
                     <EmptyStateCard
-                      action={{ href: '/dashboard/govern/approvals', label: 'Reset queue search' }}
+                      action={{ href: '/dashboard/govern/approvals', label: '重置队列搜索' }}
                       description={
                         hasActiveFilters
-                          ? 'The current prompt key search does not expose any approval items. Reset the query first, then decide whether the queue is genuinely clear.'
-                          : 'No approval items are visible yet in this slice. Either the queue is clear or release evidence has not surfaced into the current view.'
+                          ? '当前 Prompt 键搜索没有匹配的审批项。先重置查询，再判断队列是否真的已经清空。'
+                          : '这个切片里暂时没有可见审批项。要么队列已经清空，要么发布证据还没有进入当前视图。'
                       }
-                      title={
-                        hasActiveFilters
-                          ? 'No approval items match this query'
-                          : 'No approval items are visible'
-                      }
+                      title={hasActiveFilters ? '没有审批项匹配当前查询' : '当前没有可见审批项'}
                       tone={hasActiveFilters ? 'no-match' : 'no-data'}
                     />
                   </div>
@@ -221,12 +217,12 @@ export default async function GovernApprovalsPage({
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Prompt key</TableHead>
-                            <TableHead>Action</TableHead>
-                            <TableHead>Version</TableHead>
-                            <TableHead>Failures</TableHead>
-                            <TableHead>Linked eval</TableHead>
-                            <TableHead>Updated</TableHead>
+                            <TableHead>Prompt 键</TableHead>
+                            <TableHead>动作</TableHead>
+                            <TableHead>版本</TableHead>
+                            <TableHead>失败数</TableHead>
+                            <TableHead>关联评测</TableHead>
+                            <TableHead>更新时间</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -266,7 +262,7 @@ export default async function GovernApprovalsPage({
                                 <TableCell>v{entry.latestVersion.version}</TableCell>
                                 <TableCell>{formatCount(entry.failureCount)}</TableCell>
                                 <TableCell>
-                                  {entry.latestVersion.evalEvidence?.evalKey ?? 'not linked'}
+                                  {entry.latestVersion.evalEvidence?.evalKey ?? '未关联'}
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">
                                   {formatDateTime(entry.latestVersion.updatedAt)}
@@ -315,8 +311,8 @@ export default async function GovernApprovalsPage({
 
           <Card>
             <CardHeader>
-              <CardDescription>Evidence bundle</CardDescription>
-              <CardTitle>{selectedReview?.promptKey ?? 'Select an approval item'}</CardTitle>
+              <CardDescription>证据包</CardDescription>
+              <CardTitle>{selectedReview?.promptKey ?? '选择一个审批项'}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               {selectedReview ? (
@@ -326,13 +322,13 @@ export default async function GovernApprovalsPage({
                       {resolveApprovalLabel(selectedReview.reviewItem.reviewAction)}
                     </Badge>
                     <Badge variant="outline">
-                      latest:v{selectedReview.reviewItem.latestVersion.version}
+                      最新:v{selectedReview.reviewItem.latestVersion.version}
                     </Badge>
                     <Badge variant="outline">
-                      eval:
+                      评测:
                       {selectedReview.linkedEval.lastRunStatus ??
                         selectedReview.linkedEval.evidenceStatus ??
-                        'none'}
+                        '无'}
                     </Badge>
                   </div>
 
@@ -343,36 +339,32 @@ export default async function GovernApprovalsPage({
                   <div className="grid gap-4 text-sm leading-6">
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Decision summary
+                        决策摘要
                       </p>
                       <div className="grid gap-2">
                         <p>
-                          review action:{' '}
-                          {resolveApprovalLabel(selectedReview.reviewItem.reviewAction)}
+                          复核动作: {resolveApprovalLabel(selectedReview.reviewItem.reviewAction)}
                         </p>
-                        <p>review reason: {selectedReview.reviewItem.reviewReason}</p>
-                        <p>latest version: v{selectedReview.reviewItem.latestVersion.version}</p>
-                        <p>latest status: {selectedReview.reviewItem.latestVersion.status}</p>
+                        <p>复核原因: {selectedReview.reviewItem.reviewReason}</p>
+                        <p>最新版本: v{selectedReview.reviewItem.latestVersion.version}</p>
+                        <p>最新状态: {selectedReview.reviewItem.latestVersion.status}</p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Policy checks
+                        策略检查
                       </p>
                       <div className="grid gap-2">
+                        <p>已配置关联评测: {selectedReview.linkedEval.configured ? '是' : '否'}</p>
                         <p>
-                          linked eval configured:{' '}
-                          {selectedReview.linkedEval.configured ? 'yes' : 'no'}
-                        </p>
-                        <p>
-                          release gate rejection:{' '}
+                          发布门禁拒绝:{' '}
                           {selectedReview.failureAudit.summary.hasReleaseGateRejection
-                            ? 'yes'
-                            : 'no'}
+                            ? '是'
+                            : '否'}
                         </p>
                         <p>
-                          rollback events:{' '}
+                          回滚事件:{' '}
                           {formatCount(selectedReview.rollbackChain.summary.totalRollbackEvents)}
                         </p>
                       </div>
@@ -380,33 +372,32 @@ export default async function GovernApprovalsPage({
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Eval / release evidence
+                        评测 / 发布证据
                       </p>
                       <div className="grid gap-2">
                         <p>
-                          latest eval:{' '}
+                          最新评测:{' '}
                           {selectedReview.linkedEval.evalName ??
                             selectedReview.linkedEval.evalKey ??
-                            'not linked'}
+                            '未关联'}
                         </p>
                         <p>
-                          latest release action:{' '}
-                          {selectedReview.latestReleaseAudit?.summary.latestAction ??
-                            'not recorded'}
+                          最新发布动作:{' '}
+                          {selectedReview.latestReleaseAudit?.summary.latestAction ?? '未记录'}
                         </p>
                         <p>
-                          compare changed fields:{' '}
+                          对比变更字段:{' '}
                           {selectedReview.compareToPrevious?.summary.changedFields.join(', ') ??
-                            'none'}
+                            '无'}
                         </p>
                         <p>
-                          release audit events:{' '}
+                          发布审计事件:{' '}
                           {formatCount(
                             selectedReview.latestReleaseAudit?.summary.approvalEventCount ?? 0,
                           )}
                         </p>
                         <p>
-                          failure events:{' '}
+                          失败事件:{' '}
                           {formatCount(selectedReview.failureAudit.summary.totalFailureEventCount)}
                         </p>
                       </div>
@@ -414,29 +405,27 @@ export default async function GovernApprovalsPage({
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Rollback / compare context
+                        回滚 / 对比上下文
                       </p>
                       <div className="grid gap-2">
                         <p>
-                          previous version:{' '}
-                          {selectedReview.compareToPrevious?.baseline.version ?? 'none'}
+                          上一个版本: {selectedReview.compareToPrevious?.baseline.version ?? '无'}
                         </p>
                         <p>
-                          changed fields:{' '}
+                          变更字段数:{' '}
                           {selectedReview.compareToPrevious?.summary.totalChangedFields ?? 0}
                         </p>
                         <p>
-                          latest rollback target:{' '}
+                          最近回滚目标:{' '}
                           {selectedReview.rollbackChain.summary.latestRollbackTargetVersionNumber ??
-                            'none'}
+                            '无'}
                         </p>
                         <p>
-                          history versions:{' '}
-                          {formatCount(selectedReview.history.summary.totalVersions)}
+                          历史版本数: {formatCount(selectedReview.history.summary.totalVersions)}
                         </p>
                         <p>
-                          recommendation: review failure audit and linked eval first, then decide
-                          whether the prompt is ready for activation or still under-evidenced.
+                          建议：先查看失败审计和关联评测，再决定当前 Prompt
+                          已可激活，还是仍然证据不足。
                         </p>
                       </div>
                     </div>
@@ -444,8 +433,8 @@ export default async function GovernApprovalsPage({
                 </>
               ) : (
                 <EmptyStateCard
-                  description="Select an approval item from the queue to inspect decision summary, policy checks, release evidence, and rollback context."
-                  title="No selected approval item"
+                  description="从队列中选择一个审批项，查看决策摘要、策略检查、发布证据与回滚上下文。"
+                  title="当前没有选中审批项"
                   tone="no-data"
                 />
               )}

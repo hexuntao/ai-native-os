@@ -1,13 +1,13 @@
-'use client';
+'use client'
 
-import { Icons } from '@/components/icons';
+import { type Icon, Icons } from '@/components/icons'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -15,24 +15,23 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar
-} from '@/components/ui/sidebar';
-import { Icon } from '@/components/icons';
+  useSidebar,
+} from '@/components/ui/sidebar'
 
 export function NavProjects({
-  projects
+  projects,
 }: {
   projects: {
-    name: string;
-    url: string;
-    icon: Icon;
-  }[];
+    name: string
+    url: string
+    icon: Icon
+  }[]
 }) {
-  const { isMobile } = useSidebar();
+  const { isMobile } = useSidebar()
 
   return (
-    <SidebarGroup className='group-data-[collapsible=icon]:hidden'>
-      <SidebarGroupLabel>Projects</SidebarGroupLabel>
+    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+      <SidebarGroupLabel>项目</SidebarGroupLabel>
       <SidebarMenu>
         {projects.map((item) => (
           <SidebarMenuItem key={item.name}>
@@ -46,38 +45,38 @@ export function NavProjects({
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction showOnHover>
                   <Icons.dots />
-                  <span className='sr-only'>More</span>
+                  <span className="sr-only">更多</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className='w-48 rounded-lg'
+                className="w-48 rounded-lg"
                 side={isMobile ? 'bottom' : 'right'}
                 align={isMobile ? 'end' : 'start'}
               >
                 <DropdownMenuItem>
-                  <Icons.workspace className='text-muted-foreground mr-2 h-4 w-4' />
-                  <span>View Project</span>
+                  <Icons.workspace className="text-muted-foreground mr-2 h-4 w-4" />
+                  <span>查看项目</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Icons.share className='text-muted-foreground mr-2 h-4 w-4' />
-                  <span>Share Project</span>
+                  <Icons.share className="text-muted-foreground mr-2 h-4 w-4" />
+                  <span>分享项目</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
-                  <Icons.trash className='text-muted-foreground mr-2 h-4 w-4' />
-                  <span>Delete Project</span>
+                  <Icons.trash className="text-muted-foreground mr-2 h-4 w-4" />
+                  <span>删除项目</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
         ))}
         <SidebarMenuItem>
-          <SidebarMenuButton className='text-sidebar-foreground/70'>
-            <Icons.dots className='text-sidebar-foreground/70' />
-            <span>More</span>
+          <SidebarMenuButton className="text-sidebar-foreground/70">
+            <Icons.dots className="text-sidebar-foreground/70" />
+            <span>更多</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
-  );
+  )
 }

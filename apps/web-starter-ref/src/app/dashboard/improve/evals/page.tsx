@@ -36,17 +36,15 @@ interface EvalRiskRow {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Eval Registry',
+    title: '评测注册表',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Track whether evaluation discipline exists, which suites are failing, and which registered suites have never been executed.',
+        title: '页面用途',
+        description: '跟踪评测纪律是否存在、哪些套件正在失败，以及哪些已注册套件从未被执行过。',
       },
       {
-        title: 'Operator boundary',
-        description:
-          'This registry summarizes datasets, scorers, and persisted runs. It does not replace a deeper eval execution console.',
+        title: '操作边界',
+        description: '这个注册表汇总数据集、评分器和持久化运行，但不能替代更深入的评测执行控制台。',
       },
     ],
   }
@@ -67,7 +65,7 @@ function createEvalRiskQueue(
     .map((row) => {
       if (row.lastRunStatus === 'failed') {
         return {
-          detail: 'Latest run failed. Check runner, dataset, or scorer drift first.',
+          detail: '最近一次运行失败。优先检查 runner、数据集或评分器漂移。',
           id: row.id,
           label: row.name,
           tone: 'critical' as const,
@@ -76,7 +74,7 @@ function createEvalRiskQueue(
 
       if (row.lastRunAt === null) {
         return {
-          detail: 'Registered but never run. This is catalog coverage, not evaluation discipline.',
+          detail: '已经注册但从未运行。这只是目录覆盖，不代表已经形成评测纪律。',
           id: row.id,
           label: row.name,
           tone: 'warning' as const,
@@ -85,7 +83,7 @@ function createEvalRiskQueue(
 
       if ((row.lastRunAverageScore ?? 1) < 0.75) {
         return {
-          detail: `Latest score ${Math.round((row.lastRunAverageScore ?? 0) * 100)}%. Review scorer quality and sample coverage.`,
+          detail: `最近得分 ${Math.round((row.lastRunAverageScore ?? 0) * 100)}%。请复核评分器质量与样本覆盖。`,
           id: row.id,
           label: row.name,
           tone: 'warning' as const,
@@ -93,7 +91,7 @@ function createEvalRiskQueue(
       }
 
       return {
-        detail: 'Latest run looks stable and can serve as a baseline.',
+        detail: '最近一次运行看起来稳定，可以作为基线。',
         id: row.id,
         label: row.name,
         tone: 'neutral' as const,
@@ -128,36 +126,36 @@ export default async function ImproveEvalsPage({
 
   return (
     <PageContainer
-      pageTitle="Eval Registry"
-      pageDescription="Registered evaluation suites, run posture, and risk-ranked review queue."
+      pageTitle="评测注册表"
+      pageDescription="已注册评测套件、运行态势与按风险排序的复核队列。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge={payload.summary.configured ? 'ready' : 'degraded'}
-            detail="Datasets currently registered to the eval runtime."
-            label="Datasets"
+            detail="当前已注册到评测运行时的数据集数量。"
+            label="数据集"
             value={formatCount(payload.summary.totalDatasets)}
             variant={payload.summary.totalDatasets > 0 ? 'default' : 'secondary'}
           />
           <MetricCard
             badge="persisted"
-            detail="Persisted experiment count."
-            label="Experiments"
+            detail="已持久化的实验数量。"
+            label="实验"
             value={formatCount(payload.summary.totalExperiments)}
           />
           <MetricCard
             badge={`${payload.data.length} visible`}
-            detail="Suites in this slice that have never been executed."
-            label="Never run"
+            detail="当前切片中从未执行过的套件数量。"
+            label="从未运行"
             value={formatCount(neverRunCount)}
             variant={neverRunCount === 0 ? 'outline' : 'secondary'}
           />
           <MetricCard
             badge={failedRunCount === 0 ? 'stable' : 'attention'}
-            detail="Suites whose latest run failed."
-            label="Failed last run"
+            detail="最近一次运行失败的套件数量。"
+            label="最近失败"
             value={formatCount(failedRunCount)}
             variant={failedRunCount === 0 ? 'outline' : 'destructive'}
           />
@@ -166,13 +164,13 @@ export default async function ImproveEvalsPage({
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
           <Card>
             <CardHeader>
-              <CardDescription>Suite table</CardDescription>
-              <CardTitle>Registered eval suites</CardTitle>
+              <CardDescription>套件表格</CardDescription>
+              <CardTitle>已注册评测套件</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {payload.data.length === 0 ? (
                 <div className="text-muted-foreground p-6 text-sm leading-7">
-                  No eval suites are visible in this slice.
+                  当前切片中没有可见的评测套件。
                 </div>
               ) : (
                 <>
@@ -180,12 +178,12 @@ export default async function ImproveEvalsPage({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Eval</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Datasets</TableHead>
-                          <TableHead>Scorers</TableHead>
-                          <TableHead>Score</TableHead>
-                          <TableHead>Last run</TableHead>
+                          <TableHead>评测</TableHead>
+                          <TableHead>状态</TableHead>
+                          <TableHead>数据集</TableHead>
+                          <TableHead>评分器</TableHead>
+                          <TableHead>得分</TableHead>
+                          <TableHead>最近运行</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -203,13 +201,13 @@ export default async function ImproveEvalsPage({
                             <TableCell>{row.scorerCount}</TableCell>
                             <TableCell>
                               {row.lastRunAverageScore === null
-                                ? 'n/a'
+                                ? '暂无'
                                 : `${Math.round(row.lastRunAverageScore * 100)}%`}
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {row.lastRunAt
-                                ? `${formatDateTime(row.lastRunAt)} (${row.lastRunStatus ?? 'unknown'})`
-                                : 'never'}
+                                ? `${formatDateTime(row.lastRunAt)} (${row.lastRunStatus ?? '未知'})`
+                                : '从未运行'}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -244,8 +242,8 @@ export default async function ImproveEvalsPage({
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardDescription>Risk queue</CardDescription>
-                <CardTitle>What needs review first</CardTitle>
+                <CardDescription>风险队列</CardDescription>
+                <CardTitle>优先复核什么</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3">
                 {evalRiskQueue.map((riskRow) => (
@@ -278,7 +276,7 @@ export default async function ImproveEvalsPage({
                           ) as Route
                         }
                       >
-                        Open prompt review
+                        打开 Prompt 复核
                       </Link>
                       <Link
                         className="text-primary text-xs underline-offset-4 hover:underline"
@@ -292,7 +290,7 @@ export default async function ImproveEvalsPage({
                           ) as Route
                         }
                       >
-                        Open approvals
+                        打开审批队列
                       </Link>
                     </div>
                   </div>
@@ -302,13 +300,13 @@ export default async function ImproveEvalsPage({
 
             <Card>
               <CardHeader>
-                <CardDescription>Recent timeline</CardDescription>
-                <CardTitle>Latest persisted runs</CardTitle>
+                <CardDescription>最近时间线</CardDescription>
+                <CardTitle>最新持久化运行</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3">
                 {recentRuns.length === 0 ? (
                   <p className="text-muted-foreground text-sm leading-7">
-                    No persisted eval runs are visible yet.
+                    当前还没有可见的持久化评测运行。
                   </p>
                 ) : (
                   recentRuns.map((row) => (

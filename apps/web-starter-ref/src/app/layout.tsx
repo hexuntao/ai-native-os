@@ -18,7 +18,7 @@ const META_THEME_COLORS = {
 
 export const metadata: Metadata = {
   title: 'AI Native OS',
-  description: 'AI-native control plane rebuilt on the next-shadcn-dashboard-starter shell.',
+  description: '基于 next-shadcn-dashboard-starter 壳层重建的 AI-native 控制台。',
 }
 
 export const viewport: Viewport = {
@@ -32,7 +32,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const themeToApply = isValidTheme && activeThemeValue ? activeThemeValue : DEFAULT_THEME
 
   return (
-    <html lang="en" suppressHydrationWarning data-theme={themeToApply}>
+    <html lang="zh-CN" suppressHydrationWarning data-theme={themeToApply}>
       <head />
       <body
         className={cn(

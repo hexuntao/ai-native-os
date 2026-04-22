@@ -72,9 +72,7 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
     <Infobar {...props}>
       <InfobarHeader className="bg-sidebar sticky top-0 z-10 flex flex-row items-start justify-between gap-2 border-b px-3 py-3">
         <div className="min-w-0 flex-1">
-          <p className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">
-            Assistant rail
-          </p>
+          <p className="text-muted-foreground text-[11px] tracking-[0.18em] uppercase">助手侧栏</p>
           <h2 className="mt-1 text-lg font-semibold break-words">{railContent.title}</h2>
         </div>
         <div className="shrink-0">
@@ -89,7 +87,7 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="grid gap-1">
                     <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
-                      Current object
+                      当前对象
                     </p>
                     <p className="text-sm font-semibold">{railContent.focus.title}</p>
                   </div>
@@ -116,7 +114,7 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
 
               <section className="rounded-lg border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">Guardrail & next step</p>
+                  <p className="text-sm font-semibold">边界与下一步</p>
                   <Badge
                     variant={
                       railContent.assistantState.status === 'ready'
@@ -138,7 +136,7 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
                 {railContent.primaryAction || railContent.secondaryActions.length > 0 ? (
                   <div className="mt-4 grid gap-2">
                     <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
-                      Recommended next step
+                      推荐下一步
                     </p>
                     {railContent.primaryAction ? (
                       <Button asChild className="justify-start">
@@ -166,7 +164,7 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
                 {supplementalLinks.length > 0 ? (
                   <div className="mt-4 grid gap-2">
                     <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
-                      More links
+                      更多链接
                     </p>
                     {supplementalLinks.map((link) => (
                       <Link

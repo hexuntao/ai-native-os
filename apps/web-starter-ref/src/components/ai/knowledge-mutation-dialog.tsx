@@ -41,18 +41,18 @@ function resolveDialogCopy(mode: 'create' | 'replace'): {
   if (mode === 'create') {
     return {
       description: '创建知识文档并触发完整 chunking、embedding 与整文档索引。',
-      submitLabel: 'Create document',
-      title: 'Create knowledge document',
-      triggerLabel: 'New document',
+      submitLabel: '创建文档',
+      title: '创建知识文档',
+      triggerLabel: '新建文档',
       triggerVariant: 'default',
     }
   }
 
   return {
     description: '提交完整新正文并重建索引，不会自动从旧 chunk 还原原文。',
-    submitLabel: 'Replace and reindex',
-    title: 'Replace knowledge index',
-    triggerLabel: 'Replace index',
+    submitLabel: '替换并重建索引',
+    title: '替换知识索引',
+    triggerLabel: '替换索引',
     triggerVariant: 'secondary',
   }
 }
@@ -77,7 +77,7 @@ export function KnowledgeMutationDialog({
       triggerLabel={dialogCopy.triggerLabel}
       triggerVariant={dialogCopy.triggerVariant}
     >
-      <form action={action} aria-label={`${dialogCopy.title} form`} className="grid gap-4">
+      <form action={action} aria-label={`${dialogCopy.title}表单`} className="grid gap-4">
         <input name="returnTo" type="hidden" value={returnTo} />
         {mode === 'replace' && row ? (
           <input name="id" type="hidden" value={row.documentId} />
@@ -85,7 +85,7 @@ export function KnowledgeMutationDialog({
 
         <div className="grid gap-4 xl:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor={`${mode}-knowledge-title`}>Title</FieldLabel>
+            <FieldLabel htmlFor={`${mode}-knowledge-title`}>标题</FieldLabel>
             <Input
               defaultValue={mode === 'replace' && row ? row.title : ''}
               id={`${mode}-knowledge-title`}
@@ -99,7 +99,7 @@ export function KnowledgeMutationDialog({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor={`${mode}-knowledge-source-type`}>Source type</FieldLabel>
+            <FieldLabel htmlFor={`${mode}-knowledge-source-type`}>来源类型</FieldLabel>
             <Input
               defaultValue={mode === 'replace' && row ? row.sourceType : 'manual'}
               id={`${mode}-knowledge-source-type`}
@@ -113,7 +113,7 @@ export function KnowledgeMutationDialog({
           </Field>
 
           <Field className="xl:col-span-2">
-            <FieldLabel htmlFor={`${mode}-knowledge-source-uri`}>Source URI</FieldLabel>
+            <FieldLabel htmlFor={`${mode}-knowledge-source-uri`}>来源 URI</FieldLabel>
             <Input
               defaultValue={mode === 'replace' && row ? (row.sourceUri ?? '') : ''}
               id={`${mode}-knowledge-source-uri`}
@@ -124,7 +124,7 @@ export function KnowledgeMutationDialog({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor={`${mode}-knowledge-chunk-size`}>Chunk size</FieldLabel>
+            <FieldLabel htmlFor={`${mode}-knowledge-chunk-size`}>分块大小</FieldLabel>
             <Input
               defaultValue="512"
               id={`${mode}-knowledge-chunk-size`}
@@ -137,7 +137,7 @@ export function KnowledgeMutationDialog({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor={`${mode}-knowledge-chunk-overlap`}>Chunk overlap</FieldLabel>
+            <FieldLabel htmlFor={`${mode}-knowledge-chunk-overlap`}>分块重叠</FieldLabel>
             <Input
               defaultValue="64"
               id={`${mode}-knowledge-chunk-overlap`}
@@ -152,7 +152,7 @@ export function KnowledgeMutationDialog({
           </Field>
 
           <Field className="xl:col-span-2">
-            <FieldLabel htmlFor={`${mode}-knowledge-metadata`}>Metadata (JSON)</FieldLabel>
+            <FieldLabel htmlFor={`${mode}-knowledge-metadata`}>元数据（JSON）</FieldLabel>
             <Textarea
               defaultValue={
                 mode === 'replace' && row
@@ -167,16 +167,14 @@ export function KnowledgeMutationDialog({
 
           <Field className="xl:col-span-2">
             <FieldLabel htmlFor={`${mode}-knowledge-content`}>
-              {mode === 'create' ? 'Document content' : 'Replacement content'}
+              {mode === 'create' ? '文档内容' : '替换内容'}
             </FieldLabel>
             <Textarea
               id={`${mode}-knowledge-content`}
               minLength={32}
               name="content"
               placeholder={
-                mode === 'create'
-                  ? 'Paste the full document content here.'
-                  : 'Paste the full replacement content here.'
+                mode === 'create' ? '在这里粘贴完整文档内容。' : '在这里粘贴完整替换内容。'
               }
               required
             />
@@ -201,8 +199,8 @@ export function KnowledgeMutationDialog({
               { name: 'id', value: row.documentId },
               { name: 'returnTo', value: returnTo },
             ]}
-            title={`Delete ${row.title}?`}
-            triggerLabel="Delete document"
+            title={`删除 ${row.title}？`}
+            triggerLabel="删除文档"
             triggerVariant="secondary"
           />
         </div>

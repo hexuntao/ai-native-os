@@ -13,8 +13,8 @@ import { loadCurrentShellState } from '@/lib/server-shell'
 import { groupNavigationItems } from '@/lib/shell'
 
 export const metadata: Metadata = {
-  title: 'AI Native OS Control Plane',
-  description: 'Starter-based AI-native operator workspace',
+  title: 'AI Native OS 控制平面',
+  description: '基于 Starter 的 AI 原生操作员工作台',
   robots: {
     index: false,
     follow: false,

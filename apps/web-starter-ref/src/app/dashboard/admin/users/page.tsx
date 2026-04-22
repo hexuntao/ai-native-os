@@ -46,12 +46,11 @@ interface AdminUsersPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Users Directory',
+    title: '用户目录',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Inspect authenticated principals, role bindings, and current directory posture from the system contract.',
+        title: '页面用途',
+        description: '从系统契约中查看已认证主体、角色绑定和当前目录态势。',
       },
     ],
   }
@@ -88,8 +87,8 @@ export default async function AdminUsersPage({
 
   return (
     <PageContainer
-      pageTitle="Users Directory"
-      pageDescription="Authenticated principals, role bindings, and directory status in a starter-based admin surface."
+      pageTitle="用户目录"
+      pageDescription="在 Starter 风格管理工作面中查看已认证主体、角色绑定与目录状态。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
@@ -100,27 +99,27 @@ export default async function AdminUsersPage({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="directory"
-            detail="Total principals returned by the system contract."
-            label="Directory size"
+            detail="系统契约返回的主体总数。"
+            label="目录规模"
             value={formatCount(payload.pagination.total)}
           />
           <MetricCard
             badge="visible"
-            detail="Rows visible in the current page slice."
-            label="Visible rows"
+            detail="当前页面切片中可见的行数。"
+            label="可见行"
             value={formatCount(payload.data.length)}
           />
           <MetricCard
             badge="roles"
-            detail="Assignable active roles available to the user workflow."
-            label="Assignable roles"
+            detail="当前用户工作流可分配的激活角色。"
+            label="可分配角色"
             value={formatCount(assignableRoles.length)}
           />
           <MetricCard
             badge={canWriteUsers ? 'write-enabled' : 'read-only'}
-            detail="Whether the current operator can mutate directory records."
-            label="Mutation mode"
-            value={canWriteUsers ? 'write' : 'read'}
+            detail="当前操作员是否可以修改目录记录。"
+            label="写入模式"
+            value={canWriteUsers ? '可写' : '只读'}
             variant={canWriteUsers ? 'secondary' : 'outline'}
           />
         </div>
@@ -128,8 +127,8 @@ export default async function AdminUsersPage({
         {canWriteUsers ? (
           <Card>
             <CardHeader>
-              <CardDescription>Directory actions</CardDescription>
-              <CardTitle>Write workflow</CardTitle>
+              <CardDescription>目录操作</CardDescription>
+              <CardTitle>写入工作流</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">
               <div className="max-w-2xl text-sm leading-7 text-muted-foreground">
@@ -137,31 +136,27 @@ export default async function AdminUsersPage({
               </div>
               <ManagementDialog
                 description="创建应用用户、Better Auth credential 身份和 RBAC 角色绑定。"
-                title="Create user"
+                title="创建用户"
                 triggerId="users-create-trigger"
-                triggerLabel="New user"
+                triggerLabel="新建用户"
               >
-                <form
-                  action={createUserAction}
-                  aria-label="Create user form"
-                  className="grid gap-4"
-                >
+                <form action={createUserAction} aria-label="创建用户表单" className="grid gap-4">
                   <input name="returnTo" type="hidden" value={returnTo} />
                   <div className="grid gap-4 xl:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="create-username">Username</FieldLabel>
+                      <FieldLabel htmlFor="create-username">用户名</FieldLabel>
                       <Input id="create-username" minLength={3} name="username" required />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-email">Email</FieldLabel>
+                      <FieldLabel htmlFor="create-email">邮箱</FieldLabel>
                       <Input id="create-email" name="email" required type="email" />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-nickname">Nickname</FieldLabel>
+                      <FieldLabel htmlFor="create-nickname">昵称</FieldLabel>
                       <Input id="create-nickname" name="nickname" />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-password">Password</FieldLabel>
+                      <FieldLabel htmlFor="create-password">密码</FieldLabel>
                       <Input
                         id="create-password"
                         minLength={12}
@@ -174,19 +169,19 @@ export default async function AdminUsersPage({
                       </FieldDescription>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-status">Status</FieldLabel>
+                      <FieldLabel htmlFor="create-status">状态</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="active"
                         id="create-status"
                         name="status"
                       >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option value="active">启用</option>
+                        <option value="inactive">停用</option>
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-role-codes">Role bindings</FieldLabel>
+                      <FieldLabel htmlFor="create-role-codes">角色绑定</FieldLabel>
                       <select
                         className={multiSelectClassName}
                         id="create-role-codes"
@@ -204,7 +199,7 @@ export default async function AdminUsersPage({
                     </Field>
                   </div>
                   <div className="flex justify-end gap-3">
-                    <Button type="submit">Create user</Button>
+                    <Button type="submit">创建用户</Button>
                   </div>
                 </form>
               </ManagementDialog>
@@ -214,8 +209,8 @@ export default async function AdminUsersPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Filters</CardDescription>
-            <CardTitle>User directory slice</CardTitle>
+            <CardDescription>筛选</CardDescription>
+            <CardTitle>用户目录切片</CardTitle>
           </CardHeader>
           <CardContent>
             <form
@@ -227,26 +222,26 @@ export default async function AdminUsersPage({
               <input name="pageSize" type="hidden" value={String(filters.pageSize)} />
 
               <Field>
-                <FieldLabel htmlFor="search">Search</FieldLabel>
+                <FieldLabel htmlFor="search">搜索</FieldLabel>
                 <Input
                   defaultValue={filters.search}
                   id="search"
                   name="search"
-                  placeholder="Search username or email"
+                  placeholder="搜索用户名或邮箱"
                 />
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="status">Status</FieldLabel>
+                <FieldLabel htmlFor="status">状态</FieldLabel>
                 <select
                   className={selectClassName}
                   defaultValue={filters.status}
                   id="status"
                   name="status"
                 >
-                  <option value="all">All statuses</option>
-                  <option value="active">Active only</option>
-                  <option value="inactive">Inactive only</option>
+                  <option value="all">全部状态</option>
+                  <option value="active">仅启用</option>
+                  <option value="inactive">仅停用</option>
                 </select>
               </Field>
 
@@ -255,7 +250,7 @@ export default async function AdminUsersPage({
                   className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                   href="/dashboard/admin/users"
                 >
-                  Reset
+                  重置
                 </Link>
               </div>
             </form>
@@ -264,20 +259,20 @@ export default async function AdminUsersPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Directory table</CardDescription>
-            <CardTitle>Authenticated principals</CardTitle>
+            <CardDescription>目录表格</CardDescription>
+            <CardTitle>已认证主体</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto px-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Updated</TableHead>
-                    {canWriteUsers ? <TableHead className="text-right">Actions</TableHead> : null}
+                    <TableHead>用户</TableHead>
+                    <TableHead>邮箱</TableHead>
+                    <TableHead>角色</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>更新时间</TableHead>
+                    {canWriteUsers ? <TableHead className="text-right">操作</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -294,7 +289,7 @@ export default async function AdminUsersPage({
                         <div className="grid gap-1">
                           <span className="font-medium">{row.username}</span>
                           <span className="text-muted-foreground text-xs">
-                            {row.nickname ?? 'No nickname'}
+                            {row.nickname ?? '无昵称'}
                           </span>
                         </div>
                       </TableCell>
@@ -302,7 +297,7 @@ export default async function AdminUsersPage({
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
                           {row.roleCodes.length === 0 ? (
-                            <Badge variant="outline">unassigned</Badge>
+                            <Badge variant="outline">未分配</Badge>
                           ) : (
                             row.roleCodes.map((roleCode: string) => (
                               <Badge key={roleCode} variant="outline">
@@ -314,7 +309,7 @@ export default async function AdminUsersPage({
                       </TableCell>
                       <TableCell>
                         <Badge variant={row.status ? 'secondary' : 'outline'}>
-                          {row.status ? 'active' : 'inactive'}
+                          {row.status ? '启用' : '停用'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -325,14 +320,14 @@ export default async function AdminUsersPage({
                           <div className="flex justify-end gap-2">
                             <ManagementDialog
                               description="更新应用用户资料、密码和角色绑定。"
-                              title={`Edit ${row.username}`}
-                              triggerLabel="Edit"
+                              title={`编辑 ${row.username}`}
+                              triggerLabel="编辑"
                               triggerSize="sm"
                               triggerVariant="outline"
                             >
                               <form
                                 action={updateUserAction}
-                                aria-label={`Edit ${row.username}`}
+                                aria-label={`编辑 ${row.username}`}
                                 className="grid gap-4"
                               >
                                 <input name="id" type="hidden" value={row.id} />
@@ -340,7 +335,7 @@ export default async function AdminUsersPage({
                                 <div className="grid gap-4 xl:grid-cols-2">
                                   <Field>
                                     <FieldLabel htmlFor={`update-username-${row.id}`}>
-                                      Username
+                                      用户名
                                     </FieldLabel>
                                     <Input
                                       defaultValue={row.username}
@@ -351,9 +346,7 @@ export default async function AdminUsersPage({
                                     />
                                   </Field>
                                   <Field>
-                                    <FieldLabel htmlFor={`update-email-${row.id}`}>
-                                      Email
-                                    </FieldLabel>
+                                    <FieldLabel htmlFor={`update-email-${row.id}`}>邮箱</FieldLabel>
                                     <Input
                                       defaultValue={row.email}
                                       id={`update-email-${row.id}`}
@@ -364,7 +357,7 @@ export default async function AdminUsersPage({
                                   </Field>
                                   <Field>
                                     <FieldLabel htmlFor={`update-nickname-${row.id}`}>
-                                      Nickname
+                                      昵称
                                     </FieldLabel>
                                     <Input
                                       defaultValue={row.nickname ?? ''}
@@ -374,13 +367,13 @@ export default async function AdminUsersPage({
                                   </Field>
                                   <Field>
                                     <FieldLabel htmlFor={`update-password-${row.id}`}>
-                                      Password reset
+                                      重置密码
                                     </FieldLabel>
                                     <Input
                                       id={`update-password-${row.id}`}
                                       minLength={12}
                                       name="password"
-                                      placeholder="Leave blank to keep current password"
+                                      placeholder="留空表示保留当前密码"
                                       type="password"
                                     />
                                     <FieldDescription>
@@ -389,7 +382,7 @@ export default async function AdminUsersPage({
                                   </Field>
                                   <Field>
                                     <FieldLabel htmlFor={`update-status-${row.id}`}>
-                                      Status
+                                      状态
                                     </FieldLabel>
                                     <select
                                       className={selectClassName}
@@ -397,13 +390,13 @@ export default async function AdminUsersPage({
                                       id={`update-status-${row.id}`}
                                       name="status"
                                     >
-                                      <option value="active">Active</option>
-                                      <option value="inactive">Inactive</option>
+                                      <option value="active">启用</option>
+                                      <option value="inactive">停用</option>
                                     </select>
                                   </Field>
                                   <Field>
                                     <FieldLabel htmlFor={`update-role-codes-${row.id}`}>
-                                      Role bindings
+                                      角色绑定
                                     </FieldLabel>
                                     <select
                                       className={multiSelectClassName}
@@ -422,21 +415,21 @@ export default async function AdminUsersPage({
                                   </Field>
                                 </div>
                                 <div className="flex justify-end gap-3">
-                                  <Button type="submit">Save changes</Button>
+                                  <Button type="submit">保存变更</Button>
                                 </div>
                               </form>
                             </ManagementDialog>
                             <DestructiveActionDialog
                               action={deleteUserAction}
-                              confirmLabel="Delete user"
+                              confirmLabel="删除用户"
                               consequences="删除会同时移除应用用户和认证绑定，现有会话也会失效。"
                               description="确认后将永久删除该用户。"
                               hiddenFields={[
                                 { name: 'id', value: row.id },
                                 { name: 'returnTo', value: returnTo },
                               ]}
-                              title={`Delete ${row.username}?`}
-                              triggerLabel="Delete"
+                              title={`删除 ${row.username}？`}
+                              triggerLabel="删除"
                               triggerVariant="ghost"
                             />
                           </div>

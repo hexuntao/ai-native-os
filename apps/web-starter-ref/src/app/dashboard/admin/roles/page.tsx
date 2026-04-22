@@ -47,12 +47,11 @@ interface AdminRolesPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Roles Matrix',
+    title: '角色矩阵',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Inspect seeded and custom RBAC roles, user assignment pressure, and permission topology from the authenticated system contract.',
+        title: '页面用途',
+        description: '从已认证系统契约中查看种子角色、自定义 RBAC 角色、用户分配压力与权限拓扑。',
       },
     ],
   }
@@ -106,8 +105,8 @@ export default async function AdminRolesPage({
 
   return (
     <PageContainer
-      pageTitle="Roles Matrix"
-      pageDescription="RBAC role registry with assignment counts, permission breadth, and status filters."
+      pageTitle="角色矩阵"
+      pageDescription="带分配计数、权限广度和状态筛选的 RBAC 角色注册表。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
@@ -118,55 +117,55 @@ export default async function AdminRolesPage({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="roles"
-            detail="Total roles returned by the system contract."
-            label="Roles"
+            detail="系统契约返回的角色总数。"
+            label="角色"
             value={formatCount(payload.pagination.total)}
           />
           <MetricCard
             badge="assignments"
-            detail="Combined user assignments in the current page slice."
-            label="Assignments"
+            detail="当前页面切片中的用户分配总数。"
+            label="分配数"
             value={formatCount(payload.data.reduce((sum, row) => sum + row.userCount, 0))}
           />
           <MetricCard
             badge="permissions"
-            detail="Assignable permission rules exposed to the role editor."
-            label="Permissions"
+            detail="角色编辑器当前可见的可分配权限规则数量。"
+            label="权限"
             value={formatCount(assignablePermissions.length)}
           />
           <MetricCard
             badge={canWriteRoles ? 'write-enabled' : 'read-only'}
-            detail="Whether the current operator can mutate roles."
-            label="Mutation mode"
-            value={canWriteRoles ? 'write' : 'read'}
+            detail="当前操作员是否可以修改角色。"
+            label="写入模式"
+            value={canWriteRoles ? '可写' : '只读'}
             variant={canWriteRoles ? 'secondary' : 'outline'}
           />
         </div>
 
         {!canReadPermissionDirectory ? (
           <ReadBoundaryCard
-            description="Permission boundary"
+            description="权限边界"
             links={[
               {
                 href: '/dashboard/admin/users',
-                label: 'Open Users Directory',
+                label: '打开用户目录',
               },
               {
                 href: '/dashboard/overview',
-                label: 'Back to Operations Center',
+                label: '返回运营中心',
               },
             ]}
-            nextStep="角色表和状态指标仍然可见，但写入口与权限绑定编辑已隐藏。若要继续排查影响面，优先查看 Users Directory 或回到 Operations Center。"
+            nextStep="角色表和状态指标仍然可见，但写入口与权限绑定编辑已隐藏。若要继续排查影响面，优先查看用户目录或回到运营中心。"
             reason="当前主体缺少权限目录读取能力，因此 shell 不会暴露角色创建、编辑和权限绑定入口。"
-            title="Role editing is restricted"
+            title="角色编辑受限"
           />
         ) : null}
 
         {canWriteRoles ? (
           <Card>
             <CardHeader>
-              <CardDescription>Role lifecycle</CardDescription>
-              <CardTitle>Write workflow</CardTitle>
+              <CardDescription>角色生命周期</CardDescription>
+              <CardTitle>写入工作流</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">
               <div className="max-w-2xl text-sm leading-7 text-muted-foreground">
@@ -175,32 +174,28 @@ export default async function AdminRolesPage({
               <ManagementDialog
                 contentClassName="sm:max-w-4xl"
                 description="创建自定义角色并绑定权限。系统保留角色和权限提升边界仍由后端强制校验。"
-                title="Create role"
+                title="创建角色"
                 triggerId="roles-create-trigger"
-                triggerLabel="New role"
+                triggerLabel="新建角色"
               >
-                <form
-                  action={createRoleAction}
-                  aria-label="Create role form"
-                  className="grid gap-4"
-                >
+                <form action={createRoleAction} aria-label="创建角色表单" className="grid gap-4">
                   <input name="returnTo" type="hidden" value={returnTo} />
                   <div className="grid gap-4 xl:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="create-role-name">Role name</FieldLabel>
+                      <FieldLabel htmlFor="create-role-name">角色名</FieldLabel>
                       <Input id="create-role-name" name="name" required />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-role-code">Role code</FieldLabel>
+                      <FieldLabel htmlFor="create-role-code">角色编码</FieldLabel>
                       <Input id="create-role-code" name="code" required />
                       <FieldDescription>编码应保持稳定，避免复用系统保留编码。</FieldDescription>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-role-description">Description</FieldLabel>
+                      <FieldLabel htmlFor="create-role-description">描述</FieldLabel>
                       <Input id="create-role-description" name="description" />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-role-sort-order">Sort order</FieldLabel>
+                      <FieldLabel htmlFor="create-role-sort-order">排序</FieldLabel>
                       <Input
                         defaultValue="0"
                         id="create-role-sort-order"
@@ -209,19 +204,19 @@ export default async function AdminRolesPage({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-role-status">Status</FieldLabel>
+                      <FieldLabel htmlFor="create-role-status">状态</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="active"
                         id="create-role-status"
                         name="status"
                       >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option value="active">启用</option>
+                        <option value="inactive">停用</option>
                       </select>
                     </Field>
                     <Field className="xl:col-span-2">
-                      <FieldLabel htmlFor="create-role-permissions">Permission bindings</FieldLabel>
+                      <FieldLabel htmlFor="create-role-permissions">权限绑定</FieldLabel>
                       <select
                         className={multiSelectClassName}
                         id="create-role-permissions"
@@ -238,7 +233,7 @@ export default async function AdminRolesPage({
                     </Field>
                   </div>
                   <div className="flex justify-end gap-3">
-                    <Button type="submit">Create role</Button>
+                    <Button type="submit">创建角色</Button>
                   </div>
                 </form>
               </ManagementDialog>
@@ -248,8 +243,8 @@ export default async function AdminRolesPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Filters</CardDescription>
-            <CardTitle>Role registry slice</CardTitle>
+            <CardDescription>筛选</CardDescription>
+            <CardTitle>角色注册表切片</CardTitle>
           </CardHeader>
           <CardContent>
             <form
@@ -261,26 +256,26 @@ export default async function AdminRolesPage({
               <input name="pageSize" type="hidden" value={String(filters.pageSize)} />
 
               <Field>
-                <FieldLabel htmlFor="search">Search</FieldLabel>
+                <FieldLabel htmlFor="search">搜索</FieldLabel>
                 <Input
                   defaultValue={filters.search}
                   id="search"
                   name="search"
-                  placeholder="Search role name"
+                  placeholder="搜索角色名称"
                 />
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="status">Status</FieldLabel>
+                <FieldLabel htmlFor="status">状态</FieldLabel>
                 <select
                   className={selectClassName}
                   defaultValue={filters.status}
                   id="status"
                   name="status"
                 >
-                  <option value="all">All statuses</option>
-                  <option value="active">Active only</option>
-                  <option value="inactive">Inactive only</option>
+                  <option value="all">全部状态</option>
+                  <option value="active">仅启用</option>
+                  <option value="inactive">仅停用</option>
                 </select>
               </Field>
 
@@ -289,7 +284,7 @@ export default async function AdminRolesPage({
                   className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                   href="/dashboard/admin/roles"
                 >
-                  Reset
+                  重置
                 </Link>
               </div>
             </form>
@@ -298,21 +293,21 @@ export default async function AdminRolesPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Role matrix</CardDescription>
-            <CardTitle>RBAC registry</CardTitle>
+            <CardDescription>角色矩阵</CardDescription>
+            <CardTitle>RBAC 注册表</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto px-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Users</TableHead>
-                    <TableHead>Permissions</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Updated</TableHead>
-                    {canWriteRoles ? <TableHead className="text-right">Actions</TableHead> : null}
+                    <TableHead>角色</TableHead>
+                    <TableHead>编码</TableHead>
+                    <TableHead>用户数</TableHead>
+                    <TableHead>权限数</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>更新时间</TableHead>
+                    {canWriteRoles ? <TableHead className="text-right">操作</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -332,7 +327,7 @@ export default async function AdminRolesPage({
                           <div className="grid gap-1">
                             <span className="font-medium">{row.name}</span>
                             <span className="text-muted-foreground text-xs">
-                              {row.description ?? 'No description'}
+                              {row.description ?? '无描述'}
                             </span>
                           </div>
                         </TableCell>
@@ -343,7 +338,7 @@ export default async function AdminRolesPage({
                         <TableCell>{formatCount(row.permissionCount)}</TableCell>
                         <TableCell>
                           <Badge variant={row.status ? 'secondary' : 'outline'}>
-                            {row.status ? 'active' : 'inactive'}
+                            {row.status ? '启用' : '停用'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -352,20 +347,20 @@ export default async function AdminRolesPage({
                         {canWriteRoles ? (
                           <TableCell className="text-right">
                             {protectedRole ? (
-                              <Badge variant="outline">seeded</Badge>
+                              <Badge variant="outline">种子角色</Badge>
                             ) : (
                               <div className="flex justify-end gap-2">
                                 <ManagementDialog
                                   contentClassName="sm:max-w-4xl"
                                   description="更新角色名称、排序和权限绑定。"
-                                  title={`Edit ${row.name}`}
-                                  triggerLabel="Edit"
+                                  title={`编辑 ${row.name}`}
+                                  triggerLabel="编辑"
                                   triggerSize="sm"
                                   triggerVariant="outline"
                                 >
                                   <form
                                     action={updateRoleAction}
-                                    aria-label={`Edit ${row.name}`}
+                                    aria-label={`编辑 ${row.name}`}
                                     className="grid gap-4"
                                   >
                                     <input name="id" type="hidden" value={row.id} />
@@ -373,7 +368,7 @@ export default async function AdminRolesPage({
                                     <div className="grid gap-4 xl:grid-cols-2">
                                       <Field>
                                         <FieldLabel htmlFor={`update-role-name-${row.id}`}>
-                                          Role name
+                                          角色名
                                         </FieldLabel>
                                         <Input
                                           defaultValue={row.name}
@@ -384,7 +379,7 @@ export default async function AdminRolesPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-role-code-${row.id}`}>
-                                          Role code
+                                          角色编码
                                         </FieldLabel>
                                         <Input
                                           defaultValue={row.code}
@@ -395,7 +390,7 @@ export default async function AdminRolesPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-role-description-${row.id}`}>
-                                          Description
+                                          描述
                                         </FieldLabel>
                                         <Input
                                           defaultValue={row.description ?? ''}
@@ -405,7 +400,7 @@ export default async function AdminRolesPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-role-sort-${row.id}`}>
-                                          Sort order
+                                          排序
                                         </FieldLabel>
                                         <Input
                                           defaultValue={String(row.sortOrder)}
@@ -416,7 +411,7 @@ export default async function AdminRolesPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-role-status-${row.id}`}>
-                                          Status
+                                          状态
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -424,13 +419,13 @@ export default async function AdminRolesPage({
                                           id={`update-role-status-${row.id}`}
                                           name="status"
                                         >
-                                          <option value="active">Active</option>
-                                          <option value="inactive">Inactive</option>
+                                          <option value="active">启用</option>
+                                          <option value="inactive">停用</option>
                                         </select>
                                       </Field>
                                       <Field className="xl:col-span-2">
                                         <FieldLabel htmlFor={`update-role-permissions-${row.id}`}>
-                                          Permission bindings
+                                          权限绑定
                                         </FieldLabel>
                                         <select
                                           className={multiSelectClassName}
@@ -452,21 +447,21 @@ export default async function AdminRolesPage({
                                       </Field>
                                     </div>
                                     <div className="flex justify-end gap-3">
-                                      <Button type="submit">Save changes</Button>
+                                      <Button type="submit">保存变更</Button>
                                     </div>
                                   </form>
                                 </ManagementDialog>
                                 <DestructiveActionDialog
                                   action={deleteRoleAction}
-                                  confirmLabel="Delete role"
+                                  confirmLabel="删除角色"
                                   consequences="删除角色会移除其全部权限绑定，并可能影响已分配用户的可见能力。"
                                   description="确认后将永久删除该自定义角色。"
                                   hiddenFields={[
                                     { name: 'id', value: row.id },
                                     { name: 'returnTo', value: returnTo },
                                   ]}
-                                  title={`Delete ${row.name}?`}
-                                  triggerLabel="Delete"
+                                  title={`删除 ${row.name}？`}
+                                  triggerLabel="删除"
                                 />
                               </div>
                             )}

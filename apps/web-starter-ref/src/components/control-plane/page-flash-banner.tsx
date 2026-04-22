@@ -9,7 +9,7 @@ interface PageFlashBannerProps {
 export function PageFlashBanner({ kind, message }: PageFlashBannerProps): ReactNode {
   return (
     <Alert variant={kind === 'error' ? 'destructive' : 'default'}>
-      <AlertTitle>{kind === 'error' ? 'Action blocked' : 'Changes applied'}</AlertTitle>
+      <AlertTitle>{kind === 'error' ? '操作被阻止' : '变更已应用'}</AlertTitle>
       <AlertDescription>{message}</AlertDescription>
     </Alert>
   )

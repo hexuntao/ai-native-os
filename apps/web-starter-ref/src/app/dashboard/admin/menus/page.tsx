@@ -43,12 +43,11 @@ interface AdminMenusPageProps {
 
 function createInfoContent(): InfobarContent {
   return {
-    title: 'Navigation Registry',
+    title: '导航注册表',
     sections: [
       {
-        title: 'What this page is for',
-        description:
-          'Inspect routed menu definitions, permission bindings, and visibility state from the authenticated navigation contract.',
+        title: '页面用途',
+        description: '从已认证导航契约中查看路由菜单定义、权限绑定与可见性状态。',
       },
     ],
   }
@@ -120,8 +119,8 @@ export default async function AdminMenusPage({
 
   return (
     <PageContainer
-      pageTitle="Navigation Registry"
-      pageDescription="Menu topology with path, permission, visibility, and status state."
+      pageTitle="导航注册表"
+      pageDescription="包含路径、权限、可见性与状态信息的菜单拓扑视图。"
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
@@ -132,29 +131,29 @@ export default async function AdminMenusPage({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="menus"
-            detail="Total menu nodes exposed by the system contract."
-            label="Menu records"
+            detail="系统契约暴露的菜单节点总数。"
+            label="菜单记录"
             value={formatCount(payload.pagination.total)}
           />
           <MetricCard
             badge="visible"
-            detail="Entries in this page slice that are visible in navigation contexts."
-            label="Visible items"
+            detail="当前页面切片中在导航上下文中可见的条目。"
+            label="可见项"
             value={formatCount(payload.data.filter((row) => row.visible).length)}
           />
           <MetricCard
             badge="protected"
-            detail="Entries currently bound to explicit permission metadata."
-            label="Protected routes"
+            detail="当前绑定了显式权限元数据的条目数量。"
+            label="受保护路由"
             value={formatCount(
               payload.data.filter((row) => row.permissionAction && row.permissionResource).length,
             )}
           />
           <MetricCard
             badge={canWriteMenus ? 'write-enabled' : 'read-only'}
-            detail="Whether the current operator can mutate menu records."
-            label="Mutation mode"
-            value={canWriteMenus ? 'write' : 'read'}
+            detail="当前操作员是否可以修改菜单记录。"
+            label="写入模式"
+            value={canWriteMenus ? '可写' : '只读'}
             variant={canWriteMenus ? 'secondary' : 'outline'}
           />
         </div>
@@ -162,8 +161,8 @@ export default async function AdminMenusPage({
         {canWriteMenus ? (
           <Card>
             <CardHeader>
-              <CardDescription>Navigation authoring</CardDescription>
-              <CardTitle>Write workflow</CardTitle>
+              <CardDescription>导航编写</CardDescription>
+              <CardTitle>写入工作流</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">
               <div className="max-w-2xl text-sm leading-7 text-muted-foreground">
@@ -172,23 +171,19 @@ export default async function AdminMenusPage({
               <ManagementDialog
                 contentClassName="sm:max-w-5xl"
                 description="创建自定义菜单节点。父级必须是目录节点，叶子菜单必须带路径，权限动作与资源必须成对填写。"
-                title="Create menu"
+                title="创建菜单"
                 triggerId="menus-create-trigger"
-                triggerLabel="New menu"
+                triggerLabel="新建菜单"
               >
-                <form
-                  action={createMenuAction}
-                  aria-label="Create menu form"
-                  className="grid gap-4"
-                >
+                <form action={createMenuAction} aria-label="创建菜单表单" className="grid gap-4">
                   <input name="returnTo" type="hidden" value={returnTo} />
                   <div className="grid gap-4 xl:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="create-menu-name">Name</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-name">名称</FieldLabel>
                       <Input id="create-menu-name" name="name" />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-type">Type</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-type">类型</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="menu"
@@ -201,14 +196,14 @@ export default async function AdminMenusPage({
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-parent">Parent directory</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-parent">父级目录</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue=""
                         id="create-menu-parent"
                         name="parentId"
                       >
-                        <option value="">Top level</option>
+                        <option value="">顶级</option>
                         {directoryOptions.map((menuEntry) => (
                           <option key={menuEntry.id} value={menuEntry.id}>
                             {menuEntry.name}
@@ -217,7 +212,7 @@ export default async function AdminMenusPage({
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-sort-order">Sort order</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-sort-order">排序</FieldLabel>
                       <Input
                         defaultValue="0"
                         id="create-menu-sort-order"
@@ -226,7 +221,7 @@ export default async function AdminMenusPage({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-path">Path</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-path">路径</FieldLabel>
                       <Input
                         id="create-menu-path"
                         name="path"
@@ -234,7 +229,7 @@ export default async function AdminMenusPage({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-component">Component</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-component">组件</FieldLabel>
                       <Input
                         id="create-menu-component"
                         name="component"
@@ -242,44 +237,42 @@ export default async function AdminMenusPage({
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-icon">Icon</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-icon">图标</FieldLabel>
                       <Input id="create-menu-icon" name="icon" placeholder="menu" />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-visible">Visibility</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-visible">可见性</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="visible"
                         id="create-menu-visible"
                         name="visible"
                       >
-                        <option value="visible">visible</option>
-                        <option value="hidden">hidden</option>
+                        <option value="visible">可见</option>
+                        <option value="hidden">隐藏</option>
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-status">Status</FieldLabel>
+                      <FieldLabel htmlFor="create-menu-status">状态</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue="active"
                         id="create-menu-status"
                         name="status"
                       >
-                        <option value="active">active</option>
-                        <option value="inactive">inactive</option>
+                        <option value="active">启用</option>
+                        <option value="inactive">停用</option>
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-permission-action">
-                        Permission action
-                      </FieldLabel>
+                      <FieldLabel htmlFor="create-menu-permission-action">权限动作</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue=""
                         id="create-menu-permission-action"
                         name="permissionAction"
                       >
-                        <option value="">none</option>
+                        <option value="">无</option>
                         {appActions.map((action) => (
                           <option key={action} value={action}>
                             {action}
@@ -288,16 +281,14 @@ export default async function AdminMenusPage({
                       </select>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="create-menu-permission-resource">
-                        Permission resource
-                      </FieldLabel>
+                      <FieldLabel htmlFor="create-menu-permission-resource">权限资源</FieldLabel>
                       <select
                         className={selectClassName}
                         defaultValue=""
                         id="create-menu-permission-resource"
                         name="permissionResource"
                       >
-                        <option value="">none</option>
+                        <option value="">无</option>
                         {appSubjects.map((subject) => (
                           <option key={subject} value={subject}>
                             {subject}
@@ -310,7 +301,7 @@ export default async function AdminMenusPage({
                     </Field>
                   </div>
                   <div className="flex justify-end gap-3">
-                    <Button type="submit">Create menu</Button>
+                    <Button type="submit">创建菜单</Button>
                   </div>
                 </form>
               </ManagementDialog>
@@ -320,8 +311,8 @@ export default async function AdminMenusPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Filters</CardDescription>
-            <CardTitle>Navigation slice</CardTitle>
+            <CardDescription>筛选</CardDescription>
+            <CardTitle>导航切片</CardTitle>
           </CardHeader>
           <CardContent>
             <form
@@ -333,40 +324,40 @@ export default async function AdminMenusPage({
               <input name="pageSize" type="hidden" value={String(filters.pageSize)} />
 
               <Field>
-                <FieldLabel htmlFor="search">Search</FieldLabel>
+                <FieldLabel htmlFor="search">搜索</FieldLabel>
                 <Input
                   defaultValue={filters.search}
                   id="search"
                   name="search"
-                  placeholder="Search menu name or path"
+                  placeholder="搜索菜单名称或路径"
                 />
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="status">Status</FieldLabel>
+                <FieldLabel htmlFor="status">状态</FieldLabel>
                 <select
                   className={selectClassName}
                   defaultValue={filters.status}
                   id="status"
                   name="status"
                 >
-                  <option value="all">All statuses</option>
-                  <option value="active">Active only</option>
-                  <option value="inactive">Inactive only</option>
+                  <option value="all">全部状态</option>
+                  <option value="active">仅启用</option>
+                  <option value="inactive">仅停用</option>
                 </select>
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="visible">Visibility</FieldLabel>
+                <FieldLabel htmlFor="visible">可见性</FieldLabel>
                 <select
                   className={selectClassName}
                   defaultValue={filters.visible}
                   id="visible"
                   name="visible"
                 >
-                  <option value="all">All visibility</option>
-                  <option value="visible">Visible only</option>
-                  <option value="hidden">Hidden only</option>
+                  <option value="all">全部可见性</option>
+                  <option value="visible">仅可见</option>
+                  <option value="hidden">仅隐藏</option>
                 </select>
               </Field>
 
@@ -375,7 +366,7 @@ export default async function AdminMenusPage({
                   className="inline-flex h-9 items-center rounded-md border px-3 text-sm"
                   href="/dashboard/admin/menus"
                 >
-                  Reset
+                  重置
                 </Link>
               </div>
             </form>
@@ -384,21 +375,21 @@ export default async function AdminMenusPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Navigation table</CardDescription>
-            <CardTitle>Menu registry</CardTitle>
+            <CardDescription>导航表格</CardDescription>
+            <CardTitle>菜单注册表</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto px-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Menu</TableHead>
-                    <TableHead>Path</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Permission</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead>Created</TableHead>
-                    {canWriteMenus ? <TableHead className="text-right">Actions</TableHead> : null}
+                    <TableHead>菜单</TableHead>
+                    <TableHead>路径</TableHead>
+                    <TableHead>类型</TableHead>
+                    <TableHead>权限</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>创建时间</TableHead>
+                    {canWriteMenus ? <TableHead className="text-right">操作</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -420,7 +411,7 @@ export default async function AdminMenusPage({
                       >
                         <TableCell className="font-medium">{row.name}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {row.path ?? 'no-path'}
+                          {row.path ?? '无路径'}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">{row.type}</Badge>
@@ -428,15 +419,15 @@ export default async function AdminMenusPage({
                         <TableCell className="text-muted-foreground">
                           {row.permissionAction && row.permissionResource
                             ? `${row.permissionAction}:${row.permissionResource}`
-                            : 'public shell'}
+                            : '公共壳层'}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             <Badge variant={row.visible ? 'secondary' : 'outline'}>
-                              {row.visible ? 'visible' : 'hidden'}
+                              {row.visible ? '可见' : '隐藏'}
                             </Badge>
                             <Badge variant={row.status ? 'outline' : 'secondary'}>
-                              {row.status ? 'active' : 'inactive'}
+                              {row.status ? '启用' : '停用'}
                             </Badge>
                           </div>
                         </TableCell>
@@ -446,20 +437,20 @@ export default async function AdminMenusPage({
                         {canWriteMenus ? (
                           <TableCell className="text-right">
                             {protectedMenu ? (
-                              <Badge variant="outline">seeded</Badge>
+                              <Badge variant="outline">种子菜单</Badge>
                             ) : (
                               <div className="flex justify-end gap-2">
                                 <ManagementDialog
                                   contentClassName="sm:max-w-5xl"
                                   description="更新菜单路径、权限绑定和层级关系。"
-                                  title={`Edit ${row.name}`}
-                                  triggerLabel="Edit"
+                                  title={`编辑 ${row.name}`}
+                                  triggerLabel="编辑"
                                   triggerSize="sm"
                                   triggerVariant="outline"
                                 >
                                   <form
                                     action={updateMenuAction}
-                                    aria-label={`Edit ${row.name}`}
+                                    aria-label={`编辑 ${row.name}`}
                                     className="grid gap-4"
                                   >
                                     <input name="id" type="hidden" value={row.id} />
@@ -467,7 +458,7 @@ export default async function AdminMenusPage({
                                     <div className="grid gap-4 xl:grid-cols-2">
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-name-${row.id}`}>
-                                          Name
+                                          名称
                                         </FieldLabel>
                                         <Input
                                           defaultValue={row.name}
@@ -477,7 +468,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-type-${row.id}`}>
-                                          Type
+                                          类型
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -492,7 +483,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-parent-${row.id}`}>
-                                          Parent directory
+                                          父级目录
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -500,7 +491,7 @@ export default async function AdminMenusPage({
                                           id={`update-menu-parent-${row.id}`}
                                           name="parentId"
                                         >
-                                          <option value="">Top level</option>
+                                          <option value="">顶级</option>
                                           {editDirectoryOptions.map((menuEntry) => (
                                             <option key={menuEntry.id} value={menuEntry.id}>
                                               {menuEntry.name}
@@ -510,7 +501,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-sort-${row.id}`}>
-                                          Sort order
+                                          排序
                                         </FieldLabel>
                                         <Input
                                           defaultValue={String(row.sortOrder)}
@@ -521,7 +512,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-path-${row.id}`}>
-                                          Path
+                                          路径
                                         </FieldLabel>
                                         <Input
                                           defaultValue={stringifyNullableValue(row.path)}
@@ -531,7 +522,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-component-${row.id}`}>
-                                          Component
+                                          组件
                                         </FieldLabel>
                                         <Input
                                           defaultValue={stringifyNullableValue(row.component)}
@@ -541,7 +532,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-icon-${row.id}`}>
-                                          Icon
+                                          图标
                                         </FieldLabel>
                                         <Input
                                           defaultValue={stringifyNullableValue(row.icon)}
@@ -551,7 +542,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-visible-${row.id}`}>
-                                          Visibility
+                                          可见性
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -559,13 +550,13 @@ export default async function AdminMenusPage({
                                           id={`update-menu-visible-${row.id}`}
                                           name="visible"
                                         >
-                                          <option value="visible">visible</option>
-                                          <option value="hidden">hidden</option>
+                                          <option value="visible">可见</option>
+                                          <option value="hidden">隐藏</option>
                                         </select>
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-status-${row.id}`}>
-                                          Status
+                                          状态
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -573,13 +564,13 @@ export default async function AdminMenusPage({
                                           id={`update-menu-status-${row.id}`}
                                           name="status"
                                         >
-                                          <option value="active">active</option>
-                                          <option value="inactive">inactive</option>
+                                          <option value="active">启用</option>
+                                          <option value="inactive">停用</option>
                                         </select>
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-action-${row.id}`}>
-                                          Permission action
+                                          权限动作
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -587,7 +578,7 @@ export default async function AdminMenusPage({
                                           id={`update-menu-action-${row.id}`}
                                           name="permissionAction"
                                         >
-                                          <option value="">none</option>
+                                          <option value="">无</option>
                                           {appActions.map((action) => (
                                             <option key={action} value={action}>
                                               {action}
@@ -597,7 +588,7 @@ export default async function AdminMenusPage({
                                       </Field>
                                       <Field>
                                         <FieldLabel htmlFor={`update-menu-resource-${row.id}`}>
-                                          Permission resource
+                                          权限资源
                                         </FieldLabel>
                                         <select
                                           className={selectClassName}
@@ -605,7 +596,7 @@ export default async function AdminMenusPage({
                                           id={`update-menu-resource-${row.id}`}
                                           name="permissionResource"
                                         >
-                                          <option value="">none</option>
+                                          <option value="">无</option>
                                           {appSubjects.map((subject) => (
                                             <option key={subject} value={subject}>
                                               {subject}
@@ -615,21 +606,21 @@ export default async function AdminMenusPage({
                                       </Field>
                                     </div>
                                     <div className="flex justify-end gap-3">
-                                      <Button type="submit">Save changes</Button>
+                                      <Button type="submit">保存变更</Button>
                                     </div>
                                   </form>
                                 </ManagementDialog>
                                 <DestructiveActionDialog
                                   action={deleteMenuAction}
-                                  confirmLabel="Delete menu"
+                                  confirmLabel="删除菜单"
                                   consequences="删除菜单会影响导航拓扑，并可能让关联入口立即消失。"
                                   description="确认后将永久删除该自定义菜单节点。"
                                   hiddenFields={[
                                     { name: 'id', value: row.id },
                                     { name: 'returnTo', value: returnTo },
                                   ]}
-                                  title={`Delete ${row.name}?`}
-                                  triggerLabel="Delete"
+                                  title={`删除 ${row.name}？`}
+                                  triggerLabel="删除"
                                 />
                               </div>
                             )}
