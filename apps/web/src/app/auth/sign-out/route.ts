@@ -8,7 +8,13 @@ export async function POST(request: Request): Promise<Response> {
     request.headers.get('cookie'),
     resolveWebEnvironment(),
   )
-  const response = NextResponse.redirect(new URL('/', request.url), 303)
+  const destinationUrl = new URL('/', request.url)
+
+  if (!upstreamResponse.ok) {
+    destinationUrl.searchParams.set('error', `Sign out failed (HTTP ${upstreamResponse.status}).`)
+  }
+
+  const response = NextResponse.redirect(destinationUrl, 303)
 
   appendSetCookieHeaders(response, upstreamResponse.headers)
 

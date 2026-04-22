@@ -13,7 +13,22 @@ test('resolveAuthEnvironment falls back to local defaults in development', () =>
   assert.equal(environment.basePath, authBasePath)
   assert.equal(environment.baseURL, 'http://localhost:3001')
   assert.equal(environment.secret, 'ai-native-os-dev-secret-change-me')
-  assert.deepEqual(environment.trustedOrigins, ['http://localhost:3000'])
+  assert.deepEqual(environment.trustedOrigins, ['http://localhost:3000', 'http://localhost:3002'])
+})
+
+test('resolveAuthEnvironment merges configured trusted origins with local defaults', () => {
+  const environment = resolveAuthEnvironment({
+    API_URL: 'http://localhost:3001',
+    APP_URL: 'http://localhost:3002',
+    BETTER_AUTH_TRUSTED_ORIGINS: 'http://localhost:3000, https://console.example.com',
+    NODE_ENV: 'development',
+  })
+
+  assert.deepEqual(environment.trustedOrigins, [
+    'http://localhost:3002',
+    'http://localhost:3000',
+    'https://console.example.com',
+  ])
 })
 
 test('resolveAuthEnvironment requires BETTER_AUTH_SECRET in production', () => {

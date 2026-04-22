@@ -105,7 +105,7 @@ export default async function AdminMenusPage({
     loadMenusList(filters),
     loadMenusList({
       page: 1,
-      pageSize: 200,
+      pageSize: 100,
       search: undefined,
       status: 'all',
       visible: 'all',

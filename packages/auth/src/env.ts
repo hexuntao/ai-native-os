@@ -1,6 +1,7 @@
 const defaultDevAuthSecret = 'ai-native-os-dev-secret-change-me'
 const defaultDevAuthUrl = 'http://localhost:3001'
 const defaultAppUrl = 'http://localhost:3000'
+const defaultDevTrustedOrigins = ['http://localhost:3000', 'http://localhost:3002'] as const
 
 export const authBasePath = '/api/auth'
 
@@ -23,8 +24,12 @@ function parseTrustedOrigins(env: NodeJS.ProcessEnv): string[] {
     .map(normalizeOrigin)
 
   const appUrl = normalizeOrigin(env.APP_URL ?? defaultAppUrl)
+  const defaultOrigins =
+    env.NODE_ENV === 'production'
+      ? [appUrl]
+      : [appUrl, ...defaultDevTrustedOrigins.map((origin) => normalizeOrigin(origin))]
 
-  return Array.from(new Set([appUrl, ...(configuredOrigins ?? [])]))
+  return Array.from(new Set([...defaultOrigins, ...(configuredOrigins ?? [])]))
 }
 
 export function resolveAuthEnvironment(env: NodeJS.ProcessEnv = process.env): AuthEnvironment {

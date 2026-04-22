@@ -27,7 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import { canManagePermissions } from '@/lib/ability'
+import { canManagePermissions, canReadPermissions } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
@@ -103,14 +103,41 @@ export default async function AdminPermissionsPage({
 }: AdminPermissionsPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
   const filters = createPermissionFilterState(resolvedSearchParams)
-  const [payload, abilityPayload] = await Promise.all([
-    loadPermissionsList(filters),
-    loadSerializedAbilityPayload(),
-  ])
+  const abilityPayload = await loadSerializedAbilityPayload()
   const flashMessage = readDashboardFlashMessage(resolvedSearchParams)
   const mutationState = readDashboardMutationState(resolvedSearchParams)
+  const canReadPermissionDirectory = abilityPayload ? canReadPermissions(abilityPayload) : false
   const canWritePermissions = abilityPayload ? canManagePermissions(abilityPayload) : false
   const returnTo = createCurrentPermissionsHref(resolvedSearchParams)
+
+  if (!canReadPermissionDirectory) {
+    return (
+      <PageContainer
+        pageTitle="Permission Center"
+        pageDescription="Permission topology with filters for resource, action, field scope, and role linkage."
+        infoContent={createInfoContent()}
+      >
+        <div className="flex flex-1 flex-col gap-4">
+          {flashMessage ? (
+            <PageFlashBanner kind={flashMessage.kind} message={flashMessage.message} />
+          ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardDescription>Access boundary</CardDescription>
+              <CardTitle>Permission directory is unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-7 text-muted-foreground">
+              当前主体缺少 `read:Permission`
+              能力，因此页面只显示权限边界说明，不会在服务端请求受限的权限目录接口。
+            </CardContent>
+          </Card>
+        </div>
+      </PageContainer>
+    )
+  }
+
+  const payload = await loadPermissionsList(filters)
 
   return (
     <PageContainer

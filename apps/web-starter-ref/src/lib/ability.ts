@@ -58,6 +58,16 @@ export function canManagePermissions(payload: AbilityPayload): boolean {
   return ability.can('manage', 'Permission') || ability.can('manage', 'all')
 }
 
+export function canReadPermissions(payload: AbilityPayload): boolean {
+  const ability = createAbilityFromPayload(payload)
+
+  return (
+    ability.can('read', 'Permission') ||
+    ability.can('manage', 'Permission') ||
+    ability.can('manage', 'all')
+  )
+}
+
 export function canManageMenus(payload: AbilityPayload): boolean {
   const ability = createAbilityFromPayload(payload)
 

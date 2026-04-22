@@ -1,3 +1,4 @@
+import { resolveAuthEnvironment } from '@ai-native-os/auth'
 import {
   type AppActions,
   type AppSubjects,
@@ -552,6 +553,8 @@ async function handleContractFirstPost<TInput, TOutput, TEnv extends AppEnv>(
   })
 }
 
+const trustedCorsOrigins = resolveAuthEnvironment().trustedOrigins
+
 app.use('*', secureHeaders())
 app.use(
   '*',
@@ -567,7 +570,15 @@ app.use(
     ],
     allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     exposeHeaders: ['mcp-protocol-version', 'mcp-session-id'],
-    origin: process.env.APP_URL ?? 'http://localhost:3000',
+    origin: (requestOrigin) => {
+      if (!requestOrigin) {
+        return trustedCorsOrigins[0] ?? 'http://localhost:3000'
+      }
+
+      return trustedCorsOrigins.includes(requestOrigin)
+        ? requestOrigin
+        : (trustedCorsOrigins[0] ?? 'http://localhost:3000')
+    },
     credentials: true,
   }),
 )

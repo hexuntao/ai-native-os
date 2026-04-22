@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { canManageRoles } from '@/lib/ability'
+import { canManageRoles, canReadPermissions } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
@@ -91,14 +91,16 @@ export default async function AdminRolesPage({
 }: AdminRolesPageProps): Promise<ReactNode> {
   const resolvedSearchParams = await searchParams
   const filters = createToggleFilterState(resolvedSearchParams)
-  const [payload, assignablePermissions, abilityPayload] = await Promise.all([
+  const [payload, abilityPayload] = await Promise.all([
     loadRolesList(filters),
-    loadAssignablePermissions(),
     loadSerializedAbilityPayload(),
   ])
   const flashMessage = readDashboardFlashMessage(resolvedSearchParams)
   const mutationState = readDashboardMutationState(resolvedSearchParams)
-  const canWriteRoles = abilityPayload ? canManageRoles(abilityPayload) : false
+  const canReadPermissionDirectory = abilityPayload ? canReadPermissions(abilityPayload) : false
+  const canWriteRoles =
+    abilityPayload && canReadPermissionDirectory ? canManageRoles(abilityPayload) : false
+  const assignablePermissions = canReadPermissionDirectory ? await loadAssignablePermissions() : []
   const returnTo = createCurrentRolesHref(resolvedSearchParams)
 
   return (
@@ -139,6 +141,18 @@ export default async function AdminRolesPage({
             variant={canWriteRoles ? 'secondary' : 'outline'}
           />
         </div>
+
+        {!canReadPermissionDirectory ? (
+          <Card>
+            <CardHeader>
+              <CardDescription>Permission boundary</CardDescription>
+              <CardTitle>Role editing is restricted</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-7 text-muted-foreground">
+              当前主体可以读取角色表，但缺少权限目录读取能力，因此不会显示角色创建、编辑和权限绑定入口。
+            </CardContent>
+          </Card>
+        ) : null}
 
         {canWriteRoles ? (
           <Card>

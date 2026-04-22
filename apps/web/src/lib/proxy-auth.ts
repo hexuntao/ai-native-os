@@ -58,6 +58,7 @@ export async function performSignOut(
   environment: WebEnvironment,
 ): Promise<Response> {
   const headers = new Headers({
+    'content-type': 'application/json',
     origin: environment.appUrl,
   })
 
@@ -66,6 +67,7 @@ export async function performSignOut(
   }
 
   return fetch(`${environment.apiUrl}/api/auth/sign-out`, {
+    body: JSON.stringify({}),
     cache: 'no-store',
     headers,
     method: 'POST',

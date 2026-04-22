@@ -60,7 +60,7 @@ export async function loadAssignablePermissions(): Promise<PermissionListRespons
   const payload = await loadPermissionsList({
     action: undefined,
     page: 1,
-    pageSize: 200,
+    pageSize: 100,
     resource: undefined,
     search: undefined,
   })

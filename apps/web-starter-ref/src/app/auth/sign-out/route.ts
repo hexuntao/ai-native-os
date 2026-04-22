@@ -1,15 +1,21 @@
-import { NextResponse } from 'next/server';
-import { resolveWebEnvironment } from '@/lib/env';
-import { appendSetCookieHeaders, performSignOut } from '@/lib/proxy-auth';
+import { NextResponse } from 'next/server'
+import { resolveWebEnvironment } from '@/lib/env'
+import { appendSetCookieHeaders, performSignOut } from '@/lib/proxy-auth'
 
 export async function POST(request: Request): Promise<Response> {
   const upstreamResponse = await performSignOut(
     request.headers.get('cookie'),
-    resolveWebEnvironment()
-  );
-  const response = NextResponse.redirect(new URL('/', request.url), 303);
+    resolveWebEnvironment(),
+  )
+  const destinationUrl = new URL('/', request.url)
 
-  appendSetCookieHeaders(response, upstreamResponse.headers);
+  if (!upstreamResponse.ok) {
+    destinationUrl.searchParams.set('error', `Sign out failed (HTTP ${upstreamResponse.status}).`)
+  }
 
-  return response;
+  const response = NextResponse.redirect(destinationUrl, 303)
+
+  appendSetCookieHeaders(response, upstreamResponse.headers)
+
+  return response
 }
