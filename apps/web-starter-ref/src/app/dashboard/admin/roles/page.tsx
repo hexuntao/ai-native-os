@@ -8,6 +8,7 @@ import {
 import { MetricCard } from '@/components/control-plane/metric-card'
 import { PageFlashBanner } from '@/components/control-plane/page-flash-banner'
 import { PagePagination } from '@/components/control-plane/page-pagination'
+import { ReadBoundaryCard } from '@/components/control-plane/read-boundary-card'
 import PageContainer from '@/components/layout/page-container'
 import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { ManagementDialog } from '@/components/management/management-dialog'
@@ -143,15 +144,22 @@ export default async function AdminRolesPage({
         </div>
 
         {!canReadPermissionDirectory ? (
-          <Card>
-            <CardHeader>
-              <CardDescription>Permission boundary</CardDescription>
-              <CardTitle>Role editing is restricted</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm leading-7 text-muted-foreground">
-              当前主体可以读取角色表，但缺少权限目录读取能力，因此不会显示角色创建、编辑和权限绑定入口。
-            </CardContent>
-          </Card>
+          <ReadBoundaryCard
+            description="Permission boundary"
+            links={[
+              {
+                href: '/dashboard/admin/users',
+                label: 'Open Users Directory',
+              },
+              {
+                href: '/dashboard/overview',
+                label: 'Back to Operations Center',
+              },
+            ]}
+            nextStep="角色表和状态指标仍然可见，但写入口与权限绑定编辑已隐藏。若要继续排查影响面，优先查看 Users Directory 或回到 Operations Center。"
+            reason="当前主体缺少权限目录读取能力，因此 shell 不会暴露角色创建、编辑和权限绑定入口。"
+            title="Role editing is restricted"
+          />
         ) : null}
 
         {canWriteRoles ? (

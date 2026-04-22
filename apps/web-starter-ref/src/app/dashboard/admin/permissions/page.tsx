@@ -9,6 +9,7 @@ import {
 import { MetricCard } from '@/components/control-plane/metric-card'
 import { PageFlashBanner } from '@/components/control-plane/page-flash-banner'
 import { PagePagination } from '@/components/control-plane/page-pagination'
+import { ReadBoundaryCard } from '@/components/control-plane/read-boundary-card'
 import PageContainer from '@/components/layout/page-container'
 import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
 import { ManagementDialog } from '@/components/management/management-dialog'
@@ -122,16 +123,22 @@ export default async function AdminPermissionsPage({
             <PageFlashBanner kind={flashMessage.kind} message={flashMessage.message} />
           ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardDescription>Access boundary</CardDescription>
-              <CardTitle>Permission directory is unavailable</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm leading-7 text-muted-foreground">
-              当前主体缺少 `read:Permission`
-              能力，因此页面只显示权限边界说明，不会在服务端请求受限的权限目录接口。
-            </CardContent>
-          </Card>
+          <ReadBoundaryCard
+            description="Access boundary"
+            links={[
+              {
+                href: '/dashboard/admin/roles',
+                label: 'Open Roles Matrix',
+              },
+              {
+                href: '/dashboard/overview',
+                label: 'Back to Operations Center',
+              },
+            ]}
+            nextStep="当前页面不会请求受限的权限目录接口。若要继续评估 RBAC 影响面，请先查看 Roles Matrix；若只需要整体态势，则返回 Operations Center。"
+            reason="当前主体缺少 `read:Permission` 能力，因此 starter shell 只展示权限边界，而不暴露目录读模型或写操作入口。"
+            title="Permission directory is unavailable"
+          />
         </div>
       </PageContainer>
     )

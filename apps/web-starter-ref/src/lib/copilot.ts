@@ -34,13 +34,25 @@ export interface AssistantRailState {
   status: CopilotStreamStatus
 }
 
+export interface AssistantRailFocus {
+  badge: string
+  detail: string
+  title: string
+}
+
 export interface AssistantRailContent {
   assistantState: AssistantRailState
   facts: readonly AssistantRailFact[]
+  focus: AssistantRailFocus
   guardrail: string
   links: readonly AssistantRailLink[]
   summary: string
   title: string
+}
+
+export interface AssistantRailSelection {
+  auditId: string | null
+  promptKey: string | null
 }
 
 function matchesPathPrefixes(pathname: string, prefixes: readonly string[]): boolean {
@@ -93,6 +105,51 @@ function createBaseFacts(
       value: bridgeSummary?.defaultAgentId ?? 'bridge-unavailable',
     },
   ]
+}
+
+function createAssistantRailFocus(
+  pathname: string,
+  content: {
+    summary: string | null
+    title: string | null
+  } | null,
+  selection: AssistantRailSelection,
+): AssistantRailFocus {
+  const normalizedPath = normalizeDashboardPath(pathname)
+
+  if (
+    selection.auditId &&
+    matchesPathPrefixes(normalizedPath, ['/observe/runs', '/govern/audit'])
+  ) {
+    return {
+      badge: selection.auditId.slice(0, 8),
+      detail: normalizedPath.startsWith('/observe/runs')
+        ? 'Selected runtime audit evidence. Use the inspector to compare execution summary, metadata, and human feedback before escalating.'
+        : 'Selected governance ledger event. Use the evidence view to separate forbidden boundaries, runtime failures, and human overrides.',
+      title: `Audit log ${selection.auditId.slice(0, 8)}`,
+    }
+  }
+
+  if (
+    selection.promptKey &&
+    matchesPathPrefixes(normalizedPath, ['/govern/approvals', '/build/prompts'])
+  ) {
+    return {
+      badge: 'prompt',
+      detail: normalizedPath.startsWith('/govern/approvals')
+        ? 'Selected approval item. Review policy checks, release evidence, and rollback context before deciding the next human review step.'
+        : 'Selected prompt key. Compare release posture, linked eval evidence, and version pressure from the current builder-facing view.',
+      title: selection.promptKey,
+    }
+  }
+
+  return {
+    badge: normalizedPath,
+    detail:
+      content?.summary ??
+      'Current route summary is available, but no row-level selection is active in the assistant rail.',
+    title: content?.title ?? 'Current route',
+  }
 }
 
 export async function fetchCopilotBridgeSummaryFromBrowser(): Promise<CopilotBridgeSummary> {
@@ -417,10 +474,12 @@ export function resolveAssistantRailContent(
     summary: string | null
     title: string | null
   } | null,
+  selection: AssistantRailSelection,
 ): AssistantRailContent {
   const routePanel = resolveCopilotRoutePanel(pathname)
   const bridgeEnabled =
     bridgeSummary?.capability.status === 'enabled' && Boolean(bridgeSummary.defaultAgentId)
+  const focus = createAssistantRailFocus(pathname, content, selection)
 
   return {
     assistantState: {
@@ -430,6 +489,7 @@ export function resolveAssistantRailContent(
       status: bridgeEnabled ? 'connecting' : bridgeSummary ? 'error' : 'idle',
     },
     facts: createBaseFacts(shellState, bridgeSummary, pathname),
+    focus,
     guardrail: routePanel?.guardrail ?? 'Stay within the current route and authenticated shell.',
     links: content?.links ?? [],
     summary: content?.summary ?? routePanel?.summary ?? 'No route-specific summary is available.',

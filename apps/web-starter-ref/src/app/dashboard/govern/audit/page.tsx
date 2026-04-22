@@ -2,9 +2,11 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { AiFeedbackDialog } from '@/components/ai/ai-feedback-dialog'
+import { EmptyStateCard } from '@/components/control-plane/empty-state-card'
 import { MetricCard } from '@/components/control-plane/metric-card'
 import { PagePagination } from '@/components/control-plane/page-pagination'
 import PageContainer from '@/components/layout/page-container'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -23,8 +25,10 @@ import {
   createAiAuditFilterState,
   createDashboardHref,
   type DashboardSearchParams,
+  readSearchParam,
 } from '@/lib/management'
 import { loadAiAuditDetail, loadAiAuditLogsList } from '@/lib/server-management'
+import { cn } from '@/lib/utils'
 
 interface GovernAuditPageProps {
   searchParams: Promise<DashboardSearchParams>
@@ -85,6 +89,7 @@ export default async function GovernAuditPage({
   const resolvedSearchParams = await searchParams
   const filters = createAiAuditFilterState(resolvedSearchParams)
   const payload = await loadAiAuditLogsList(filters)
+  const requestedAuditId = readSearchParam(resolvedSearchParams, 'auditId')
   const forbiddenCount = payload.data.filter((row) => row.status === 'forbidden').length
   const overrideCount = payload.data.filter((row) => row.humanOverride).length
   const errorCount = payload.data.filter((row) => row.status === 'error').length
@@ -95,6 +100,12 @@ export default async function GovernAuditPage({
   const selectedEntry =
     payload.data.find((row) => row.id === selectedAuditId) ?? payload.data[0] ?? null
   const selectedDetail = selectedEntry ? await loadAiAuditDetail(selectedEntry.id) : null
+  const hasActiveFilters = Boolean(filters.toolId || filters.status !== 'all')
+  const selectionFellBack = Boolean(
+    requestedAuditId &&
+      payload.data.length > 0 &&
+      !payload.data.some((row) => row.id === requestedAuditId),
+  )
 
   return (
     <PageContainer
@@ -195,9 +206,33 @@ export default async function GovernAuditPage({
                 <CardTitle>Tool execution ledger</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
+                {selectionFellBack ? (
+                  <div className="px-4 pt-4">
+                    <Alert>
+                      <AlertTitle>Selection moved to the first visible audit event</AlertTitle>
+                      <AlertDescription>
+                        The previously selected audit row is outside the current slice, so the
+                        evidence panel fell back to the first visible entry.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                ) : null}
                 {payload.data.length === 0 ? (
-                  <div className="text-muted-foreground p-6 text-sm leading-7">
-                    No audit rows are visible under the current filters.
+                  <div className="p-4">
+                    <EmptyStateCard
+                      action={{ href: '/dashboard/govern/audit', label: 'Reset audit query' }}
+                      description={
+                        hasActiveFilters
+                          ? 'The current audit query does not expose any visible governance events. Reset the slice first, then decide whether the empty result is expected.'
+                          : 'No governance audit rows are visible yet. Wait for the next event or verify that tool-level audit evidence is being written.'
+                      }
+                      title={
+                        hasActiveFilters
+                          ? 'No audit rows match this query'
+                          : 'No audit rows are visible'
+                      }
+                      tone={hasActiveFilters ? 'no-match' : 'no-data'}
+                    />
                   </div>
                 ) : (
                   <>
@@ -214,44 +249,54 @@ export default async function GovernAuditPage({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {payload.data.map((row) => (
-                            <TableRow key={row.id}>
-                              <TableCell>
-                                <Link
-                                  className="font-medium underline-offset-4 hover:underline"
-                                  href={
-                                    createDashboardHref(
-                                      '/dashboard/govern/audit',
-                                      resolvedSearchParams,
-                                      {
-                                        auditId: row.id,
-                                        page: undefined,
-                                      },
-                                    ) as Route
-                                  }
-                                >
-                                  {row.toolId}
-                                </Link>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {row.action}:{row.subject}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={resolveBadgeVariant(row.status)}>
-                                  {row.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {row.feedbackCount} · {row.latestUserAction ?? 'no action'}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {formatDateTime(row.createdAt)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {payload.data.map((row) => {
+                            const isSelected = row.id === selectedEntry?.id
+
+                            return (
+                              <TableRow
+                                className={cn(isSelected && 'bg-sidebar-accent/45')}
+                                key={row.id}
+                              >
+                                <TableCell>
+                                  <Link
+                                    className={cn(
+                                      'font-medium underline-offset-4 hover:underline',
+                                      isSelected && 'text-foreground',
+                                    )}
+                                    href={
+                                      createDashboardHref(
+                                        '/dashboard/govern/audit',
+                                        resolvedSearchParams,
+                                        {
+                                          auditId: row.id,
+                                          page: undefined,
+                                        },
+                                      ) as Route
+                                    }
+                                  >
+                                    {row.toolId}
+                                  </Link>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {row.action}:{row.subject}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {row.actorRbacUserId ?? row.actorAuthUserId ?? 'system'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={resolveBadgeVariant(row.status)}>
+                                    {row.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {row.feedbackCount} · {row.latestUserAction ?? 'no action'}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {formatDateTime(row.createdAt)}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -314,22 +359,27 @@ export default async function GovernAuditPage({
                   <div className="grid gap-4 text-sm leading-6">
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Audit summary
+                        Execution summary
                       </p>
                       <div className="grid gap-2">
+                        <p>createdAt: {formatDateTime(selectedEntry.createdAt)}</p>
                         <p>toolId: {selectedEntry.toolId}</p>
+                        <p>
+                          scope: {selectedEntry.action}:{selectedEntry.subject}
+                        </p>
+                        <p>status: {selectedEntry.status}</p>
                         <p>requestId: {selectedEntry.requestId ?? 'none'}</p>
-                        <p>feedbackCount: {selectedEntry.feedbackCount}</p>
-                        <p>latestUserAction: {selectedEntry.latestUserAction ?? 'none'}</p>
-                        <p>latestFeedbackAt: {selectedEntry.latestFeedbackAt ?? 'none'}</p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Request context
+                        Evidence / metadata
                       </p>
                       <div className="grid gap-2">
+                        <p>feedbackCount: {selectedEntry.feedbackCount}</p>
+                        <p>latestUserAction: {selectedEntry.latestUserAction ?? 'none'}</p>
+                        <p>latestFeedbackAt: {selectedEntry.latestFeedbackAt ?? 'none'}</p>
                         <p>
                           requestId:{' '}
                           {selectedDetail?.requestInfo?.requestId ??
@@ -354,7 +404,12 @@ export default async function GovernAuditPage({
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Feedback trail
+                        Human feedback / override
+                      </p>
+                      <p className="text-muted-foreground mb-3 text-sm leading-6">
+                        {selectedEntry.humanOverride
+                          ? 'This event already crossed a human override boundary. Review the feedback trail before escalating to prompt review or runtime triage.'
+                          : 'No human override is attached yet. Use this trail to determine whether the event should stay in audit review or move into another workbench.'}
                       </p>
                       {selectedDetail?.feedback.length ? (
                         <div className="grid gap-3">
@@ -381,23 +436,14 @@ export default async function GovernAuditPage({
                         <p className="text-muted-foreground">No feedback entries are linked yet.</p>
                       )}
                     </div>
-
-                    <div className="rounded-lg border p-4">
-                      <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Governance note
-                      </p>
-                      <p>
-                        Use this ledger to determine whether the next step belongs in prompt review,
-                        approval evidence, or runtime triage. The audit surface itself does not
-                        mutate policy.
-                      </p>
-                    </div>
                   </div>
                 </>
               ) : (
-                <p className="text-muted-foreground text-sm leading-7">
-                  Select an audit event to inspect human override posture and governance evidence.
-                </p>
+                <EmptyStateCard
+                  description="Select an audit event to inspect execution summary, evidence metadata, and human feedback posture."
+                  title="No selected audit event"
+                  tone="no-data"
+                />
               )}
             </CardContent>
           </Card>

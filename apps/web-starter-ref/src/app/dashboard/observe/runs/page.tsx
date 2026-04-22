@@ -2,9 +2,11 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { AiFeedbackDialog } from '@/components/ai/ai-feedback-dialog'
+import { EmptyStateCard } from '@/components/control-plane/empty-state-card'
 import { MetricCard } from '@/components/control-plane/metric-card'
 import { PagePagination } from '@/components/control-plane/page-pagination'
 import PageContainer from '@/components/layout/page-container'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -23,8 +25,10 @@ import {
   createAiAuditFilterState,
   createDashboardHref,
   type DashboardSearchParams,
+  readSearchParam,
 } from '@/lib/management'
 import { loadAiAuditDetail, loadAiAuditLogsList } from '@/lib/server-management'
+import { cn } from '@/lib/utils'
 
 interface ObserveRunsPageProps {
   searchParams: Promise<DashboardSearchParams>
@@ -91,6 +95,7 @@ export default async function ObserveRunsPage({
   const resolvedSearchParams = await searchParams
   const filters = createAiAuditFilterState(resolvedSearchParams)
   const payload = await loadAiAuditLogsList(filters)
+  const requestedAuditId = readSearchParam(resolvedSearchParams, 'auditId')
   const selectedAuditId = resolveSelectedAuditId(
     resolvedSearchParams,
     payload.data.map((row) => row.id),
@@ -103,6 +108,12 @@ export default async function ObserveRunsPage({
   ).length
   const overrideCount = payload.data.filter((row) => row.humanOverride).length
   const feedbackCount = payload.data.reduce((sum, row) => sum + row.feedbackCount, 0)
+  const hasActiveFilters = Boolean(filters.search || filters.toolId || filters.status !== 'all')
+  const selectionFellBack = Boolean(
+    requestedAuditId &&
+      payload.data.length > 0 &&
+      !payload.data.some((row) => row.id === requestedAuditId),
+  )
 
   return (
     <PageContainer
@@ -212,10 +223,29 @@ export default async function ObserveRunsPage({
                 <CardTitle>Operator-visible execution slice</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
+                {selectionFellBack ? (
+                  <div className="px-4 pt-4">
+                    <Alert>
+                      <AlertTitle>Selection moved to the first visible row</AlertTitle>
+                      <AlertDescription>
+                        The previously selected audit log is outside the current slice, so the
+                        inspector fell back to the first visible run.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                ) : null}
                 {payload.data.length === 0 ? (
-                  <div className="text-muted-foreground p-6 text-sm leading-7">
-                    No runs matched the current filters. Reset the slice first, then decide whether
-                    the missing evidence is expected or a runtime visibility gap.
+                  <div className="p-4">
+                    <EmptyStateCard
+                      action={{ href: '/dashboard/observe/runs', label: 'Reset trace query' }}
+                      description={
+                        hasActiveFilters
+                          ? 'The current filters do not expose any matching runtime evidence. Reset the query first, then decide whether the gap is expected or a visibility issue.'
+                          : 'No runtime audit rows are visible yet for this route. Wait for the next execution or verify that audit evidence is being written.'
+                      }
+                      title={hasActiveFilters ? 'No runs match this query' : 'No visible runs yet'}
+                      tone={hasActiveFilters ? 'no-match' : 'no-data'}
+                    />
                   </div>
                 ) : (
                   <>
@@ -232,40 +262,50 @@ export default async function ObserveRunsPage({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {payload.data.map((row) => (
-                            <TableRow key={row.id}>
-                              <TableCell className="text-muted-foreground">
-                                <Link
-                                  className="underline-offset-4 hover:underline"
-                                  href={
-                                    createDashboardHref(
-                                      '/dashboard/observe/runs',
-                                      resolvedSearchParams,
-                                      {
-                                        auditId: row.id,
-                                        page: undefined,
-                                      },
-                                    ) as Route
-                                  }
-                                >
-                                  {formatDateTime(row.createdAt)}
-                                </Link>
-                              </TableCell>
-                              <TableCell className="font-medium">{row.toolId}</TableCell>
-                              <TableCell>
-                                {row.action}:{row.subject}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={resolveBadgeVariant(row.status)}>
-                                  {row.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{row.feedbackCount}</TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {row.requestId ?? 'no request id'}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {payload.data.map((row) => {
+                            const isSelected = row.id === selectedEntry?.id
+
+                            return (
+                              <TableRow
+                                className={cn(isSelected && 'bg-sidebar-accent/45')}
+                                key={row.id}
+                              >
+                                <TableCell className="text-muted-foreground">
+                                  <Link
+                                    className={cn(
+                                      'underline-offset-4 hover:underline',
+                                      isSelected && 'font-medium text-foreground',
+                                    )}
+                                    href={
+                                      createDashboardHref(
+                                        '/dashboard/observe/runs',
+                                        resolvedSearchParams,
+                                        {
+                                          auditId: row.id,
+                                          page: undefined,
+                                        },
+                                      ) as Route
+                                    }
+                                  >
+                                    {formatDateTime(row.createdAt)}
+                                  </Link>
+                                </TableCell>
+                                <TableCell className="font-medium">{row.toolId}</TableCell>
+                                <TableCell>
+                                  {row.action}:{row.subject}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={resolveBadgeVariant(row.status)}>
+                                    {row.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{row.feedbackCount}</TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {row.requestId ?? 'no request id'}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -328,25 +368,27 @@ export default async function ObserveRunsPage({
                   <div className="grid gap-4 text-sm leading-6">
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Step timeline
+                        Execution summary
                       </p>
                       <div className="grid gap-2">
-                        <p>1. Request captured at {formatDateTime(selectedEntry.createdAt)}</p>
+                        <p>createdAt: {formatDateTime(selectedEntry.createdAt)}</p>
+                        <p>toolId: {selectedEntry.toolId}</p>
                         <p>
-                          2. Tool `{selectedEntry.toolId}` resolved for action `
-                          {selectedEntry.action}`
+                          scope: {selectedEntry.action}:{selectedEntry.subject}
                         </p>
+                        <p>status: {selectedEntry.status}</p>
                         <p>
-                          3. Subject `{selectedEntry.subject}` evaluated under the current
-                          permission boundary
+                          actor:{' '}
+                          {selectedEntry.actorRbacUserId ??
+                            selectedEntry.actorAuthUserId ??
+                            'system'}
                         </p>
-                        <p>4. Runtime finished with status `{selectedEntry.status}`</p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Metadata
+                        Evidence / metadata
                       </p>
                       <div className="grid gap-2">
                         <p>requestId: {selectedEntry.requestId ?? 'none'}</p>
@@ -359,20 +401,6 @@ export default async function ObserveRunsPage({
                         <p>
                           latestUserAction: {selectedEntry.latestUserAction ?? 'no user action'}
                         </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg border p-4">
-                      <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Request context
-                      </p>
-                      <div className="grid gap-2">
-                        <p>
-                          actor:{' '}
-                          {selectedEntry.actorRbacUserId ??
-                            selectedEntry.actorAuthUserId ??
-                            'system'}
-                        </p>
                         <p>
                           roles:{' '}
                           {selectedEntry.roleCodes.length > 0
@@ -380,12 +408,18 @@ export default async function ObserveRunsPage({
                             : 'none'}
                         </p>
                         <p>sourceType: {selectedDetail?.requestInfo?.sourceType ?? 'none'}</p>
+                        <p>latestFeedbackAt: {selectedEntry.latestFeedbackAt ?? 'none'}</p>
                       </div>
                     </div>
 
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
-                        Evidence trail
+                        Human feedback / override
+                      </p>
+                      <p className="text-muted-foreground mb-3 text-sm leading-6">
+                        {selectedEntry.humanOverride
+                          ? 'This run already crossed a human-in-the-loop boundary. Review feedback history before deciding whether the issue belongs in governance or runtime triage.'
+                          : 'No human override has been recorded yet. Use feedback links only when the current evidence is insufficient.'}
                       </p>
                       {selectedDetail?.feedback.length ? (
                         <div className="grid gap-3">
@@ -415,10 +449,11 @@ export default async function ObserveRunsPage({
                   </div>
                 </>
               ) : (
-                <p className="text-muted-foreground text-sm leading-7">
-                  Select a run from the table to inspect execution evidence, request context, and
-                  human override posture.
-                </p>
+                <EmptyStateCard
+                  description="Select a run from the table to inspect execution summary, evidence metadata, and human override posture."
+                  title="No selected run"
+                  tone="no-data"
+                />
               )}
             </CardContent>
           </Card>

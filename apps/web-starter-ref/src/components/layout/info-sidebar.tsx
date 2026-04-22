@@ -2,7 +2,7 @@
 
 import type { Route } from 'next'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import type * as React from 'react'
 import { AssistantPanel } from '@/components/copilot/assistant-panel'
 import { Badge } from '@/components/ui/badge'
@@ -38,13 +38,23 @@ function resolveInfobarSummary(content: InfobarContent | null): string | null {
 
 export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { content } = useInfobar()
   const { initialBridgeSummary, shellState } = useShellContext()
-  const railContent = resolveAssistantRailContent(pathname, shellState, initialBridgeSummary, {
-    links: flattenInfobarLinks(content),
-    summary: resolveInfobarSummary(content),
-    title: content?.title ?? null,
-  })
+  const railContent = resolveAssistantRailContent(
+    pathname,
+    shellState,
+    initialBridgeSummary,
+    {
+      links: flattenInfobarLinks(content),
+      summary: resolveInfobarSummary(content),
+      title: content?.title ?? null,
+    },
+    {
+      auditId: searchParams.get('auditId'),
+      promptKey: searchParams.get('promptKey'),
+    },
+  )
 
   return (
     <Infobar {...props}>
@@ -69,10 +79,13 @@ export function InfoSidebar({ ...props }: React.ComponentProps<typeof Infobar>) 
                     <p className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">
                       Current object
                     </p>
-                    <p className="text-sm font-semibold">{railContent.title}</p>
+                    <p className="text-sm font-semibold">{railContent.focus.title}</p>
                   </div>
-                  <Badge variant="outline">{pathname}</Badge>
+                  <Badge variant="outline">{railContent.focus.badge}</Badge>
                 </div>
+                <p className="text-muted-foreground mt-3 text-sm leading-6">
+                  {railContent.focus.detail}
+                </p>
                 <p className="text-muted-foreground mt-3 text-sm leading-6">
                   {railContent.summary}
                 </p>

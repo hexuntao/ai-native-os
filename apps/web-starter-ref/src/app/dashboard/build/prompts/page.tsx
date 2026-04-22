@@ -1,9 +1,11 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { EmptyStateCard } from '@/components/control-plane/empty-state-card'
 import { MetricCard } from '@/components/control-plane/metric-card'
 import { PagePagination } from '@/components/control-plane/page-pagination'
 import PageContainer from '@/components/layout/page-container'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -22,8 +24,10 @@ import {
   createAiGovernanceFilterState,
   createDashboardHref,
   type DashboardSearchParams,
+  readSearchParam,
 } from '@/lib/management'
 import { loadAiGovernanceOverview, loadPromptGovernanceReview } from '@/lib/server-management'
+import { cn } from '@/lib/utils'
 
 interface BuildPromptsPageProps {
   searchParams: Promise<DashboardSearchParams>
@@ -96,6 +100,7 @@ export default async function BuildPromptsPage({
   const resolvedSearchParams = await searchParams
   const filters = createAiGovernanceFilterState(resolvedSearchParams)
   const overview = await loadAiGovernanceOverview(filters)
+  const requestedPromptKey = readSearchParam(resolvedSearchParams, 'promptKey')
   const selectedPromptKey = resolveSelectedPromptKey(
     resolvedSearchParams,
     overview.reviewQueue.map((entry) => entry.promptKey),
@@ -103,6 +108,12 @@ export default async function BuildPromptsPage({
   const selectedReview = selectedPromptKey
     ? await loadPromptGovernanceReview(selectedPromptKey)
     : null
+  const hasActiveFilters = Boolean(filters.search)
+  const selectionFellBack = Boolean(
+    requestedPromptKey &&
+      overview.reviewQueue.length > 0 &&
+      !overview.reviewQueue.some((entry) => entry.promptKey === requestedPromptKey),
+  )
 
   return (
     <PageContainer
@@ -187,9 +198,33 @@ export default async function BuildPromptsPage({
                 <CardTitle>Prompt review priorities</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
+                {selectionFellBack ? (
+                  <div className="px-4 pt-4">
+                    <Alert>
+                      <AlertTitle>Selection moved to the first visible prompt</AlertTitle>
+                      <AlertDescription>
+                        The previously selected prompt key is outside the current slice, so the
+                        builder inspector fell back to the first visible row.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                ) : null}
                 {overview.reviewQueue.length === 0 ? (
-                  <div className="text-muted-foreground p-6 text-sm leading-7">
-                    No prompt governance items matched the current filters.
+                  <div className="p-4">
+                    <EmptyStateCard
+                      action={{ href: '/dashboard/build/prompts', label: 'Reset prompt search' }}
+                      description={
+                        hasActiveFilters
+                          ? 'The current prompt key query does not expose any builder-facing review items. Reset the search first, then decide whether the queue is genuinely clear.'
+                          : 'No prompt governance items are visible yet in this slice. Wait for the next review item or confirm that prompt evidence is being emitted.'
+                      }
+                      title={
+                        hasActiveFilters
+                          ? 'No prompt items match this query'
+                          : 'No prompt items are visible'
+                      }
+                      tone={hasActiveFilters ? 'no-match' : 'no-data'}
+                    />
                   </div>
                 ) : (
                   <>
@@ -206,52 +241,62 @@ export default async function BuildPromptsPage({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {overview.reviewQueue.map((entry) => (
-                            <TableRow key={entry.promptKey}>
-                              <TableCell>
-                                <Link
-                                  className="font-medium underline-offset-4 hover:underline"
-                                  href={
-                                    createDashboardHref(
-                                      '/dashboard/build/prompts',
-                                      resolvedSearchParams,
-                                      {
-                                        page: undefined,
-                                        promptKey: entry.promptKey,
-                                      },
-                                    ) as Route
-                                  }
-                                >
-                                  {entry.promptKey}
-                                </Link>
-                              </TableCell>
-                              <TableCell>
-                                <div className="grid gap-2">
-                                  <Badge variant="secondary">
-                                    {resolveReviewActionLabel(entry.reviewAction)}
-                                  </Badge>
-                                  <span className="text-muted-foreground text-xs">
-                                    {resolveReviewToneLabel(entry.tone)}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="grid gap-1">
-                                  <span>v{entry.latestVersion.version}</span>
-                                  <span className="text-muted-foreground text-xs">
-                                    {entry.latestVersion.status}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>{formatCount(entry.failureCount)}</TableCell>
-                              <TableCell>
-                                {entry.latestVersion.evalEvidence?.evalKey ?? 'not linked'}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {formatDateTime(entry.latestVersion.updatedAt)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {overview.reviewQueue.map((entry) => {
+                            const isSelected = entry.promptKey === selectedPromptKey
+
+                            return (
+                              <TableRow
+                                className={cn(isSelected && 'bg-sidebar-accent/45')}
+                                key={entry.promptKey}
+                              >
+                                <TableCell>
+                                  <Link
+                                    className={cn(
+                                      'font-medium underline-offset-4 hover:underline',
+                                      isSelected && 'text-foreground',
+                                    )}
+                                    href={
+                                      createDashboardHref(
+                                        '/dashboard/build/prompts',
+                                        resolvedSearchParams,
+                                        {
+                                          page: undefined,
+                                          promptKey: entry.promptKey,
+                                        },
+                                      ) as Route
+                                    }
+                                  >
+                                    {entry.promptKey}
+                                  </Link>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="grid gap-2">
+                                    <Badge variant="secondary">
+                                      {resolveReviewActionLabel(entry.reviewAction)}
+                                    </Badge>
+                                    <span className="text-muted-foreground text-xs">
+                                      {resolveReviewToneLabel(entry.tone)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="grid gap-1">
+                                    <span>v{entry.latestVersion.version}</span>
+                                    <span className="text-muted-foreground text-xs">
+                                      {entry.latestVersion.status}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{formatCount(entry.failureCount)}</TableCell>
+                                <TableCell>
+                                  {entry.latestVersion.evalEvidence?.evalKey ?? 'not linked'}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {formatDateTime(entry.latestVersion.updatedAt)}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -381,10 +426,11 @@ export default async function BuildPromptsPage({
                   </div>
                 </>
               ) : (
-                <p className="text-muted-foreground text-sm leading-7">
-                  Select a prompt key to inspect version posture, release pressure, and linked eval
-                  evidence.
-                </p>
+                <EmptyStateCard
+                  description="Select a prompt key to inspect version posture, release pressure, and linked eval evidence."
+                  title="No selected prompt"
+                  tone="no-data"
+                />
               )}
             </CardContent>
           </Card>

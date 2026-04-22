@@ -1,9 +1,9 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { ReadBoundaryCard } from '@/components/control-plane/read-boundary-card'
 import PageContainer from '@/components/layout/page-container'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { InfobarContent } from '@/components/ui/infobar'
 import {
@@ -239,45 +239,54 @@ export default async function WorkspaceReportsPage(): Promise<ReactNode> {
               <CardTitle>Next entry points</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
+              <ReadBoundaryCard
+                description="Read-only execution boundary"
+                links={[
+                  {
+                    href: '/dashboard/observe/runs?toolId=workflow%3Areport-schedule',
+                    label: 'Open workflow traces',
+                  },
+                ]}
+                nextStep="Use schedule health and workflow traces to confirm that the report pipeline is stable before introducing any write trigger."
+                reason="Manual export remains backend-owned in this starter shell, so the reports workspace only exposes evidence, snapshots, and workflow drill-down."
+                title="Manual export is not exposed here"
+              />
+
               <div className="rounded-lg border p-4">
-                <p className="text-sm font-medium">Manual export</p>
+                <p className="text-sm font-medium">Primary next step</p>
                 <p className="text-muted-foreground mt-2 text-sm leading-6">
-                  Execution remains backend-owned in this shell. Use traces and schedule health to
-                  confirm whether the pipeline is ready before adding a write trigger.
+                  Start with the latest successful export evidence, then move into workflow traces
+                  only if the snapshot is stale or degraded.
                 </p>
-                <Button className="mt-4 w-full" disabled type="button" variant="outline">
-                  Manual export not exposed
-                </Button>
+                <div className="mt-4">
+                  <Link
+                    className="bg-primary text-primary-foreground inline-flex h-9 w-full items-center justify-center rounded-md px-4 text-sm font-medium"
+                    href={latestSnapshotHref}
+                  >
+                    Open latest snapshot
+                  </Link>
+                </div>
               </div>
 
               <div className="rounded-lg border p-4">
-                <p className="text-sm font-medium">View latest snapshot</p>
-                <p className="text-muted-foreground mt-2 text-sm leading-6">
-                  Jump straight to the latest successful workflow evidence and inspect the request
-                  chain from the runs workbench.
-                </p>
-                <Button asChild className="mt-4 w-full" variant="secondary">
-                  <Link href={latestSnapshotHref}>Open latest snapshot</Link>
-                </Button>
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <p className="text-sm font-medium">Open related workflow</p>
+                <p className="text-sm font-medium">Secondary drill-downs</p>
                 <p className="text-muted-foreground mt-2 text-sm leading-6">
                   Inspect scheduled trigger rows, workflow execution rows, and report eval posture
                   in the canonical dashboard routes.
                 </p>
                 <div className="mt-4 grid gap-2">
-                  <Button asChild variant="outline">
-                    <Link href="/dashboard/observe/runs?toolId=task%3Areport-schedule-trigger">
-                      Scheduled trigger traces
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href="/dashboard/improve/evals?search=report-schedule">
-                      Report eval posture
-                    </Link>
-                  </Button>
+                  <Link
+                    className="inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm"
+                    href="/dashboard/observe/runs?toolId=task%3Areport-schedule-trigger"
+                  >
+                    Scheduled trigger traces
+                  </Link>
+                  <Link
+                    className="inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm"
+                    href="/dashboard/improve/evals?search=report-schedule"
+                  >
+                    Report eval posture
+                  </Link>
                 </div>
               </div>
             </CardContent>
