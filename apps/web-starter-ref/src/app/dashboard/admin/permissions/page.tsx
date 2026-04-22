@@ -1,11 +1,21 @@
+import { appActions, appSubjects } from '@ai-native-os/shared'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import {
+  createPermissionAction,
+  deletePermissionAction,
+  updatePermissionAction,
+} from '@/app/dashboard/admin/permissions/actions'
 import { MetricCard } from '@/components/control-plane/metric-card'
+import { PageFlashBanner } from '@/components/control-plane/page-flash-banner'
 import { PagePagination } from '@/components/control-plane/page-pagination'
 import PageContainer from '@/components/layout/page-container'
+import { DestructiveActionDialog } from '@/components/management/destructive-action-dialog'
+import { ManagementDialog } from '@/components/management/management-dialog'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import type { InfobarContent } from '@/components/ui/infobar'
 import { Input } from '@/components/ui/input'
 import {
@@ -16,12 +26,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
 import { canManagePermissions } from '@/lib/ability'
 import { formatCount, formatDateTime } from '@/lib/format'
 import {
   createDashboardHref,
   createPermissionFilterState,
   type DashboardSearchParams,
+  readDashboardFlashMessage,
+  readDashboardMutationState,
 } from '@/lib/management'
 import { loadPermissionsList, loadSerializedAbilityPayload } from '@/lib/server-management'
 
@@ -42,6 +55,49 @@ function createInfoContent(): InfobarContent {
   }
 }
 
+const protectedSeedPermissionKeys = new Set([
+  'manage:all',
+  'manage:User',
+  'manage:Role',
+  'manage:Menu',
+  'manage:Dict',
+  'read:OperationLog',
+  'read:AiAuditLog',
+  'manage:AiKnowledge',
+  'read:User',
+  'create:User',
+  'update:User',
+  'read:Dict',
+  'export:Report',
+  'read:Role',
+  'read:Menu',
+])
+const selectClassName =
+  'border-input bg-background text-foreground flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none'
+
+function createCurrentPermissionsHref(searchParams: DashboardSearchParams): string {
+  return createDashboardHref('/dashboard/admin/permissions', searchParams, {
+    error: undefined,
+    mutation: undefined,
+    success: undefined,
+    target: undefined,
+  })
+}
+
+function isProtectedSeedPermission(
+  permission: Awaited<ReturnType<typeof loadPermissionsList>>['data'][number],
+): boolean {
+  return protectedSeedPermissionKeys.has(`${permission.action}:${permission.resource}`)
+}
+
+function stringifyFields(fields: readonly string[] | null): string {
+  return fields?.join(', ') ?? ''
+}
+
+function stringifyConditions(conditions: Record<string, unknown> | null): string {
+  return conditions ? JSON.stringify(conditions, null, 2) : ''
+}
+
 export default async function AdminPermissionsPage({
   searchParams,
 }: AdminPermissionsPageProps): Promise<ReactNode> {
@@ -51,7 +107,10 @@ export default async function AdminPermissionsPage({
     loadPermissionsList(filters),
     loadSerializedAbilityPayload(),
   ])
+  const flashMessage = readDashboardFlashMessage(resolvedSearchParams)
+  const mutationState = readDashboardMutationState(resolvedSearchParams)
   const canWritePermissions = abilityPayload ? canManagePermissions(abilityPayload) : false
+  const returnTo = createCurrentPermissionsHref(resolvedSearchParams)
 
   return (
     <PageContainer
@@ -60,6 +119,10 @@ export default async function AdminPermissionsPage({
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
+        {flashMessage ? (
+          <PageFlashBanner kind={flashMessage.kind} message={flashMessage.message} />
+        ) : null}
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="rules"
@@ -87,6 +150,105 @@ export default async function AdminPermissionsPage({
             variant={canWritePermissions ? 'secondary' : 'outline'}
           />
         </div>
+
+        {canWritePermissions ? (
+          <Card>
+            <CardHeader>
+              <CardDescription>Permission authoring</CardDescription>
+              <CardTitle>Write workflow</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3">
+              <div className="max-w-2xl text-sm leading-7 text-muted-foreground">
+                自定义权限通过弹层式编辑维护；系统基线权限保持只读。
+              </div>
+              <ManagementDialog
+                contentClassName="sm:max-w-4xl"
+                description="创建自定义权限规则；系统基线权限和完全重复规则仍会被后端拒绝。"
+                title="Create permission"
+                triggerId="permissions-create-trigger"
+                triggerLabel="New permission"
+              >
+                <form
+                  action={createPermissionAction}
+                  aria-label="Create permission form"
+                  className="grid gap-4"
+                >
+                  <input name="returnTo" type="hidden" value={returnTo} />
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="create-permission-resource">Resource</FieldLabel>
+                      <select
+                        className={selectClassName}
+                        defaultValue="User"
+                        id="create-permission-resource"
+                        name="resource"
+                      >
+                        {appSubjects.map((subject) => (
+                          <option key={subject} value={subject}>
+                            {subject}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="create-permission-action">Action</FieldLabel>
+                      <select
+                        className={selectClassName}
+                        defaultValue="read"
+                        id="create-permission-action"
+                        name="action"
+                      >
+                        {appActions.map((action) => (
+                          <option key={action} value={action}>
+                            {action}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="create-permission-mode">Mode</FieldLabel>
+                      <select
+                        className={selectClassName}
+                        defaultValue="allow"
+                        id="create-permission-mode"
+                        name="mode"
+                      >
+                        <option value="allow">Allow</option>
+                        <option value="deny">Deny</option>
+                      </select>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="create-permission-description">Description</FieldLabel>
+                      <Input id="create-permission-description" name="description" />
+                    </Field>
+                    <Field className="xl:col-span-2">
+                      <FieldLabel htmlFor="create-permission-fields">Fields CSV</FieldLabel>
+                      <Input
+                        id="create-permission-fields"
+                        name="fields"
+                        placeholder="status, approverId"
+                      />
+                      <FieldDescription>留空表示不限制字段范围。</FieldDescription>
+                    </Field>
+                    <Field className="xl:col-span-2">
+                      <FieldLabel htmlFor="create-permission-conditions">
+                        Conditions JSON
+                      </FieldLabel>
+                      <Textarea
+                        id="create-permission-conditions"
+                        name="conditions"
+                        placeholder={'{\n  "department": "finance"\n}'}
+                      />
+                    </Field>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <Button type="submit">Create permission</Button>
+                  </div>
+                </form>
+              </ManagementDialog>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -160,38 +322,180 @@ export default async function AdminPermissionsPage({
                     <TableHead>Conditions</TableHead>
                     <TableHead>Roles</TableHead>
                     <TableHead>Created</TableHead>
+                    {canWritePermissions ? (
+                      <TableHead className="text-right">Actions</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payload.data.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <div className="grid gap-1">
-                          <span className="font-medium">
-                            {row.action}:{row.resource}
-                          </span>
-                          <span className="text-muted-foreground text-xs">
-                            {row.description ?? 'No description'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={row.inverted ? 'outline' : 'secondary'}>
-                          {row.inverted ? 'deny' : 'allow'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.fields?.length ? row.fields.join(', ') : 'all fields'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.conditions ? JSON.stringify(row.conditions) : 'none'}
-                      </TableCell>
-                      <TableCell>{formatCount(row.roleCount)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDateTime(row.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {payload.data.map((row) => {
+                    const protectedPermission = isProtectedSeedPermission(row)
+
+                    return (
+                      <TableRow
+                        className={
+                          mutationState?.targetId === row.id
+                            ? 'bg-muted/50 transition-colors'
+                            : undefined
+                        }
+                        key={row.id}
+                      >
+                        <TableCell>
+                          <div className="grid gap-1">
+                            <span className="font-medium">
+                              {row.action}:{row.resource}
+                            </span>
+                            <span className="text-muted-foreground text-xs">
+                              {row.description ?? 'No description'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={row.inverted ? 'outline' : 'secondary'}>
+                            {row.inverted ? 'deny' : 'allow'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.fields?.length ? row.fields.join(', ') : 'all fields'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.conditions ? JSON.stringify(row.conditions) : 'none'}
+                        </TableCell>
+                        <TableCell>{formatCount(row.roleCount)}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateTime(row.createdAt)}
+                        </TableCell>
+                        {canWritePermissions ? (
+                          <TableCell className="text-right">
+                            {protectedPermission ? (
+                              <Badge variant="outline">seeded</Badge>
+                            ) : (
+                              <div className="flex justify-end gap-2">
+                                <ManagementDialog
+                                  contentClassName="sm:max-w-4xl"
+                                  description="更新资源、动作、字段范围和条件 JSON。"
+                                  title={`Edit ${row.action}:${row.resource}`}
+                                  triggerLabel="Edit"
+                                  triggerSize="sm"
+                                  triggerVariant="outline"
+                                >
+                                  <form
+                                    action={updatePermissionAction}
+                                    aria-label={`Edit ${row.action}:${row.resource}`}
+                                    className="grid gap-4"
+                                  >
+                                    <input name="id" type="hidden" value={row.id} />
+                                    <input name="returnTo" type="hidden" value={returnTo} />
+                                    <div className="grid gap-4 xl:grid-cols-2">
+                                      <Field>
+                                        <FieldLabel
+                                          htmlFor={`update-permission-resource-${row.id}`}
+                                        >
+                                          Resource
+                                        </FieldLabel>
+                                        <select
+                                          className={selectClassName}
+                                          defaultValue={row.resource}
+                                          id={`update-permission-resource-${row.id}`}
+                                          name="resource"
+                                        >
+                                          {appSubjects.map((subject) => (
+                                            <option key={subject} value={subject}>
+                                              {subject}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </Field>
+                                      <Field>
+                                        <FieldLabel htmlFor={`update-permission-action-${row.id}`}>
+                                          Action
+                                        </FieldLabel>
+                                        <select
+                                          className={selectClassName}
+                                          defaultValue={row.action}
+                                          id={`update-permission-action-${row.id}`}
+                                          name="action"
+                                        >
+                                          {appActions.map((action) => (
+                                            <option key={action} value={action}>
+                                              {action}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </Field>
+                                      <Field>
+                                        <FieldLabel htmlFor={`update-permission-mode-${row.id}`}>
+                                          Mode
+                                        </FieldLabel>
+                                        <select
+                                          className={selectClassName}
+                                          defaultValue={row.inverted ? 'deny' : 'allow'}
+                                          id={`update-permission-mode-${row.id}`}
+                                          name="mode"
+                                        >
+                                          <option value="allow">Allow</option>
+                                          <option value="deny">Deny</option>
+                                        </select>
+                                      </Field>
+                                      <Field>
+                                        <FieldLabel
+                                          htmlFor={`update-permission-description-${row.id}`}
+                                        >
+                                          Description
+                                        </FieldLabel>
+                                        <Input
+                                          defaultValue={row.description ?? ''}
+                                          id={`update-permission-description-${row.id}`}
+                                          name="description"
+                                        />
+                                      </Field>
+                                      <Field className="xl:col-span-2">
+                                        <FieldLabel htmlFor={`update-permission-fields-${row.id}`}>
+                                          Fields CSV
+                                        </FieldLabel>
+                                        <Input
+                                          defaultValue={stringifyFields(row.fields)}
+                                          id={`update-permission-fields-${row.id}`}
+                                          name="fields"
+                                        />
+                                      </Field>
+                                      <Field className="xl:col-span-2">
+                                        <FieldLabel
+                                          htmlFor={`update-permission-conditions-${row.id}`}
+                                        >
+                                          Conditions JSON
+                                        </FieldLabel>
+                                        <Textarea
+                                          defaultValue={stringifyConditions(row.conditions)}
+                                          id={`update-permission-conditions-${row.id}`}
+                                          name="conditions"
+                                        />
+                                      </Field>
+                                    </div>
+                                    <div className="flex justify-end gap-3">
+                                      <Button type="submit">Save changes</Button>
+                                    </div>
+                                  </form>
+                                </ManagementDialog>
+                                <DestructiveActionDialog
+                                  action={deletePermissionAction}
+                                  confirmLabel="Delete permission"
+                                  consequences="删除权限会影响所有引用该规则的角色能力推导。"
+                                  description="确认后将永久删除该自定义权限规则。"
+                                  hiddenFields={[
+                                    { name: 'id', value: row.id },
+                                    { name: 'returnTo', value: returnTo },
+                                  ]}
+                                  title={`Delete ${row.action}:${row.resource}?`}
+                                  triggerLabel="Delete"
+                                />
+                              </div>
+                            )}
+                          </TableCell>
+                        ) : null}
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

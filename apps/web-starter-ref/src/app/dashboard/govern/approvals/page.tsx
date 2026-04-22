@@ -340,6 +340,41 @@ export default async function GovernApprovalsPage({
                           {selectedReview.compareToPrevious?.summary.changedFields.join(', ') ??
                             'none'}
                         </p>
+                        <p>
+                          release audit events:{' '}
+                          {formatCount(
+                            selectedReview.latestReleaseAudit?.summary.approvalEventCount ?? 0,
+                          )}
+                        </p>
+                        <p>
+                          failure events:{' '}
+                          {formatCount(selectedReview.failureAudit.summary.totalFailureEventCount)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4">
+                      <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
+                        Compare & rollback
+                      </p>
+                      <div className="grid gap-2">
+                        <p>
+                          previous version:{' '}
+                          {selectedReview.compareToPrevious?.baseline.version ?? 'none'}
+                        </p>
+                        <p>
+                          changed fields:{' '}
+                          {selectedReview.compareToPrevious?.summary.totalChangedFields ?? 0}
+                        </p>
+                        <p>
+                          latest rollback target:{' '}
+                          {selectedReview.rollbackChain.summary.latestRollbackTargetVersionNumber ??
+                            'none'}
+                        </p>
+                        <p>
+                          history versions:{' '}
+                          {formatCount(selectedReview.history.summary.totalVersions)}
+                        </p>
                       </div>
                     </div>
 

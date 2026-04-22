@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { KnowledgeMutationDialog } from '@/components/ai/knowledge-mutation-dialog'
 import { MetricCard } from '@/components/control-plane/metric-card'
+import { PageFlashBanner } from '@/components/control-plane/page-flash-banner'
 import { PagePagination } from '@/components/control-plane/page-pagination'
 import PageContainer from '@/components/layout/page-container'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +24,8 @@ import {
   createDashboardHref,
   createKnowledgeFilterState,
   type DashboardSearchParams,
+  readDashboardFlashMessage,
+  readDashboardMutationState,
 } from '@/lib/management'
 import { loadKnowledgeList, loadSerializedAbilityPayload } from '@/lib/server-management'
 
@@ -63,6 +67,15 @@ function resolveLargestChunkCount(
   return rows.reduce((maxValue, row) => Math.max(maxValue, row.chunkCount), 0)
 }
 
+function createCurrentKnowledgeHref(searchParams: DashboardSearchParams): string {
+  return createDashboardHref('/dashboard/knowledge/collections', searchParams, {
+    error: undefined,
+    mutation: undefined,
+    success: undefined,
+    target: undefined,
+  })
+}
+
 export default async function KnowledgeCollectionsPage({
   searchParams,
 }: KnowledgeCollectionsPageProps): Promise<ReactNode> {
@@ -72,11 +85,14 @@ export default async function KnowledgeCollectionsPage({
     loadKnowledgeList(filters),
     loadSerializedAbilityPayload(),
   ])
+  const flashMessage = readDashboardFlashMessage(resolvedSearchParams)
+  const mutationState = readDashboardMutationState(resolvedSearchParams)
   const canWriteKnowledge = abilityPayload ? canManageKnowledge(abilityPayload) : false
   const metadataCoverageCount = countDocumentsWithMetadata(payload.data)
   const largestChunkCount = resolveLargestChunkCount(payload.data)
   const totalChunks = payload.data.reduce((sum, row) => sum + row.chunkCount, 0)
   const sourceClassCount = new Set(payload.data.map((row) => row.sourceType)).size
+  const returnTo = createCurrentKnowledgeHref(resolvedSearchParams)
 
   return (
     <PageContainer
@@ -85,6 +101,10 @@ export default async function KnowledgeCollectionsPage({
       infoContent={createInfoContent()}
     >
       <div className="flex flex-1 flex-col gap-4">
+        {flashMessage ? (
+          <PageFlashBanner kind={flashMessage.kind} message={flashMessage.message} />
+        ) : null}
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             badge="indexed"
@@ -183,11 +203,21 @@ export default async function KnowledgeCollectionsPage({
                             <TableHead>Chunks</TableHead>
                             <TableHead>URI</TableHead>
                             <TableHead>Indexed</TableHead>
+                            {canWriteKnowledge ? (
+                              <TableHead className="text-right">Actions</TableHead>
+                            ) : null}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {payload.data.map((row) => (
-                            <TableRow key={row.documentId}>
+                            <TableRow
+                              className={
+                                mutationState?.targetId === row.documentId
+                                  ? 'bg-muted/50 transition-colors'
+                                  : undefined
+                              }
+                              key={row.documentId}
+                            >
                               <TableCell>
                                 <div className="grid gap-1">
                                   <span className="font-medium">{row.title}</span>
@@ -209,6 +239,17 @@ export default async function KnowledgeCollectionsPage({
                               <TableCell className="text-muted-foreground">
                                 {formatDateTime(row.lastIndexedAt)}
                               </TableCell>
+                              {canWriteKnowledge ? (
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <KnowledgeMutationDialog
+                                      mode="replace"
+                                      returnTo={returnTo}
+                                      row={row}
+                                    />
+                                  </div>
+                                </TableCell>
+                              ) : null}
                             </TableRow>
                           ))}
                         </TableBody>
@@ -261,10 +302,13 @@ export default async function KnowledgeCollectionsPage({
                     {canWriteKnowledge ? 'write-enabled' : 'read-only'}
                   </Badge>
                 </p>
-                <p className="text-muted-foreground">
-                  Create/replace actions are intentionally deferred in this starter-based migration.
-                  This page focuses on real retrieval posture first.
-                </p>
+                {canWriteKnowledge ? (
+                  <KnowledgeMutationDialog mode="create" returnTo={returnTo} />
+                ) : (
+                  <p className="text-muted-foreground">
+                    当前主体只有读取权限，因此不会显示知识文档创建、替换和删除入口。
+                  </p>
+                )}
               </CardContent>
             </Card>
 

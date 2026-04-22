@@ -345,6 +345,37 @@ export default async function BuildPromptsPage({
                           {selectedReview.compareToPrevious?.summary.changedFields.join(', ') ??
                             'none'}
                         </p>
+                        <p>
+                          history versions:{' '}
+                          {formatCount(selectedReview.history.summary.totalVersions)}
+                        </p>
+                        <p>
+                          release-ready versions:{' '}
+                          {formatCount(selectedReview.history.summary.releaseReadyCount)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4">
+                      <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
+                        Builder notes
+                      </p>
+                      <div className="grid gap-2">
+                        <p>status: {selectedReview.reviewItem.latestVersion.status}</p>
+                        <p>
+                          active version id:{' '}
+                          {selectedReview.history.summary.activeVersionId ?? 'none'}
+                        </p>
+                        <p>
+                          release reason:{' '}
+                          {selectedReview.reviewItem.latestVersion.releaseReason ?? 'release-ready'}
+                        </p>
+                        <p>
+                          linked eval score:{' '}
+                          {selectedReview.linkedEval.evidenceScoreAverage === null
+                            ? 'n/a'
+                            : `${Math.round(selectedReview.linkedEval.evidenceScoreAverage * 100)}%`}
+                        </p>
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { AiFeedbackDialog } from '@/components/ai/ai-feedback-dialog'
 import { MetricCard } from '@/components/control-plane/metric-card'
 import { PagePagination } from '@/components/control-plane/page-pagination'
 import PageContainer from '@/components/layout/page-container'
@@ -23,7 +24,7 @@ import {
   createDashboardHref,
   type DashboardSearchParams,
 } from '@/lib/management'
-import { loadAiAuditLogsList } from '@/lib/server-management'
+import { loadAiAuditDetail, loadAiAuditLogsList } from '@/lib/server-management'
 
 interface ObserveRunsPageProps {
   searchParams: Promise<DashboardSearchParams>
@@ -96,6 +97,7 @@ export default async function ObserveRunsPage({
   )
   const selectedEntry =
     payload.data.find((row) => row.id === selectedAuditId) ?? payload.data[0] ?? null
+  const selectedDetail = selectedEntry ? await loadAiAuditDetail(selectedEntry.id) : null
   const degradedCount = payload.data.filter(
     (row) => row.status === 'error' || row.status === 'forbidden',
   ).length
@@ -315,6 +317,14 @@ export default async function ObserveRunsPage({
                     </Badge>
                   </div>
 
+                  <AiFeedbackDialog
+                    auditLogId={selectedEntry.id}
+                    feedbackCount={selectedEntry.feedbackCount}
+                    humanOverride={selectedEntry.humanOverride}
+                    latestUserAction={selectedEntry.latestUserAction}
+                    toolId={selectedEntry.toolId}
+                  />
+
                   <div className="grid gap-4 text-sm leading-6">
                     <div className="rounded-lg border p-4">
                       <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
@@ -341,6 +351,7 @@ export default async function ObserveRunsPage({
                       <div className="grid gap-2">
                         <p>requestId: {selectedEntry.requestId ?? 'none'}</p>
                         <p>feedbackCount: {selectedEntry.feedbackCount}</p>
+                        <p>errorMessage: {selectedEntry.errorMessage ?? 'none'}</p>
                         <p>
                           override:{' '}
                           {selectedEntry.humanOverride ? 'human-in-the-loop' : 'no override'}
@@ -349,6 +360,57 @@ export default async function ObserveRunsPage({
                           latestUserAction: {selectedEntry.latestUserAction ?? 'no user action'}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4">
+                      <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
+                        Request context
+                      </p>
+                      <div className="grid gap-2">
+                        <p>
+                          actor:{' '}
+                          {selectedEntry.actorRbacUserId ??
+                            selectedEntry.actorAuthUserId ??
+                            'system'}
+                        </p>
+                        <p>
+                          roles:{' '}
+                          {selectedEntry.roleCodes.length > 0
+                            ? selectedEntry.roleCodes.join(', ')
+                            : 'none'}
+                        </p>
+                        <p>sourceType: {selectedDetail?.requestInfo?.sourceType ?? 'none'}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4">
+                      <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
+                        Evidence trail
+                      </p>
+                      {selectedDetail?.feedback.length ? (
+                        <div className="grid gap-3">
+                          {selectedDetail.feedback.map((feedback) => (
+                            <div className="rounded-md border p-3" key={feedback.id}>
+                              <div className="flex flex-wrap gap-2">
+                                <Badge variant="secondary">{feedback.userAction}</Badge>
+                                <Badge variant="outline">
+                                  {feedback.accepted ? 'accepted' : 'corrected'}
+                                </Badge>
+                              </div>
+                              <p className="mt-2 text-muted-foreground">
+                                {feedback.feedbackText ??
+                                  feedback.correction ??
+                                  'No note recorded.'}
+                              </p>
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {formatDateTime(feedback.createdAt)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">No feedback evidence linked yet.</p>
+                      )}
                     </div>
                   </div>
                 </>

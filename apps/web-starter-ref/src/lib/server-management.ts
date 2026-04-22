@@ -5,6 +5,7 @@ import { resolveWebEnvironment } from '@/lib/env'
 import {
   type AiAuditFilterState,
   type DashboardListFilters,
+  fetchAiAuditDetail,
   fetchAiAuditLogsList,
   fetchAiEvalsList,
   fetchAiGovernanceOverview,
@@ -97,6 +98,10 @@ export async function loadAiEvalsList(filters: DashboardListFilters) {
 
 export async function loadAiAuditLogsList(filters: AiAuditFilterState) {
   return fetchAiAuditLogsList(await readCookieHeader(), resolveWebEnvironment(), filters)
+}
+
+export async function loadAiAuditDetail(auditId: string) {
+  return fetchAiAuditDetail(await readCookieHeader(), resolveWebEnvironment(), auditId)
 }
 
 export async function loadAiGovernanceOverview(filters: DashboardListFilters) {

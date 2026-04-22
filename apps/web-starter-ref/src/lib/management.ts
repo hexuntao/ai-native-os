@@ -1,7 +1,9 @@
 import {
+  type AiAuditDetail,
   type AiAuditListResponse,
   type AiEvalListResponse,
   type AiGovernanceOverview,
+  aiAuditDetailSchema,
   aiAuditListResponseSchema,
   aiEvalListResponseSchema,
   aiGovernanceOverviewSchema,
@@ -61,7 +63,20 @@ export interface AiAuditFilterState extends DashboardListFilters {
 
 export type DashboardSearchParams = Record<string, string | string[] | undefined>
 
-function readSearchParam(searchParams: DashboardSearchParams, key: string): string | undefined {
+export interface DashboardFlashMessage {
+  kind: 'error' | 'success'
+  message: string
+}
+
+export interface DashboardMutationState {
+  action: 'created' | 'deleted' | 'updated'
+  targetId: string | undefined
+}
+
+export function readSearchParam(
+  searchParams: DashboardSearchParams,
+  key: string,
+): string | undefined {
   const value = searchParams[key]
 
   if (Array.isArray(value)) {
@@ -181,6 +196,45 @@ export function createAiGovernanceFilterState(
   searchParams: DashboardSearchParams,
 ): DashboardListFilters {
   return createListFilters(searchParams)
+}
+
+export function readDashboardFlashMessage(
+  searchParams: DashboardSearchParams,
+): DashboardFlashMessage | null {
+  const errorValue = readSearchParam(searchParams, 'error')
+  const successValue = readSearchParam(searchParams, 'success')
+
+  if (errorValue) {
+    return {
+      kind: 'error',
+      message: errorValue,
+    }
+  }
+
+  if (successValue) {
+    return {
+      kind: 'success',
+      message: successValue,
+    }
+  }
+
+  return null
+}
+
+export function readDashboardMutationState(
+  searchParams: DashboardSearchParams,
+): DashboardMutationState | null {
+  const actionValue = readSearchParam(searchParams, 'mutation')
+  const targetValue = readSearchParam(searchParams, 'target')
+
+  if (actionValue !== 'created' && actionValue !== 'deleted' && actionValue !== 'updated') {
+    return null
+  }
+
+  return {
+    action: actionValue,
+    targetId: targetValue,
+  }
 }
 
 function createQueryString(query: Record<string, string | undefined>): string {
@@ -428,6 +482,20 @@ export async function fetchAiAuditLogsList(
       toolId: filters.toolId,
     },
     aiAuditListResponseSchema.parse,
+  )
+}
+
+export async function fetchAiAuditDetail(
+  cookieHeader: string | undefined,
+  environment: WebEnvironment,
+  auditId: string,
+): Promise<AiAuditDetail> {
+  return fetchEnvelope(
+    cookieHeader,
+    environment,
+    `/api/v1/ai/audit/${auditId}`,
+    {},
+    aiAuditDetailSchema.parse,
   )
 }
 

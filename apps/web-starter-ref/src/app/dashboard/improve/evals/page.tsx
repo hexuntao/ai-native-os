@@ -1,3 +1,5 @@
+import type { Route } from 'next'
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { MetricCard } from '@/components/control-plane/metric-card'
 import { PagePagination } from '@/components/control-plane/page-pagination'
@@ -263,6 +265,36 @@ export default async function ImproveEvalsPage({
                       </Badge>
                     </div>
                     <p className="text-muted-foreground mt-2">{riskRow.detail}</p>
+                    <div className="mt-3 flex gap-2">
+                      <Link
+                        className="text-primary text-xs underline-offset-4 hover:underline"
+                        href={
+                          createDashboardHref(
+                            '/dashboard/build/prompts',
+                            {},
+                            {
+                              search: riskRow.label,
+                            },
+                          ) as Route
+                        }
+                      >
+                        Open prompt review
+                      </Link>
+                      <Link
+                        className="text-primary text-xs underline-offset-4 hover:underline"
+                        href={
+                          createDashboardHref(
+                            '/dashboard/govern/approvals',
+                            {},
+                            {
+                              search: riskRow.label,
+                            },
+                          ) as Route
+                        }
+                      >
+                        Open approvals
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -296,6 +328,22 @@ export default async function ImproveEvalsPage({
                           ? 'n/a'
                           : `${Math.round(row.lastRunAverageScore * 100)}%`}
                       </p>
+                      <div className="mt-3">
+                        <Link
+                          className="text-primary text-xs underline-offset-4 hover:underline"
+                          href={
+                            createDashboardHref(
+                              '/dashboard/build/prompts',
+                              {},
+                              {
+                                search: row.name,
+                              },
+                            ) as Route
+                          }
+                        >
+                          Trace linked prompt evidence
+                        </Link>
+                      </div>
                     </div>
                   ))
                 )}
